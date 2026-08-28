@@ -1,0 +1,28 @@
+*.c text
+*.cpp text
+*.h text
+*.hpp text
+*.py text
+*.pyx text
+*.txt text
+*.asm text
+
+*.patch -text
+
+*.png binary
+*.jpg binary
+*.wav binary
+*.bin binary
+*.mp3 binary
+*.dat binary
+*.raw binary
+*.zip binary
+*.tar binary
+*.tar.* binary
+*.7z binary
+*.rar binary
+*.o binary
+*.so binary
+*.lib binary
+*.dll binary
+*.exe binary
