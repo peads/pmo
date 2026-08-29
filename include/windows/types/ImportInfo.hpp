@@ -17,18 +17,27 @@
  */
 #ifndef IMPORTINFO_HPP
 #define IMPORTINFO_HPP
-#include <deque>
-
-#include "PointerUnion.hpp"
+#include <windows.h>
+#include <unordered_map>
 
 namespace PMO
 {
-    // template <PseudoContainer T = std::deque<PointerUnion>>
     struct ImportInfo
     {
-        PointerUnion handle;
+        HMODULE mod = nullptr;
         const char *name;
-        std::deque<PointerUnion> funcs{};
+        std::unordered_map<uintptr_t, std::string> fnNames{};
+        std::unordered_map<uintptr_t, uintptr_t> thunks{};
+
+        bool operator<(const ImportInfo &a) const
+        {
+            return name < a.name;
+        }
+
+        bool operator==(const ImportInfo &a) const
+        {
+            return name == a.name;
+        }
     };
 }
 #endif //IMPORTINFO_HPP

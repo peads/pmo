@@ -18,6 +18,7 @@
 #ifndef WMEMORYOPS_HPP
 #define WMEMORYOPS_HPP
 
+#include "types/NullStream.hpp"
 #include "../MemoryOps.hpp"
 #include "types/ImportInfo.hpp"
 #include "windows/ImageDirectoryEntryToData.hpp"
@@ -33,10 +34,10 @@ namespace PMO
      * @param errBuf Buffer for returning human-readable error message, if not NULL. Defaults cerr.
      * @return Pointer to the starting address where the pattern was found, or NULL if not found.
      */
-    template <PseudoContainer T, typename U>
-    static HMODULE findModule(
-        const T &names,
-        std::basic_ostream<U> &errBuf = std::cerr
+    template <size_t N, typename U>
+    inline HMODULE findModule(
+        const char *(&names)[N],
+        std::basic_ostream<U> &errBuf = devnull
     )
     {
         for (auto name : names)
@@ -51,13 +52,14 @@ namespace PMO
         return nullptr;
     }
 
-    inline MODULEINFO getImportInfo(const HMODULE module)
+    inline void getImportInfo(const HMODULE &module, MODULEINFO &info)
     {
         if (!module)
-            return {};
-        MODULEINFO info{};
+        {
+            info = {};
+            return;
+        }
         GetModuleInformation(GetCurrentProcess(), module, &info, sizeof(MODULEINFO));
-        return info;
     }
 
     // ReSharper disable once CppParameterMayBeConst
@@ -76,17 +78,17 @@ namespace PMO
      * @param errBuf Buffer for returning human-readable error message. Defaults cerr.
      */
     template <typename T>
-    static bool replaceCode(
+    inline bool replaceCode(
         LPVOID addr,
         const char *code,
-        const HMODULE *module,
         const size_t size,
-        std::basic_ostream<T> &errBuf = std::cerr
+        std::basic_ostream<T> &errBuf = devnull,
+        const HMODULE *module = nullptr
     )
     {
         if (!addr || !code || !size)
         {
-            errBuf << "Failed to flush cache.\n";
+            errBuf << "Invalid operands\n";
             return false;
         }
 
@@ -102,27 +104,86 @@ namespace PMO
             errBuf << "Failed to reset memory attributes.\n";
             return false;
         }
-        if (module)
-            if (!FlushInstructionCache(*module, addr, size))
-            {
-                errBuf << "Failed to flush cache.\n";
-                return false;
-            }
+        if (module && !FlushInstructionCache(*module, addr, size))
+        {
+            errBuf << "Failed to flush cache.\n";
+            return false;
+        }
         return true;
     }
 
-    static void findThunks(const HMODULE module, const IMAGE_IMPORT_DESCRIPTOR &desc, ImportInfo &out)
+    template <typename T>
+    inline bool replaceCode(
+        const uintptr_t addr,
+        const Pattern &pattern,
+        std::basic_ostream<T> &errBuf = devnull
+    )
+    {
+        return replaceCode<T>(reinterpret_cast<void*>(addr), pattern.code.cptr, pattern.codeLen, errBuf);
+    }
+
+    inline bool findExportedFunctionName(
+        const HMODULE &module,
+        const uintptr_t keyAddr,
+        std::string &out
+    )
+    {
+        const auto baseAddress = reinterpret_cast<uintptr_t>(module);
+        const auto dosHeader = reinterpret_cast<PIMAGE_DOS_HEADER>(baseAddress);
+
+        if (dosHeader->e_magic ^ IMAGE_DOS_SIGNATURE)
+            return false;
+
+        const auto [virtualAddress, size]
+            = reinterpret_cast<PIMAGE_NT_HEADERS>(baseAddress + dosHeader->e_lfanew)
+            ->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+
+        if (!virtualAddress)
+            return false;
+
+        const auto exportDirectory
+            = reinterpret_cast<PIMAGE_EXPORT_DIRECTORY>(baseAddress + virtualAddress);
+        const auto addresses
+            = reinterpret_cast<PDWORD>(baseAddress + exportDirectory->AddressOfFunctions);
+        const auto names = reinterpret_cast<PDWORD>(baseAddress + exportDirectory->AddressOfNames);
+        const auto ordinals
+            = reinterpret_cast<PWORD>(baseAddress + exportDirectory->AddressOfNameOrdinals);
+
+        for (size_t i = 0; i < exportDirectory->NumberOfNames; ++i)
+        {
+            const WORD ordinal = ordinals[i];
+            if (const uintptr_t currAddr = baseAddress + addresses[ordinal]; currAddr == keyAddr)
+            {
+                out = reinterpret_cast<char*>(baseAddress + names[i]);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    inline void findThunks(
+        const HMODULE &module,
+        const IMAGE_IMPORT_DESCRIPTOR &desc,
+        ImportInfo &out
+    )
     {
         auto thunk = reinterpret_cast<PIMAGE_THUNK_DATA>(
             reinterpret_cast<PBYTE>(module) + desc.FirstThunk);
         for (; thunk->u1.AddressOfData; ++thunk)
         {
-            out.funcs.push_back({.proc = reinterpret_cast<FARPROC>(thunk->u1.Function)});
+            uintptr_t fn = thunk->u1.Function;
+            uintptr_t gn = 0;
+
+            const auto thisModule = GetModuleHandle(out.name);
+            if (std::string str; findExportedFunctionName(thisModule, fn, str))
+                out.fnNames.emplace(fn, str);
+            findNamedFunction(fn, &gn);
+            out.thunks.emplace(fn, gn);
         }
     }
 
     template <PseudoContainer T>
-    static void findImportNames(const HMODULE module, T &out)
+    inline void findImports(const HMODULE &module, T &out)
     {
         ULONG size;
         auto importDescriptor = static_cast<PIMAGE_IMPORT_DESCRIPTOR>(
@@ -135,71 +196,49 @@ namespace PMO
         for (; importDescriptor && importDescriptor->Characteristics && importDescriptor->Name;
                ++importDescriptor)
         {
-            ImportInfo bar{};
-            bar.name = reinterpret_cast<PSTR>(
+            ImportInfo imports{};
+            imports.name = reinterpret_cast<PSTR>(
                 reinterpret_cast<PBYTE>(module) + importDescriptor->Name);
             GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
                               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                              bar.name,
-                              &bar.handle.module);
-            findThunks(module, *importDescriptor, bar);
-            out.push_back(bar);
+                              imports.name,
+                              &imports.mod);
+            findThunks(imports.mod, *importDescriptor, imports);
+            out.push_back(imports);
         }
     }
 
-     namespace Debug
-     {
-         inline void parseType(const MEMORY_BASIC_INFORMATION &mbi, std::iostream &out)
-         {
-             constexpr uint64_t masks[] = {MEM_IMAGE, MEM_MAPPED, MEM_PRIVATE};
-             auto type = mbi.Type;
-             if (!type)
-             {
-                 out << "MEM_FREE";
-             }
-             auto mPtr = masks;
-             for (; type; type ^= *mPtr++)
-             {
-                 switch (type & *mPtr)
-                 {
-                     case MEM_IMAGE:
-                         out << "MEM_IMAGE ";
-                         break;
-                     case MEM_MAPPED:
-                         out << "MEM_MAPPED ";
-                         break;
-                     case MEM_PRIVATE:
-                         out << "MEM_PRIVATE ";
-                         break;
-                     default:
-                         out << "invalid value ";
-                         break;
-                 }
-             }
-         }
-     }
-        template <PseudoContainer T>
-    static void findPatterns(
-        MODULEINFO info,
-        const char *pattern,
-        const char *mask,
-        const size_t patternLength,
-        T &out
-    )
+    namespace Debug
     {
-        return findPatterns(info.lpBaseOfDll, info.SizeOfImage, pattern, mask, patternLength, out);
-    }
-
-    template <PseudoContainer T>
-    static void findPatterns(
-        const HMODULE &module,
-        const char *pattern,        // needn't be null-terminated (in fact, shouldn't be)
-        const char *mask,           // must be null-terminated (i.e. it's a normal c-string)
-        const size_t patternLength,
-        T &out
-    )
-    {
-        return findPatterns(getImportInfo(module), pattern, mask, patternLength, out);
+        template<typename T>
+        inline void parseType(const MEMORY_BASIC_INFORMATION &mbi, std::basic_ostream<T> &out = devnull)
+        {
+            constexpr uint64_t masks[] = {MEM_IMAGE, MEM_MAPPED, MEM_PRIVATE};
+            auto type = mbi.Type;
+            if (!type)
+            {
+                out << "MEM_FREE";
+            }
+            auto mPtr = masks;
+            for (; type; type ^= *mPtr++)
+            {
+                switch (type & *mPtr)
+                {
+                    case MEM_IMAGE:
+                        out << "MEM_IMAGE ";
+                        break;
+                    case MEM_MAPPED:
+                        out << "MEM_MAPPED ";
+                        break;
+                    case MEM_PRIVATE:
+                        out << "MEM_PRIVATE ";
+                        break;
+                    default:
+                        out << "invalid value ";
+                        break;
+                }
+            }
+        }
     }
 }
 #endif //WMEMORYOPS_HPP

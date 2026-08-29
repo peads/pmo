@@ -19,42 +19,43 @@
 #define BMI2_HPP
 #include <cstdint>
 
-#if (defined(__x86_64__) || defined(_M_X64)) && (defined(__BMI2__) || (defined(_MSC_VER) && defined(__AVX2__)))
+#if (defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)) && defined(__BMI2__) && __has_include(<immintrin.h>)
+#include <immintrin.h>
+    inline uint64_t (*pdep)(uint64_t, uint64_t) = _pdep_u64;
+    inline uint64_t (*pext)(uint64_t, uint64_t) = _pext_u64;
+#elif defined(_MSC_VER) || !(defined(__x86_64__) || defined(_M_X64)) && !defined(__BMI2__)
+    inline uint64_t pdep(uint64_t a, uint64_t b)
+    {
+        uint64_t r = 0, m = 1;
+        while (b)
+        {
+            const uint64_t l = b & (0 - b);
+            b = b ^ l;
+            const uint64_t s = 0 - (a & m);
+            r = r | (l & s);
+            m = m + m;
+        }
+        return r;
+    }
+
+    inline uint64_t pext(uint64_t a, uint64_t b)
+    {
+        uint64_t r = 0;
+        for (uint64_t m = 1; b; b &= b - 1, m <<= 1)
+        {
+            if (a & b & (0 - b))
+            {
+                r |= m;
+            }
+        }
+        return r;
+    }
+#else
 extern "C" {
     uint64_t pDep(uint64_t a, uint64_t b);
-
     uint64_t pExt(uint64_t a, uint64_t b);
 }
-#else
-inline uint64_t pDep(const uint64_t a, uint64_t b)
-{
-    uint64_t r = 0, m = 1;
-    while (b)
-    {
-        const uint64_t l = b & (0 - b);
-        b = b ^ l;
-        const uint64_t s = 0 - (a & m);
-        r = r | (l & s);
-        m = m + m;
-    }
-    return r;
-}
-
-inline uint64_t pExt(uint64_t a, uint64_t b)
-{
-    uint64_t r = 0;
-    for (uint64_t m = 1; b; b &= b - 1, m <<= 1)
-    {
-        if (a & b & -b)
-        {
-            r |= m;
-        }
-    }
-    return r;
-}
+    inline uint64_t (*pdep)(uint64_t, uint64_t) = pDep;
+    inline uint64_t (*pext)(uint64_t, uint64_t) = pExt;
 #endif
-typedef uint64_t (*bmi2Fn)(uint64_t, uint64_t);
-
-inline bmi2Fn pdep = pDep;
-inline bmi2Fn pext = pExt;
 #endif // BMI2_HPP

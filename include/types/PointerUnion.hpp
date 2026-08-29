@@ -1,24 +1,40 @@
-//
-// Created by peads on 08/28/2026.
-//
-
+/*
+ * This file is part of the pmo (peads Memory Operations) distribution
+ * (https://github.com/peads/pmo).
+ * Copyright (c) 2026 Patrick Eads.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 #ifndef POINTERUNION_HPP
 #define POINTERUNION_HPP
-#include <cstdint>
-#ifdef _WIN64
-#include <windows.h>
-#endif
 namespace PMO
 {
     union PointerUnion
     {
-        const void *ptr;
+        void *ptr = nullptr;
         char *cptr;
         const uintptr_t address;
-#ifdef _WIN64
-        FARPROC proc;
-        HMODULE module;
-#endif
+        const char *str;
+
+        bool operator<(const PointerUnion &a) const
+        {
+            return address < a.address;
+        }
+
+        bool operator==(const PointerUnion &a) const
+        {
+            return address == a.address;
+        }
     };
 }
 #endif //POINTERUNION_HPP

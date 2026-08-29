@@ -17,101 +17,84 @@
  */
 #ifndef MEMORYOPS_HPP
 #define MEMORYOPS_HPP
-#include <iostream>
-#include "types/PointerUnion.hpp"
-#include "types/PseudoContainer.hpp"
-// #if defined(_WIN32) || defined(_WIN64)
-// #include <windows/MemoryOps.hpp>
-// #endif
+#include <bmi2.hpp>
+
+#include "types/Pattern.hpp"
+#include "parse/ParseJmp.hpp"
 
 namespace PMO
 {
-    struct Pattern
+    /**
+    * @brief    Parses thunk at given address for the address values and function pointer to return.
+    * @details  Takes reference to the address of a known thunk function and returns RVA, VA and
+    *             function pointer of inferred-type to the address to which the jmp redirects The
+    *             value of the given address reference is mutated to the RVA, the second operand
+    *             stores the function pointer, and the VA is returned. The address result is parsed
+    *             from bytes of the jmp stored at the given address [N.B. Only jmp \em far,
+    *             \em absolute \em indirect (i.e. FF /5, and REX.W FF /5) is supported].
+    * @param[in,out] addr   Given address of thunk function; reused to store VA.
+    * @param[out] out       Pointer to storage for resultant function pointer, of inferred type,
+    *                         cast from VA.
+    * @return               RVA
+    */
+    template <typename T, typename =
+              std::enable_if_t<std::is_pointer_v<T> // is ptr to *non-member* fn ptr
+                  && std::is_function_v<std::remove_pointer_t<std::remove_pointer_t<T>>>>>
+    inline uintptr_t findNamedFunction(uintptr_t &addr, T out)
     {
-        PointerUnion pattern;
-        PointerUnion mask;
-        PointerUnion code;
-        const size_t patternLen;
-        const size_t maskLen;
-        const size_t codeLen;
-        template <typename T, size_t N, typename U, size_t M, typename V, size_t P>
-        explicit Pattern(T (&pattern)[N], U (&mask)[M], V (&code)[P])
-            : pattern(pattern), mask(mask), code(code),
-                patternLen(N-1), maskLen(M), codeLen(P-1)
-        {}
-    };
+        const uintptr_t result = startParseJmp(addr);
+        addr += 7 + result;
+        *out = *reinterpret_cast<T>(addr);
+        return result;
+    }
 
     /**
-    * @brief          Scan through memory represented by mInfo for all occurrences of given
-    *                   pattern with its associated mask.
-    * @param ptr      Base address of module.
-    * @param size     Size of Image.
-    * @param pattern  Contiguous memory space containing bytes of the search key
-    *                   (e.g. an array of (u)int8s, an escape sequence like "\xDE\xAD\xBE\xEF", or
-    *                   pointer to a (u)int *ptr->0xEFBEADDE [N.B. endianness, and pattern length
-    *                   restriction to size of integral type]).
-    * @param mask     null-terminated, wildcard-compatible sequence of characters (i.e. a cstring)
-    *                   that can contain either an 'x' (requirement indicator), or
-    *                   '?' (wildcard indicator) per byte or per nibble (i.e. for each hexit).
-    *                   For example, given pattern "\xDE\xAD\xBE\xEF", a mask like "xx?x" could be
-    *                   used for per byte resolution, or a mask like "xxxx??xx" for per octit
-    *                   resolution; they are effectively equivalent.
-    * @param patternLength Length of the pattern because it is not expected to be null-terminated,
-    *                       and may be different from the length of the null-terminated mask
-    *                       allowing for automatic resolution selection.
-    * @param out        Reference to a pseudo-conformant STL Container type (e.g. std::vector)
+    * Same as above, but doesn't clobber first operand.
     */
-    template <PseudoContainer T>
-    static void findPatterns(
-        const void *ptr,
-        const size_t size,
-        const char *pattern,        // needn't be null-terminated (in fact, shouldn't be)
-        const char *mask,           // must be null-terminated
-        const size_t patternLength,
-        T &out
-    )
+    inline uintptr_t findNamedFunction(uintptr_t addr, uintptr_t *out)
     {
-        //        const uint64_t hitMask = (1ULL << (patternLength << 3)) - 1;
-        const size_t maskLength = strlen(mask);
-        if (patternLength > maskLength)
-            return;
-        const bool isFine = maskLength > patternLength;
-        const uint8_t incre = 1 + isFine;
-        const uint8_t byteMask = isFine ? 0xF : 0xFF;
-
-        PointerUnion base = {ptr};
-        PointerUnion stack = {mask};
-        PointerUnion patternU = {pattern};
-
-        for (const size_t endOffset = size + base.address;
-             base.address < endOffset; ++base.cptr)
+        const uintptr_t result = startParseJmp(addr);
+        if (result)
         {
-            bool isHit = true;
-            uint64_t hits = 0;
-            size_t j = 0;
-            for (; *stack.cptr != '\0'; ++j)
-            {
-                for (uint8_t k = 0; k < incre; ++k)
-                {
-                    const uint8_t shift = k << 2;
-                    const uint8_t a = *(stack.cptr + k);
-                    const uint8_t b = byteMask & *patternU.cptr >> shift;
-                    const uint8_t c = byteMask & *(base.cptr + j) >> shift;
-                    hits += isHit &= a == '?' || b == c;
-                }
-                if (!isHit)
-                    break;
-                patternU.cptr++;
-                stack.cptr += incre;
-            }
-            if (isHit)
-            {
-                out.push_back(base.address);
-                base.cptr += j;
-            }
-            stack.ptr = mask;
-            patternU.ptr = pattern;
+            addr += 7 + result;
         }
+        *out = addr;
+        return result;
+    }
+
+    template <PseudoContainer T>
+    inline bool findPatterns(const uintptr_t addr, const size_t len, const Pattern &pattern, T &out)
+    {
+        bool result = false;
+
+        const auto &pMask = *pattern.searchMask;
+        auto &bMask = *pattern.bitMask;
+        const auto pSize = pMask.size();
+
+        auto *ptr = reinterpret_cast<uint8_t*>(addr);
+        for (; ptr && reinterpret_cast<uintptr_t>(ptr) < len + addr - 8; ptr += 8)
+        {
+            uint64_t notHit = 0;
+            const auto baseAddr = reinterpret_cast<uint64_t*>(ptr);
+            for (size_t i = 0; i < pSize; ++i)
+            {
+                if (!*baseAddr)
+                {
+                    notHit = 1;
+                    break;
+                }
+                const auto val = *(baseAddr + i) & pMask[i];
+                const auto msk = *(reinterpret_cast<uint64_t*>(bMask.data()) + i);
+                const auto pat = *(reinterpret_cast<uint64_t*>(pattern.pattern.address) + i) & pMask[i];
+                notHit |= pat ^ (pdep(pext(val, msk), msk) | val);
+            }
+            if (!notHit)
+            {
+                result = true;
+                out.push_back(reinterpret_cast<uintptr_t>(baseAddr));
+            }
+        }
+        return result;
     }
 }
 #endif //MEMORYOPS_HPP

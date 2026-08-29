@@ -2,6 +2,16 @@ find_package(Git REQUIRED)
 include(FetchContent)
 include(CheckCXXCompilerFlag)
 
+FetchContent_Declare(
+        Catch2
+        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+        GIT_TAG        v3.8.1 # or a later release
+)
+
+FetchContent_MakeAvailable(Catch2)
+include(CTest)
+include(ParseAndAddCatchTests)
+
 if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     check_cxx_compiler_flag("/arch:AVX2" COMPILER_SUPPORTS_BMI2)
     if(COMPILER_SUPPORTS_BMI2)
@@ -12,12 +22,12 @@ else()
     if(COMPILER_SUPPORTS_BMI2)
         set(BMI2_FLAG "/clang:-mbmi2")
     endif()
+#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /clang:--coverage /clang:-fprofile-arcs /clang:-ftest-coverage /clang:-fprofile-instr-generate /clang:-fcoverage-mapping /MTd /clang:-gcodeview")
 endif()
 
-if (NOT DEFINED BMI2_FLAG OR DISABLE_BMI2_SUPPORT)
-    add_executable(${TARGET} "${CMAKE_SOURCE_DIR}/test/main.cpp")
-else()
-    add_executable(${TARGET} "${CMAKE_SOURCE_DIR}/test/main.cpp" "${CMAKE_SOURCE_DIR}/src/bmi2.asm")
+add_executable(${TARGET} "${CMAKE_SOURCE_DIR}/test/main.cpp")
+if (DEFINED BMI2_FLAG)
+#        add_executable(${TARGET} "${CMAKE_SOURCE_DIR}/test/main.cpp" "${CMAKE_SOURCE_DIR}/src/bmi2.asm")
     target_compile_options(${TARGET} PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${BMI2_FLAG}>")
 endif()
 
@@ -37,3 +47,6 @@ else()
             "$<$<PLATFORM_ID:Windows>:${CMAKE_SOURCE_DIR}/include/windows/MemoryOps.hpp>"
     )
 endif()
+
+target_link_libraries(${TARGET} PRIVATE Catch2::Catch2WithMain)
+ParseAndAddCatchTests(${TARGET})
