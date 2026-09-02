@@ -17,10 +17,11 @@
  */
 #ifndef MEMORYOPS_HPP
 #define MEMORYOPS_HPP
-#include <bmi2.hpp>
 
 #include "types/Pattern.hpp"
 #include "parse/ParseJmp.hpp"
+
+#define STREAM_LEN (1 << 21)
 
 namespace PMO
 {
@@ -40,18 +41,21 @@ namespace PMO
     template <typename T, typename =
               std::enable_if_t<std::is_pointer_v<T> // is ptr to *non-member* fn ptr
                   && std::is_function_v<std::remove_pointer_t<std::remove_pointer_t<T>>>>>
-    inline uintptr_t findNamedFunction(uintptr_t &addr, T out)
+    inline uintptr_t findNamedFunction(uintptr_t &addr, T out) noexcept
     {
         const uintptr_t result = startParseJmp(addr);
-        addr += 7 + result;
-        *out = *reinterpret_cast<T>(addr);
+        if (result)
+        {
+            addr += 7 + result;
+            *out = *reinterpret_cast<T>(addr);
+        }
         return result;
     }
 
     /**
     * Same as above, but doesn't clobber first operand.
     */
-    inline uintptr_t findNamedFunction(uintptr_t addr, uintptr_t *out)
+    inline uintptr_t findNamedFunction(uintptr_t addr, uintptr_t *out) noexcept
     {
         const uintptr_t result = startParseJmp(addr);
         if (result)
@@ -62,36 +66,45 @@ namespace PMO
         return result;
     }
 
-    template <PseudoContainer T>
-    inline bool findPatterns(const uintptr_t addr, const size_t len, const Pattern &pattern, T &out)
+    inline bool findPatterns(const uintptr_t addr, size_t len, Pattern &searchStruct,
+        const bool stopOne = false) noexcept
     {
         bool result = false;
 
-        const auto &pMask = *pattern.searchMask;
-        auto &bMask = *pattern.bitMask;
-        const auto pSize = pMask.size();
-
-        auto *ptr = reinterpret_cast<uint8_t*>(addr);
-        for (; ptr && reinterpret_cast<uintptr_t>(ptr) < len + addr - 8; ptr += 8)
+        for (auto *ptr = reinterpret_cast<uint8_t*>(addr);
+             ptr && reinterpret_cast<uintptr_t>(ptr) < len + addr;)
         {
-            uint64_t notHit = 0;
-            const auto baseAddr = reinterpret_cast<uint64_t*>(ptr);
-            for (size_t i = 0; i < pSize; ++i)
+            uint64_t notHit = -1;
+            auto baseAddr = reinterpret_cast<uint64_t*>(ptr);
+            size_t shift = 1;
+            for (const auto &[pat, pmsk, bmsk] : searchStruct.view())
             {
-                if (!*baseAddr)
+                const auto val = *baseAddr & pmsk;
+                const auto valMasked = val | bmsk;
+                const auto patMasked = pat & pmsk | bmsk;
+                if (((notHit = valMasked ^ patMasked)))
                 {
-                    notHit = 1;
+                    shift = std::countr_zero(notHit) >> 3;
+                    shift = shift < 1 ? 1 : shift;
                     break;
                 }
-                const auto val = *(baseAddr + i) & pMask[i];
-                const auto msk = *(reinterpret_cast<uint64_t*>(bMask.data()) + i);
-                const auto pat = *(reinterpret_cast<uint64_t*>(pattern.pattern.address) + i) & pMask[i];
-                notHit |= pat ^ (pdep(pext(val, msk), msk) | val);
+                ++baseAddr;
             }
-            if (!notHit)
+
+            if (notHit)
+            {
+                ptr += shift;   // xx[xxxxxxxx]x ... xx0
+                len -= shift;   // xxx[xxxxxxxx] ... xx0
+                // xxx[xxxxxxxx]x ... x0
+            }
+            else
             {
                 result = true;
-                out.push_back(reinterpret_cast<uintptr_t>(baseAddr));
+                searchStruct.push_back(reinterpret_cast<uintptr_t>(ptr));
+                if (stopOne)
+                    break;
+                ptr += 8;   // [yyyyyyyy]xxxxxxxx
+                            // yyyyyyyy[xxxxxxxx]
             }
         }
         return result;

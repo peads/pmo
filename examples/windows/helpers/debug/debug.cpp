@@ -1,0 +1,53 @@
+/*
+* This file is part of the pmo (peads Memory Operations) distribution
+ * (https://github.com/peads/pmo).
+ * Copyright (c) 2026 Patrick Eads.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+#include <cstdint>
+#include "debug.hpp"
+#include "types/NullStream.hpp"
+
+template <typename T = char>
+bool disableDebuggerChecking(std::basic_ostream<T> &errBuf = PMO::devnull) noexcept
+{
+    int (*idp)() = nullptr;
+    uintptr_t addr = reinterpret_cast<uintptr_t>(&IsDebuggerPresent);
+    PMO::findNamedFunction(addr, &idp);
+    debuggerPatterns[0].push_back(reinterpret_cast<uintptr_t>(idp));
+    bool result = replaceCode(debuggerPatterns[0].back(),
+                               debuggerPatterns[0],
+                               errBuf);
+    if (!result)
+        errBuf << "Failed to replace idb\n";
+
+    int (*crdp)(HANDLE, int *) = nullptr;
+    addr = reinterpret_cast<uintptr_t>(&CheckRemoteDebuggerPresent);
+    PMO::findNamedFunction(addr, &crdp);
+    debuggerPatterns[1].push_back(reinterpret_cast<uintptr_t>(crdp));
+    result &= replaceCode(debuggerPatterns[1].back(),
+                               debuggerPatterns[1],
+                               errBuf);
+    if (!result)
+        errBuf << "Failed to replace crdp\n";
+
+    return result;
+}
+#ifdef BUILD_SHARED_LIB
+extern "C" {
+    __declspec(dllexport) int DllMain() noexcept {
+        return disableDebuggerChecking();
+    }
+};
+#endif

@@ -20,73 +20,156 @@
 
 #include "PointerUnion.hpp"
 #include "SetWrapper.hpp"
-#include "PseudoVector.hpp"
+#include <vector>
+#include <ranges>
 
 namespace PMO
 {
-    struct Pattern
+    class Pattern final
     {
-        const size_t patternLen;
-        const size_t maskLen;
-        const size_t codeLen;
-        const PointerUnion pattern;
-        const PointerUnion mask;
-        const PointerUnion code;
+        template <typename T>
+        static inline T generateTypedMask(T n) noexcept
+        {
+            if (!n)
+                return 0;
+            int bits = std::bit_width(n);
+            if (bits >= (sizeof(T) << 3))
+            {
+                return static_cast<T>(~static_cast<T>(0));
+            }
+            return (static_cast<T>(1) << bits) - 1;
+        }
 
-        private:
-            size_t pSize;
-            PseudoVector<uint64_t> bMask;
-            PseudoVector<uint64_t> pMask;
-            SetWrapper<uintptr_t> m_occurrences;
+        /**
+         *
+         * @param cptr NULL-terminated pattern mask string
+         * @param optr Output pointer
+         * @param isFine Indicates coarseness of mask
+         */
+        static inline void generateBMI2Mask(char *const cptr, uint64_t *optr, const bool isFine = false) noexcept
+        {
+            size_t cnt = 0;
+            uint8_t incre = 8;
+            uint8_t maskByte = 0xFFu;
+            if (isFine)
+            {
+                incre = 4;
+                maskByte = 0xFu;
+            }
+
+            for (char *ptr = cptr; *ptr; ++ptr, cnt += incre)
+            {
+                *optr |= (!('?' ^ *ptr) ? maskByte : 0u) << cnt;
+                if (cnt > 0 && !(cnt & 0x3F))
+                {
+                    ++optr;
+                    cnt = 0;
+                }
+            }
+        }
+
+        static inline void generatePatternMask(uint64_t *const &in, const size_t len, uint64_t *optr) noexcept
+        {
+            const uint64_t *iptr = in;
+            for (size_t shift = 0, cnt = 0; cnt < len; ++cnt, shift += 8)
+            {
+                if (cnt > 0 && !(cnt & 0x7ULL))
+                {
+                    shift = 0;
+                    ++optr;
+                    ++iptr;
+                }
+                *optr |= generateTypedMask((*iptr >> shift) & 0xFFULL) << shift;
+            }
+        }
 
         public:
-            PseudoVector<uint64_t> *const bitMask;
-            PseudoVector<uint64_t> *const searchMask;
-            SetWrapper<uintptr_t> *const occurrences;
+            const size_t patternLen;
+            const size_t maskLen;
+            const size_t codeLen;
+            const size_t pSize;
+
+        private:
+            const char *const m_pattern;
+            const char *const m_mask;
+            const char *const m_code;
+            SetWrapper<uintptr_t> m_occurrences{};
+            std::vector<uint64_t> byteMask;
+            std::vector<uint64_t> searchMask;
+
+        public:
+            const PointerUnion pattern;
+            const PointerUnion mask;
+            const PointerUnion code;
+            // const SetWrapper<uint64_t> &occurrences = m_occurrences;
+
+            void reset() noexcept
+            {
+                m_occurrences.clear();
+            }
+
+            [[nodiscard]] size_t size() const noexcept
+            {
+                return m_occurrences.size();
+            }
+
+            [[nodiscard]] auto begin() const noexcept
+            {
+                return m_occurrences.begin();
+            }
+
+            [[nodiscard]] auto end() const noexcept
+            {
+                return m_occurrences.end();
+            }
+
+            [[nodiscard]] bool empty() const noexcept
+            {
+                return m_occurrences.empty();
+            }
+
+            void push_back(const uint64_t in) noexcept
+            {
+                m_occurrences.push_back(in);
+            }
+
+            [[nodiscard]] PointerUnion pop_back() noexcept
+            {
+                const auto result = back();
+                m_occurrences.pop_back();
+                return result;
+            }
+
+            [[nodiscard]] PointerUnion back() noexcept
+            {
+                return PointerUnion{.address = m_occurrences.back()};
+            }
+
+            [[nodiscard]] std::ranges::zip_view<
+                std::span<uint64_t>,
+                std::ranges::ref_view<const std::vector<uint64_t>>,
+                std::ranges::ref_view<const std::vector<uint64_t>>> view() const noexcept
+            {
+                return std::views::zip(std::span(pattern.u64ptr, pSize), searchMask, byteMask);
+            }
 
             template <size_t N, size_t M, size_t P>
-            explicit Pattern(const char (&pattern)[N], const char (&mask)[M], const char (&code)[P])
+            Pattern(const char (&pattern)[N], const char (&mask)[M], const char (&code)[P])
                 : patternLen(N - 1),
                   maskLen(M),
                   codeLen(P - 1),
-                  pattern{.str = pattern},
-                  mask{.str = mask},
-                  code{.str = code},
-                  // pSize(!(N % 8) ? N >> 3 : 1 + (N >> 3)),
-                  pSize(!((N - 1) % 8) ? (N - 1) >> 3 : 1 + ((N - 1) >> 3)),
-                  bMask(std::vector<uint64_t>(pSize)),
-                  pMask(std::vector<uint64_t>(N - 1)),
-                  m_occurrences(SetWrapper<uintptr_t>{}),
-                  bitMask(&bMask),
-                  searchMask(&pMask),
-                  occurrences(&m_occurrences)
+                  pSize((N & 1 ? N + 1 : N) >> 3),
+                  m_pattern(pattern),
+                  m_mask(mask),
+                  m_code(code),
+                  byteMask(std::vector<uint64_t>(pSize, 0)),
+                  searchMask(std::vector<uint64_t>(pSize, 0)),
+                  pattern{.str = m_pattern},
+                  mask{.str = m_mask},
+                  code{.str = m_code}
             {
-                generatePatternMask(this->pattern.cptr, this->patternLen, pMask);
-                generateBMI2Mask(this->mask.cptr, this->maskLen, bMask);
-            }
-
-        private:
-            template <PseudoContainer T>
-            static void generateBMI2Mask(char *cptr, const size_t len, T &out)
-            {
-                uint64_t *optr = out.data();
-                size_t cnt = 0;
-                for (char *ptr = cptr; ptr < cptr + len; ++ptr, cnt+=4)
-                {
-                    *optr |= (!('?' ^ *ptr) ? 0xF : 0) << cnt;
-                }
-            }
-
-            template <PseudoContainer T>
-            static void generatePatternMask(char *cptr, const size_t len, T &out)
-            {
-                size_t cnt = 0;
-                auto *mptr = reinterpret_cast<uint8_t*>(out.data());
-                for (char *ptr = cptr; *ptr != '\xCC' &&
-                     cnt < len; ++ptr, ++cnt)
-                {
-                    mptr[cnt] = 0xFF;
-                }
+                generatePatternMask(this->pattern.u64ptr, N - 1, searchMask.data());
+                generateBMI2Mask(this->mask.cptr, byteMask.data(), N - 1 < M - 1);
             }
     };
 }

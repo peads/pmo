@@ -19,28 +19,17 @@
 #ifndef SETWRAPPER_HPP
 #define SETWRAPPER_HPP
 #include <set>
-#include <concepts>
-#include <types/PseudoContainer.hpp>
+#include "types/PseudoContainer.hpp"
 
 namespace PMO
 {
     template <typename T>
     concept SetConcept = PseudoContainer<T> && requires(T c, typename T::value_type v)
     {
-        //    typename T::key_type;
-        //    typename T::value_type;
-        //    typename T::iterator;
-        //    typename T::const_iterator;
-
-        { c.size() }->std::same_as<typename T::size_type>;
-        { c.empty() }->std::convertible_to<bool>;
-        { c.begin() }->std::same_as<typename T::iterator>;
-        { c.end() }->std::same_as<typename T::iterator>;
         c.insert(v);
         c.erase(v);
     };
 
-    // template <SetConcept T, typename U = typename T::value_type>
     template <typename U, SetConcept T = std::set<U>>
     class SetWrapper : public T
     {

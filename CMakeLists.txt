@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.29)
 set(TARGET pmo)
-project(${TARGET} CXX ASM_NASM)
+project(${TARGET} CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -11,6 +11,6 @@ else()
     if(GENERATE_PCH)
         set(IS_PCH_GENERATED ${GENERATE_PCH})
     endif()
-    set(ARE_TESTS_GENERATED ${GENERATE_TESTS}) #throws annoying warning if iT's NoT uSeD
+    set(ARE_TESTS_GENERATED ${GENERATE_TESTS}) # cmake throws annoying warning if iT's NoT uSeD
     include(${CMAKE_SOURCE_DIR}/test/tests.cmake)
 endif()

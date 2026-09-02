@@ -22,57 +22,49 @@
 
 namespace PMO
 {
-    inline uint64_t parseJmpFarAbsAddr(const uint64_t mask, uint8_t *p)
+    inline uint64_t parseJmpFarAbsAddr(const uint64_t mask, const uint8_t *p) noexcept
     {
-        return *reinterpret_cast<uint64_t*>(p) & mask;
+        return *reinterpret_cast<const uint64_t*>(p) & mask;
     }
 
-    inline uint64_t parseJmpFarAbsMod(const uint8_t mod, uint8_t *p)
+    inline uint64_t parseJmpFarAbsMod(const uint8_t mod, const uint8_t *p) noexcept
     {
-        // std::cout << std::format("{:b} ", mod);
-        switch (mod)
+        switch (mod) // NOLINT(*-multiway-paths-covered)
         {
             case 0:         // [m16:32]
                 return parseJmpFarAbsAddr(0xFFFF'FFFF, ++p);
-            // {
-            //     const uint64_t result = parseJmpFarAbsAddr(mask, ++p);
-            //     if (result)
-            //         std::cout << std::format("{:016X}] ", result);
-            //     return result;
-            // }
-            case 1:         // [rbp+m16:16]
-                // mask >>= 24;
-            case 2:         // [rbp+m16:32]
-            case 3:         // rbp
+            // case 1:         // [rbp+m16:16]
+            //     // mask >>= 24;
+            // case 2:         // [rbp+m16:32]
+            // case 3:         // rbp
             default:
                 break;
         }
         return false;
     }
 
-    inline uint64_t parseJmpFarAbsRm(const uint8_t rm, uint8_t *p)
+    inline uint64_t parseJmpFarAbsRm(const uint8_t rm, const uint8_t *p) noexcept
     {
-        // std::cout << std::format("{:b} ", rm);
-        switch (rm)
+        switch (rm) // NOLINT(*-multiway-paths-covered)
         {
-            case 0:     // [rax], [rax+m16:16], [rax+m16:32], rax
-            case 1:     // [rcx], ...
-            case 2:     // [rdx], ...
-            case 3:     // [rbx], ...
-            case 4:     // [sib], ..., rsp
-                break;
+            // case 0:     // [rax], [rax+m16:16], [rax+m16:32], rax
+            // case 1:     // [rcx], ...
+            // case 2:     // [rdx], ...
+            // case 3:     // [rbx], ...
+            // case 4:     // [sib], ..., rsp
+            //     break;
             case 5:     // [m16:32], [rbp+m16:16], [rbp+m16:32], rbp
                 // std::cout << "[";
                 return parseJmpFarAbsMod((*p >> 6) & 3, p);
-            case 6:     // [rsi], [rsi+m16:16], [rsi+m16:32], rsi
-            case 7:     // rdi, ...
+            // case 6:     // [rsi], [rsi+m16:16], [rsi+m16:32], rsi
+            // case 7:     // rdi, ...
             default:
                 break;
         }
         return false;
     }
 
-    inline uint64_t parseJmpFarAbs(uint8_t *p)
+    inline uint64_t parseJmpFarAbs(uint8_t *p) noexcept
     {
         // e.g., 0000'04ca'8125'ff48h
         // mod | reg  | r/m
@@ -84,13 +76,13 @@ namespace PMO
         return parseJmpFarAbsRm((*reinterpret_cast<uint64_t*>(p) & 0xFF) & 7, p);
     }
 
-    inline uint64_t parseJmp(uint8_t *p)
+    inline uint64_t parseJmp(uint8_t *p) noexcept
     {
-        switch (*p & 0xFF)
+        switch (*p & 0xFF) // NOLINT(*-multiway-paths-covered)
         {
-            case 0xEB:  // EB cb jmp short, rip = rip+cb        (cb 8-bit sx to 64-bit)
-            case 0xE9:  // E9 cd jmp near rel., rip = rip+cd    (cd 32-bit sx...)
-                break;
+            // case 0xEB:  // EB cb jmp short, rip = rip+cb        (cb 8-bit sx to 64-bit)
+            // case 0xE9:  // E9 cd jmp near rel., rip = rip+cd    (cd 32-bit sx...)
+            //     break;
             case 0xFF:
                 // FF r/m64  jmp near abs. ind., rip = r/m64 (r/m64 is offset)
                 // FF m16:16 jmp far abs. ind., rip = m16:16 (ModRM)
@@ -105,12 +97,14 @@ namespace PMO
         return false;
     }
 
-    inline uint64_t startParseJmp(uint8_t *p)
+    inline uint64_t startParseJmp(uint8_t *p) noexcept
     {
+        if (!p)
+            return 0;
         return parseJmp((*p & 0xFF ^ 0x48) ? p : ++p);
     }
 
-    inline uint64_t startParseJmp(const uintptr_t addr)
+    inline uint64_t startParseJmp(const uintptr_t addr) noexcept
     {
         return startParseJmp(reinterpret_cast<uint8_t*>(addr));
     }

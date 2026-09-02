@@ -17,35 +17,21 @@
  */
 
 #include <deque>
+#ifdef VERBOSE
 #include <format>
+#endif
+#include <map>
 #include <ranges>
+#include <mdspan>
 
-#include "windows/MemoryOps.hpp"
+#include "main.hpp"
+#include "types/ByteQueue.hpp"
+#include "debug.hpp"
+
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/internal/catch_stdstreams.hpp>
 
 #define CATCH_CONFIG_MAIN // provides main(); this line is required in only one .cpp file
-
-// IsDebuggerPresent uses the pattern below
-#define IDP_PATTERN "\x65\x48\x8B\x04\x25\x60\x00\x00\x00\x0F\xB6\x40\x02\xC3"
-#define IDP_MASK    "x?x?xxxxxxxxxx"
-// #define IDP_MASK    "xx?xxxx?xxxxxxxxxxxxxxxxxxxx"
-#define IDP_CODE    "\x31\xC0\xC3\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-// CheckDebuggerPresent uses the pattern below
-#define CRDP_PATTERN "\x48\x8B\xC4\x48\x89\x58\x10\x57\x48\x83\xEC\x30\x33\xDB\x48\x8B\xFA\x48\x89\x58\x08\x48\x85\xC9\x74\x3F\x48\x85\xD2\x74\x3A\x44\x8D\x4B\x08\x48\x89\x58\xE8\x4C\x8D\x40\x08\x8D\x53\x07\x48\xFF\x15\xA3\x99\x19\x00\x0F\x1F\x44\x00\x00\x85\xC0\x78\x30\x48\x39\x5C\x24\x40\xB8\x01\x00\x00\x00\x0F\x95\xC3\x89\x1F\x48\x8B\x5C\x24\x48\x48\x83\xC4\x30\x5F\xC3"
-#define CRDP_MASK    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-#define CRDP_CODE    "\xB8\x01\x00\x00\x00\x31\xd2\xC3"
-// mov rax, qword ptr gs:[0x60] ...
-// We'll use this to find all storage of value @ gs:[60h]
-// into a register using a wildcard
-#define GS60_PATTERN "\x65\x48\x8B\x04\x25\x60\x00\x00\x00"
-// #define GS60_MASK    "x?x?xxxxx"
-#define GS60_MASK    "xx?xxxx?xxxxxxxxxx"
-
-static const PMO::Pattern patterns[] = {
-    PMO::Pattern{IDP_PATTERN,IDP_MASK,IDP_CODE},
-    PMO::Pattern{CRDP_PATTERN,CRDP_MASK,CRDP_CODE},
-    PMO::Pattern{GS60_PATTERN,GS60_MASK, ""}
-};
 
 template <size_t N>
 static uintptr_t parseJmpFar(uint8_t (&code)[N], const uintptr_t rip)
@@ -65,7 +51,6 @@ static uintptr_t parseJmpFar(uint8_t (&code)[N], const uintptr_t rip)
             default:
                 if (atRva)
                 {
-                    // std::cout << std::format("{:02X}\n", *p);
                     *q++ = *p++;
                 }
                 else
@@ -86,12 +71,54 @@ static uintptr_t parseJmpFar(uint8_t (&code)[N], const uintptr_t rip)
     return result + rip + 7;
 }
 
-TEST_CASE("000a more pdep/pext search testing", "[PMO]")
+static inline void reset()
 {
+    for (auto &pattern : debuggerPatterns)
+        pattern.reset();
+}
+
+TEST_CASE("05 line coverage++", "[PMO]")
+{
+    reset();
+    std::set<PMO::PointerUnion> puSet{};
+    std::unordered_map<PMO::PointerUnion, std::string> puMap{};
+    std::map<PMO::PointerUnion, std::string> puTree{};
+
+    std::set<PMO::ImportInfo> imSet{};
+    std::unordered_map<PMO::ImportInfo, std::string> imMap{};
+    std::map<PMO::ImportInfo, std::string> imTree{};
+
+    auto &st = PMO::NullStream::getInstance();
+
+    for (size_t i = 0; i < 5; ++i)
+    {
+        auto val = 0x12345678 + i;
+        auto pu = PMO::PointerUnion{.address = val};
+        auto str = std::format("{:016X}", val);
+        auto im = PMO::ImportInfo{.name = str.c_str()};
+        puSet.insert(pu);
+        puMap.insert_or_assign(pu, str);
+        puTree.insert_or_assign(pu, str);
+
+        imSet.insert(im);
+        imMap.insert_or_assign(im, str);
+        imTree.insert_or_assign(im, str);
+
+        st << str << std::endl;
+    }
+    uintptr_t addr;
+    PMO::findNamedFunction(0, &addr);
+}
+
+TEST_CASE("00a more raw search testing", "[PMO]")
+{
+    reset();
     PMO::SetWrapper<PMO::ImportInfo> imports{};
     findImports(GetModuleHandle(nullptr), imports);
+    constexpr size_t expected[] = {1, 1, 200};
 
-    for (auto &pattern : patterns)
+    size_t cnt = 0;
+    for (auto &pattern : debuggerPatterns)
     {
         bool foundAtLeastOne = false;
         for (auto it = imports.begin(); it != imports.end(); ++it)
@@ -101,32 +128,31 @@ TEST_CASE("000a more pdep/pext search testing", "[PMO]")
             MODULEINFO info{};
             PMO::getImportInfo(module, info);
             foundAtLeastOne |= findPatterns(reinterpret_cast<uintptr_t>(info.
-                                                                 lpBaseOfDll),
-                                                             info.SizeOfImage,
-                                                             pattern,
-                                                             *pattern.occurrences);
+                                                lpBaseOfDll),
+                                            info.SizeOfImage,
+                                            pattern);
         }
         REQUIRE(foundAtLeastOne);
-        std::cout << std::dec << "Found: " << pattern.occurrences->size() << std::endl;
+        REQUIRE(pattern.size() >= expected[cnt++]);
     }
 }
 
-TEST_CASE("000 pdep/pext search testing", "[PMO]")
+TEST_CASE("00 raw search testing", "[PMO]")
 {
+    reset();
     uintptr_t idp;
-    const auto addr = reinterpret_cast<uintptr_t>(&IsDebuggerPresent);
+    const auto addr = idpAddr;
     PMO::findNamedFunction(addr, &idp);
-    // const size_t len = pattern.patternLen;
-    PMO::SetWrapper<uintptr_t> funcs{};
     REQUIRE(PMO::findPatterns(*reinterpret_cast<uintptr_t*>(idp),
-                patterns[0].patternLen, patterns[0], funcs));
+                debuggerPatterns[0].patternLen, debuggerPatterns[0]));
 
     auto module = GetModuleHandle("KERNELBASE.dll");
     MODULEINFO info{};
     PMO::getImportInfo(module, info);
     REQUIRE(PMO::findPatterns(reinterpret_cast<uintptr_t>(info.lpBaseOfDll), info.
-                SizeOfImage, patterns[0], funcs));
-    REQUIRE(reinterpret_cast<int(*)()>(funcs.back())() == IsDebuggerPresent());
+                SizeOfImage, debuggerPatterns[0]));
+    REQUIRE(reinterpret_cast<int(*)()>(debuggerPatterns[0].back().address)() == IsDebuggerPresent(
+            ));
     PMO::SetWrapper<PMO::ImportInfo> imports{};
     findImports(GetModuleHandle(nullptr), imports);
     bool foundAtLeastOne = false;
@@ -136,27 +162,26 @@ TEST_CASE("000 pdep/pext search testing", "[PMO]")
         findImports(module, imports);
         PMO::getImportInfo(module, info);
         foundAtLeastOne |= findPatterns(reinterpret_cast<uintptr_t>(info.
-                                                             lpBaseOfDll),
-                                                         info.SizeOfImage,
-                                                         patterns[0],
-                                                         funcs);
+                                            lpBaseOfDll),
+                                        info.SizeOfImage,
+                                        debuggerPatterns[0]);
     }
     REQUIRE(foundAtLeastOne);
-    for (auto &f : funcs)
+    for (unsigned long long f : debuggerPatterns[0])
     {
         REQUIRE((reinterpret_cast<int(*)()>(f))() == IsDebuggerPresent());
     }
     REQUIRE((*reinterpret_cast<int(**)()>(idp))() == IsDebuggerPresent());
     REQUIRE(reinterpret_cast<int(*)()>(addr)() == IsDebuggerPresent());
-    funcs.clear();
 }
 
-TEST_CASE("004 Test expected function name", "[PMO]")
+TEST_CASE("04 Test expected function name", "[PMO]")
 {
+    reset();
     std::deque<PMO::ImportInfo> imports;
     findImports(GetModuleHandle(nullptr), imports);
-    const auto idp = reinterpret_cast<uintptr_t>(&IsDebuggerPresent);
-    const auto crdp = reinterpret_cast<uintptr_t>(&CheckRemoteDebuggerPresent);
+    const auto idp = idpAddr;
+    const auto crdp = crdpAddr;
 
     for (const auto &im : imports)
     {
@@ -169,34 +194,40 @@ TEST_CASE("004 Test expected function name", "[PMO]")
     }
 }
 
-TEST_CASE("003 Test replace by function name", "[PMO]")
+TEST_CASE("ZZ Test replace by function name", "[PMO]")
 {
+    reset();
     int outB = 0;
 
     int (*idp)() = nullptr;
-    auto addr = reinterpret_cast<uintptr_t>(&IsDebuggerPresent);
+    auto addr = idpAddr;
     PMO::findNamedFunction(addr, &idp);
     // ReSharper disable once CppCStyleCast
-    patterns[0].occurrences->push_back((uintptr_t) idp);
+    debuggerPatterns[0].push_back((uintptr_t) idp);
     // int (*idp)() = *reinterpret_cast<int(**)()>(ptr);
     REQUIRE(idp() == IsDebuggerPresent());
 
     int (*crdp)(HANDLE, int *) = nullptr;
-    addr = reinterpret_cast<uintptr_t>(&CheckRemoteDebuggerPresent);
+    addr = crdpAddr;
     PMO::findNamedFunction(addr, &crdp);
     // ReSharper disable once CppCStyleCast
-    patterns[1].occurrences->push_back((uintptr_t) crdp);
+    debuggerPatterns[1].push_back((uintptr_t) crdp);
     // int (*crdp)(HANDLE, int *) = *reinterpret_cast<int(**)(HANDLE, int *)>(ptr);
     int outBB = 0;
     REQUIRE(1 == crdp(GetCurrentProcess(), &outBB));
     REQUIRE(1 == CheckRemoteDebuggerPresent(GetCurrentProcess(), &outB));
     REQUIRE(outBB == outB);
 
-    for (const auto &e : {patterns[0], patterns[1]})
+    auto knrlBase = GetModuleHandle("KERNELBASE.dll");
+    auto cnt = 0;
+    for (const auto &e : debuggerPatterns)
     {
-        for (const auto &p : *e.occurrences)
+        for (const auto &p : e)
         {
-            PMO::replaceCode<char>(p, e);
+            if (cnt++)
+                PMO::replaceCode<char>(p, e);
+            else
+                PMO::replaceCode<char>(p, e, PMO::devnull, &knrlBase);
             char *code = reinterpret_cast<char*>(p);
             for (size_t i = 0; i < e.codeLen; ++i, ++code)
             {
@@ -212,13 +243,10 @@ TEST_CASE("003 Test replace by function name", "[PMO]")
     REQUIRE(!outB);
 }
 
-TEST_CASE("002 Test find by traversing thunks", "[PMO]")
+TEST_CASE("02 Test find by traversing thunks", "[PMO]")
 {
-    // REQUIRE(FreeLibrary(GetModuleHandle("KERNEL32.dll")) != 0);
-    // HMODULE hDll = LoadLibrary("KERNEL32.dll");
-    // REQUIRE(hDll != nullptr);
-
-    auto addr = reinterpret_cast<uintptr_t>(&IsDebuggerPresent);
+    reset();
+    auto addr = idpAddr;
     int (*fn)() = nullptr;
     PMO::findNamedFunction(addr, &fn);
     HMODULE module = GetModuleHandle(nullptr);
@@ -227,31 +255,32 @@ TEST_CASE("002 Test find by traversing thunks", "[PMO]")
     std::deque<PMO::ImportInfo> imports;
     findImports(module, imports);
 
-    const auto pattern = PMO::Pattern{IDP_PATTERN,IDP_MASK,IDP_CODE};
+    // const auto pattern = PMO::Pattern{IDP_PATTERN,IDP_MASK,IDP_CODE};
 
-    std::deque<uintptr_t> funcs;
     for (auto &im : imports)
     {
         for (auto &gn : im.thunks | std::views::values)
         {
             if (gn == addr)
             {
-                auto ptr = reinterpret_cast<void**>(gn);
-                findPatterns(reinterpret_cast<uintptr_t>(*ptr), pattern.patternLen, pattern, funcs);
+                findPatterns(reinterpret_cast<uintptr_t>(*reinterpret_cast<void**>(gn)),
+                             debuggerPatterns[0].patternLen,
+                             debuggerPatterns[0]);
                 break;
             }
         }
-        if (!funcs.empty())
+        if (!debuggerPatterns[0].empty())
             break;
     }
     int (*fn1)() = &IsDebuggerPresent;
     REQUIRE(fn() == fn1());
-    int (*fn2)() = *reinterpret_cast<int(*)()>(funcs.back());
+    int (*fn2)() = *reinterpret_cast<int(*)()>(debuggerPatterns[0].back().address);
     REQUIRE(fn2() == fn1());
 }
 
-TEST_CASE("001 Test parse far jmp", "[PMO]")
+TEST_CASE("01 Test parse far jmp", "[PMO]")
 {
+    reset();
     uint8_t code[8];
     char *ptr = reinterpret_cast<char*>(&IsDebuggerPresent);
     for (size_t i = 0; *ptr != '\xCC'; ++ptr, ++i)
@@ -259,12 +288,82 @@ TEST_CASE("001 Test parse far jmp", "[PMO]")
         code[i] = *ptr;
     }
 
-    auto addr = reinterpret_cast<uintptr_t>(&IsDebuggerPresent);
+    auto addr = idpAddr;
     const auto out = parseJmpFar(code, addr);
     int (*fn)() = nullptr;
     const auto outTest = PMO::findNamedFunction(addr, &fn);
 
-    REQUIRE((addr - reinterpret_cast<uintptr_t>(&IsDebuggerPresent) - 7) == outTest);
+    REQUIRE((addr - idpAddr - 7) == outTest);
     REQUIRE(addr == out);
     REQUIRE(fn() == IsDebuggerPresent());
+}
+
+TEST_CASE("03 Test findProcessByName", "[PMO]")
+{
+    std::vector<DWORD> handles{};
+    char buffer[MAX_PATH];
+    GetModuleFileName(nullptr, buffer, MAX_PATH);
+    const std::filesystem::path path(buffer);
+    REQUIRE((path.has_filename() && "pmo.exe" == path.filename().string()));
+    PMO::getProcessesByName(path.filename().string(), handles);
+    REQUIRE((!handles.empty() && handles.back() == GetCurrentProcessId()));
+}
+
+TEST_CASE("06 Optional Test 6 test find code in memory of external process", "[PMO]")
+{
+    std::vector<DWORD> pids{};
+    std::string name;
+    for (const auto &e : {OBR_WIN64, OBR_WINGDK})
+    {
+        name = e;
+        PMO::getProcessesByName(name, pids);
+    }
+    if (pids.empty())
+        SKIP("OBR not running");
+    PMO::Pattern pattern{SLEEP_WAIT_PATTERN, SLEEP_WAIT_MASK, SLEEP_WAIT_CODE};
+    REQUIRE((findPatternsExternal(pids.back(), pattern, false) && !pattern.empty()));
+
+    HANDLE proc = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_WRITE,
+                              FALSE,
+                              pids.back());
+    REQUIRE(proc);
+    CloseHandle(proc);
+}
+
+TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[PMO]")
+{
+#ifdef VERBOSE
+    uintptr_t baseAddress = 0;
+#endif
+    std::vector<DWORD> pids{};
+    std::string name;
+    for (const auto &e : {OBR_WIN64, OBR_WINGDK})
+    {
+        name = e;
+#ifdef VERBOSE
+        baseAddress =
+#endif
+            PMO::getProcessesByName(name, pids);
+    }
+    if (pids.empty())
+        SKIP("OBR not running");
+    PMO::Pattern pattern{SLEEP_WAIT_PATTERN, SLEEP_WAIT_MASK, SLEEP_WAIT_CODE};
+    REQUIRE((findPatternsExternal(pids.back(), pattern, false) && !pattern.empty()));
+#ifdef VERBOSE
+    std::cout << std::hex << "base address: " << baseAddress << " ";
+    for (const auto &addr : pattern)
+    {
+        std::cout << "found address: " << addr << " delta: " << addr - baseAddress << " ";
+    }
+    std::cout << std::endl;
+#endif
+    HANDLE proc = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_WRITE,
+                              FALSE,
+                              pids.back());
+    REQUIRE(proc);
+    SECTION(name + " Replace code")
+    {
+        REQUIRE(replaceAllCodeExternal(proc, pattern));
+    }
+    CloseHandle(proc);
 }

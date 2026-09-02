@@ -18,10 +18,11 @@
 #ifndef IMAGEDIRECTORYENTRYTODATA_HPP
 #define IMAGEDIRECTORYENTRYTODATA_HPP
 
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <psapi.h>
 
-inline PIMAGE_SECTION_HEADER GetSectionHeaderByRva(PIMAGE_NT_HEADERS headers, const ULONG addr)
+inline PIMAGE_SECTION_HEADER GetSectionHeaderByRva(PIMAGE_NT_HEADERS headers, const ULONG addr) noexcept
 {
     PIMAGE_SECTION_HEADER section = IMAGE_FIRST_SECTION(headers);
     for (size_t i = 0; i < headers->FileHeader.NumberOfSections; ++i, ++section)
@@ -43,7 +44,7 @@ inline PVOID ImageDirectoryEntryToDataEx(
     const USHORT entry,
     PULONG size,
     PIMAGE_SECTION_HEADER *header = nullptr
-)
+) noexcept
 // ReSharper restore CppParameterMayBeConst
 {
     if (addr && size)

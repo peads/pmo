@@ -18,10 +18,15 @@
 #ifndef WMEMORYOPS_HPP
 #define WMEMORYOPS_HPP
 
+#include <filesystem>
+#include <future>
+
 #include "types/NullStream.hpp"
 #include "../MemoryOps.hpp"
 #include "types/ImportInfo.hpp"
 #include "windows/ImageDirectoryEntryToData.hpp"
+
+#define PID_NAME_LEN 8192
 
 namespace PMO
 {
@@ -38,7 +43,7 @@ namespace PMO
     inline HMODULE findModule(
         const char *(&names)[N],
         std::basic_ostream<U> &errBuf = devnull
-    )
+    ) noexcept
     {
         for (auto name : names)
         {
@@ -52,7 +57,7 @@ namespace PMO
         return nullptr;
     }
 
-    inline void getImportInfo(const HMODULE &module, MODULEINFO &info)
+    inline void getImportInfo(const HMODULE &module, MODULEINFO &info) noexcept
     {
         if (!module)
         {
@@ -83,8 +88,8 @@ namespace PMO
         const char *code,
         const size_t size,
         std::basic_ostream<T> &errBuf = devnull,
-        const HMODULE *module = nullptr
-    )
+        HMODULE *module = nullptr
+    ) noexcept
     {
         if (!addr || !code || !size)
         {
@@ -116,18 +121,26 @@ namespace PMO
     inline bool replaceCode(
         const uintptr_t addr,
         const Pattern &pattern,
-        std::basic_ostream<T> &errBuf = devnull
-    )
+        std::basic_ostream<T> &errBuf = devnull,
+        HMODULE *module = nullptr
+    ) noexcept
     {
-        return replaceCode<T>(reinterpret_cast<void*>(addr), pattern.code.cptr, pattern.codeLen, errBuf);
+        return replaceCode<T>(reinterpret_cast<void*>(addr),
+                              pattern.code.cptr,
+                              pattern.codeLen,
+                              errBuf,
+                              module);
     }
 
     inline bool findExportedFunctionName(
         const HMODULE &module,
         const uintptr_t keyAddr,
         std::string &out
-    )
+    ) noexcept
     {
+        if (!module)
+            return false;
+
         const auto baseAddress = reinterpret_cast<uintptr_t>(module);
         const auto dosHeader = reinterpret_cast<PIMAGE_DOS_HEADER>(baseAddress);
 
@@ -165,7 +178,7 @@ namespace PMO
         const HMODULE &module,
         const IMAGE_IMPORT_DESCRIPTOR &desc,
         ImportInfo &out
-    )
+    ) noexcept
     {
         auto thunk = reinterpret_cast<PIMAGE_THUNK_DATA>(
             reinterpret_cast<PBYTE>(module) + desc.FirstThunk);
@@ -174,16 +187,18 @@ namespace PMO
             uintptr_t fn = thunk->u1.Function;
             uintptr_t gn = 0;
 
-            const auto thisModule = GetModuleHandle(out.name);
-            if (std::string str; findExportedFunctionName(thisModule, fn, str))
-                out.fnNames.emplace(fn, str);
-            findNamedFunction(fn, &gn);
-            out.thunks.emplace(fn, gn);
+            if (const auto thisModule = GetModuleHandle(out.name); thisModule)
+            {
+                if (std::string str; findExportedFunctionName(thisModule, fn, str))
+                    out.fnNames.emplace(fn, str);
+                findNamedFunction(fn, &gn);
+                out.thunks.emplace(fn, gn);
+            }
         }
     }
 
     template <PseudoContainer T>
-    inline void findImports(const HMODULE &module, T &out)
+    inline void findImports(const HMODULE &module, T &out) noexcept
     {
         ULONG size;
         auto importDescriptor = static_cast<PIMAGE_IMPORT_DESCRIPTOR>(
@@ -208,10 +223,166 @@ namespace PMO
         }
     }
 
+    inline bool findPatternsExternal(const DWORD &pid, Pattern &searchStruct,
+        const bool stopOne = false) noexcept
+    {
+        const auto proc = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, FALSE, pid);
+        if (!proc)
+        {
+            return false;
+        }
+        bool result = false;
+        MEMORY_BASIC_INFORMATION mbi;
+        std::vector<char> buffer(8192);
+
+        for (uintptr_t address = 0;
+             VirtualQueryEx(proc, reinterpret_cast<LPCVOID>(address), &mbi, sizeof(mbi)) == sizeof(
+                 mbi); address = reinterpret_cast<uintptr_t>(mbi.BaseAddress) + mbi.RegionSize)
+        {
+            if (mbi.State == MEM_COMMIT && (mbi.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ |
+                PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)))
+            {
+                size_t bytesRead = 0;
+                if (buffer.size() < mbi.RegionSize)
+                    buffer.resize(mbi.RegionSize);
+                if (ReadProcessMemory(proc,
+                                      mbi.BaseAddress,
+                                      buffer.data(),
+                                      mbi.RegionSize,
+                                      &bytesRead))
+                {
+                    size_t rva = 0;
+                    for (auto data = buffer.data(); data < bytesRead + buffer.data(); ++rva)
+                    {
+
+                        auto view = std::views::zip(
+                            std::span(searchStruct.pattern.cptr, searchStruct.patternLen),
+                            std::span(searchStruct.mask.cptr, searchStruct.patternLen),
+                            std::span(data, searchStruct.patternLen)
+                        );
+                        bool notHit = true;
+                        for (const auto &[pat, msk, val] : view)
+                        {
+                            if ('?' != msk && ((notHit = pat ^ val)))
+                            {
+                                break;
+                            }
+                        }
+                        if (notHit)
+                        {
+                            ++data;
+                        }
+                        else
+                        {
+                            searchStruct.
+                                push_back(reinterpret_cast<uintptr_t>(mbi.BaseAddress) + rva);
+                            if (stopOne)
+                            {
+                                CloseHandle(proc);
+                                return true;
+                            }
+                            result = true;
+                            data += searchStruct.patternLen;
+                        }
+                    }
+                }
+            }
+        }
+
+        CloseHandle(proc);
+        return result;
+    }
+
+    inline uintptr_t getProcessesByName(const std::string &key, std::vector<DWORD> &out) noexcept
+    {
+        uintptr_t result = 0;
+        DWORD cbNeeded;
+        size_t size = PID_NAME_LEN * sizeof(DWORD);
+        // TODO consider reimplementing EnumProcesses with calls to NtQuerySystemInformation
+        if (DWORD pids[PID_NAME_LEN]; EnumProcesses(pids, size, &cbNeeded) && cbNeeded <= size)
+        {
+            // TODO consider re-processing with larger storage e.g.,
+            //    std::vector<DWORD, cbNeeded / sizeof(DWORD)>{};
+            const size_t len = cbNeeded / sizeof(DWORD);
+            if (len > PID_NAME_LEN)
+                return -1;
+            // HMODULE modules[LEN];
+            size = PID_NAME_LEN * sizeof(HMODULE);
+
+            for (size_t i = 0; i < len; ++i)
+            {
+                if (0xCCCC'CCCC == pids[i])
+                    continue;
+                // ReSharper disable once CppLocalVariableMayBeConst
+                HANDLE proc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
+                                          FALSE,
+                                          pids[i]);
+                if (char name[MAX_PATH]; proc && GetProcessImageFileName(proc, name, MAX_PATH))
+                {
+                    if (std::filesystem::path path(static_cast<const char*>(name)); path.
+                        has_filename() && path.filename().string() == key)
+                    {
+                        out.push_back(pids[i]);
+                        HMODULE mods[1024];
+                        MODULEINFO modInfo;
+                        // Enumerate process modules
+                        if (EnumProcessModules(proc, mods, sizeof(mods), &cbNeeded)
+                            && GetModuleInformation(proc, mods[0], &modInfo, sizeof(modInfo)))
+                        {
+                            result = reinterpret_cast<uintptr_t>(modInfo.lpBaseOfDll);
+                        }
+                    }
+                }
+                CloseHandle(proc);
+            }
+        }
+        return result;
+    }
+
+    static inline bool replaceCodeExternal(HANDLE proc, void *address, const Pattern &pattern) noexcept
+    {
+        size_t bytesWritten = 0;
+        if (!WriteProcessMemory(proc,
+                                address,
+                                pattern.code.ptr,
+                                pattern.codeLen,
+                                &bytesWritten))
+            return false;
+        return true;
+    }
+
+    inline bool replaceCodeExternal(HANDLE proc, Pattern &pattern) noexcept
+    {
+        DWORD exitCode = 0;
+        if (!proc || pattern.empty() || GetExitCodeProcess(proc, &exitCode) && STILL_ACTIVE != exitCode)
+        {
+            return false;
+        }
+
+        return replaceCodeExternal(proc, pattern.back().ptr, pattern);
+    }
+
+    inline bool replaceAllCodeExternal(HANDLE proc, Pattern &pattern) noexcept
+    {
+        DWORD exitCode = 0;
+        if (!proc || pattern.empty() || GetExitCodeProcess(proc, &exitCode) && STILL_ACTIVE != exitCode)
+        {
+            return false;
+        }
+        return std::ranges::all_of(pattern, [&proc, &pattern](const uintptr_t addr)
+        {
+            void *address = reinterpret_cast<void *>(addr);
+            return replaceCodeExternal(proc, address, pattern);
+        });
+    }
+
     namespace Debug
     {
-        template<typename T>
-        inline void parseType(const MEMORY_BASIC_INFORMATION &mbi, std::basic_ostream<T> &out = devnull)
+        template <typename T>
+        inline void parseType(
+            const MEMORY_BASIC_INFORMATION &mbi,
+            std::basic_ostream<T> &out = devnull
+        )
         {
             constexpr uint64_t masks[] = {MEM_IMAGE, MEM_MAPPED, MEM_PRIVATE};
             auto type = mbi.Type;
@@ -219,10 +390,10 @@ namespace PMO
             {
                 out << "MEM_FREE";
             }
-            auto mPtr = masks;
-            for (; type; type ^= *mPtr++)
+
+            for (auto &mask : masks)
             {
-                switch (type & *mPtr)
+                switch (type & mask)
                 {
                     case MEM_IMAGE:
                         out << "MEM_IMAGE ";
@@ -234,7 +405,7 @@ namespace PMO
                         out << "MEM_PRIVATE ";
                         break;
                     default:
-                        out << "invalid value ";
+                        // out << "invalid value ";
                         break;
                 }
             }

@@ -19,17 +19,19 @@
 #define PSEUDOCONTAINER_HPP
 
 #include <concepts>
-
-template <typename T>
-concept PseudoContainer = requires(T c)
+namespace PMO
 {
-    typename T::value_type;
-    typename T::iterator;
-    typename T::const_iterator;
-    typename T::size_type;
-    { c.begin() }->std::same_as<typename T::iterator>;
-    { c.end() }->std::same_as<typename T::iterator>;
-    { c.size() }->std::same_as<typename T::size_type>;
-    { c.empty() }->std::convertible_to<bool>;
-};
+    template <typename T>
+    concept PseudoContainer = requires(T c)
+    {
+        typename T::value_type;
+        typename T::iterator;
+        typename T::const_iterator;
+        typename T::size_type;
+        { c.begin() }->std::same_as<typename T::iterator>;
+        { c.end() }->std::same_as<typename T::iterator>;
+        { c.size() }->std::same_as<typename T::size_type>;
+        { c.empty() }->std::convertible_to<bool>;
+    };
+}
 #endif // PSEUDOCONTAINER_HPP

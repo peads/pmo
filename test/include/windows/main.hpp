@@ -15,36 +15,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef POINTERUNION_HPP
-#define POINTERUNION_HPP
 
-namespace PMO
-{
-    union PointerUnion
-    {
-        void *ptr = nullptr;
-        char *cptr;
-        const uintptr_t address;
-        const char *str;
-        uint64_t *u64ptr;
-
-        bool operator<(const PointerUnion &a) const noexcept
-        {
-            return address < a.address;
-        }
-
-        bool operator==(const PointerUnion &a) const noexcept
-        {
-            return address == a.address;
-        }
-    };
-}
-
-template <>
-struct std::hash<PMO::PointerUnion> {
-    size_t operator()(const PMO::PointerUnion &a) const noexcept
-    {
-        return std::hash<uint64_t>{}(a.address);
-    }
-};
-#endif //POINTERUNION_HPP
+#ifndef WMAIN_HPP
+#define WMAIN_HPP
+#include "windows/MemoryOps.hpp"
+#ifdef TEST_OBR
+#define SLEEP_WAIT_PATTERN      "\xF3\x0F\x10\x35\xF4\x9B\xCA\x01\xF3\x0F\x58\xC6\xF3\x0F\x11\x05"
+#define SLEEP_WAIT_MASK         "xxxxxxxxxxxxxxxx"
+#define SLEEP_WAIT_CODE         "\x0F\x57\xC0\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#define OBR_WIN64               "OblivionRemastered-Win64-Shipping.exe"
+#define OBR_WINGDK              "OblivionRemastered-WinGDK-Shipping.exe"
+#endif
+static const auto idpAddr = reinterpret_cast<uintptr_t>(&IsDebuggerPresent);
+static const auto crdpAddr = reinterpret_cast<uintptr_t>(&CheckRemoteDebuggerPresent);
+#endif //WMAIN_HPP

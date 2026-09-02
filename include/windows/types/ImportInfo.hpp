@@ -17,6 +17,8 @@
  */
 #ifndef IMPORTINFO_HPP
 #define IMPORTINFO_HPP
+
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <unordered_map>
 
@@ -29,15 +31,23 @@ namespace PMO
         std::unordered_map<uintptr_t, std::string> fnNames{};
         std::unordered_map<uintptr_t, uintptr_t> thunks{};
 
-        bool operator<(const ImportInfo &a) const
+        bool operator<(const ImportInfo &a) const noexcept
         {
             return name < a.name;
         }
 
-        bool operator==(const ImportInfo &a) const
+        bool operator==(const ImportInfo &a) const noexcept
         {
             return name == a.name;
         }
     };
 }
+
+template <>
+struct std::hash<PMO::ImportInfo> {
+    size_t operator()(const PMO::ImportInfo &a) const noexcept
+    {
+        return std::hash<std::string>{}(a.name);
+    }
+};
 #endif //IMPORTINFO_HPP
