@@ -341,14 +341,7 @@ namespace PMO
 
     static inline bool replaceCodeExternal(HANDLE proc, void *address, const Pattern &pattern) noexcept
     {
-        size_t bytesWritten = 0;
-        if (!WriteProcessMemory(proc,
-                                address,
-                                pattern.code.ptr,
-                                pattern.codeLen,
-                                &bytesWritten))
-            return false;
-        return true;
+        return WriteProcessMemory(proc, address, pattern.code.ptr, pattern.codeLen, nullptr);
     }
 
     inline bool replaceCodeExternal(HANDLE proc, Pattern &pattern) noexcept
@@ -364,15 +357,16 @@ namespace PMO
 
     inline bool replaceAllCodeExternal(HANDLE proc, Pattern &pattern) noexcept
     {
-        DWORD exitCode = 0;
-        if (!proc || pattern.empty() || GetExitCodeProcess(proc, &exitCode) && STILL_ACTIVE != exitCode)
-        {
-            return false;
-        }
+        // DWORD exitCode = 0;
+        // if (!proc || pattern.empty() || GetExitCodeProcess(proc, &exitCode) && STILL_ACTIVE != exitCode)
+        // {
+        //     return false;
+        // }
         return std::ranges::all_of(pattern, [&proc, &pattern](const uintptr_t addr)
         {
-            void *address = reinterpret_cast<void *>(addr);
-            return replaceCodeExternal(proc, address, pattern);
+            // void *address = reinterpret_cast<void *>(addr);
+            // return replaceCodeExternal(proc, address, pattern);
+            return replaceCodeExternal(proc, pattern);
         });
     }
 

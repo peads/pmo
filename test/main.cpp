@@ -312,22 +312,13 @@ TEST_CASE("03 Test findProcessByName", "[PMO]")
 TEST_CASE("06 Optional Test 6 test find code in memory of external process", "[PMO]")
 {
     std::vector<DWORD> pids{};
-    std::string name;
     for (const auto &e : {OBR_WIN64, OBR_WINGDK})
     {
-        name = e;
-        PMO::getProcessesByName(name, pids);
+        PMO::getProcessesByName(e, pids);
     }
     if (pids.empty())
         SKIP("OBR not running");
-    PMO::Pattern pattern{SLEEP_WAIT_PATTERN, SLEEP_WAIT_MASK, SLEEP_WAIT_CODE};
-    REQUIRE((findPatternsExternal(pids.back(), pattern, false) && !pattern.empty()));
-
-    HANDLE proc = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_WRITE,
-                              FALSE,
-                              pids.back());
-    REQUIRE(proc);
-    CloseHandle(proc);
+    REQUIRE((findPatternsExternal(pids.back(), swPattern, false) && !swPattern.empty()));
 }
 
 TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[PMO]")
@@ -343,15 +334,14 @@ TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[P
 #ifdef VERBOSE
         baseAddress =
 #endif
-            PMO::getProcessesByName(name, pids);
+        PMO::getProcessesByName(name, pids);
     }
     if (pids.empty())
         SKIP("OBR not running");
-    PMO::Pattern pattern{SLEEP_WAIT_PATTERN, SLEEP_WAIT_MASK, SLEEP_WAIT_CODE};
-    REQUIRE((findPatternsExternal(pids.back(), pattern, false) && !pattern.empty()));
+    REQUIRE((findPatternsExternal(pids.back(), swPattern, false) && !swPattern.empty()));
 #ifdef VERBOSE
     std::cout << std::hex << "base address: " << baseAddress << " ";
-    for (const auto &addr : pattern)
+    for (const auto &addr : swPattern)
     {
         std::cout << "found address: " << addr << " delta: " << addr - baseAddress << " ";
     }
@@ -363,7 +353,7 @@ TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[P
     REQUIRE(proc);
     SECTION(name + " Replace code")
     {
-        REQUIRE(replaceAllCodeExternal(proc, pattern));
+        REQUIRE(replaceAllCodeExternal(proc, swPattern));
     }
     CloseHandle(proc);
 }
