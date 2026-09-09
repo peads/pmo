@@ -71,9 +71,6 @@ namespace PMO
     {
         bool result = false;
 
-        static uint32_t pCnt = -1;
-        static std::string smallest;
-
         const auto pend = searchStruct.pattern.u64ptr + searchStruct.pSize;
         for (auto *ptr = reinterpret_cast<uint8_t*>(addr);
              ptr && reinterpret_cast<uintptr_t>(ptr) < len + addr;)

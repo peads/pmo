@@ -235,6 +235,8 @@ namespace PMO
         MEMORY_BASIC_INFORMATION mbi;
         std::vector<char> buffer(8192);
 
+        const auto end = searchStruct.pattern.cptr + searchStruct.patternLen;
+
         for (uintptr_t address = 0;
              VirtualQueryEx(proc, reinterpret_cast<LPCVOID>(address), &mbi, sizeof(mbi)) == sizeof(
                  mbi); address = reinterpret_cast<uintptr_t>(mbi.BaseAddress) + mbi.RegionSize)
@@ -255,15 +257,18 @@ namespace PMO
                     for (auto data = buffer.data(); data < bytesRead + buffer.data(); ++rva)
                     {
 
-                        auto view = std::views::zip(
-                            std::span(searchStruct.pattern.cptr, searchStruct.patternLen),
-                            std::span(searchStruct.mask.cptr, searchStruct.patternLen),
-                            std::span(data, searchStruct.patternLen)
-                        );
+                        // auto view = std::views::zip(
+                        //     std::span(searchStruct.pattern.cptr, searchStruct.patternLen),
+                        //     std::span(searchStruct.mask.cptr, searchStruct.patternLen),
+                        //     std::span(data, searchStruct.patternLen)
+                        // );
                         bool notHit = true;
-                        for (const auto &[pat, msk, val] : view)
+                        // for (const auto &[pat, msk, val] : view)
+                        for (auto pat = searchStruct.pattern.cptr,
+                                  msk = searchStruct.mask.cptr,
+                                  val = data; pat < end; ++pat, ++msk, ++val)
                         {
-                            if ('?' != msk && ((notHit = pat ^ val)))
+                            if ('?' != *msk && ((notHit = *pat ^ *val)))
                             {
                                 break;
                             }
