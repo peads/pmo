@@ -20,7 +20,7 @@
 
 #include "types/Pattern.hpp"
 #include "parse/ParseJmp.hpp"
-
+#include <limits>
 #define STREAM_LEN (1 << 21)
 
 namespace PMO
@@ -67,22 +67,30 @@ namespace PMO
     }
 
     inline bool findPatterns(const uintptr_t addr, size_t len, Pattern &searchStruct,
-        const bool stopOne = false) noexcept
+        const uint64_t offset = 0, const bool stopOne = false) noexcept
     {
         bool result = false;
 
+        static uint32_t pCnt = -1;
+        static std::string smallest;
+
+        const auto pend = searchStruct.pattern.u64ptr + searchStruct.pSize;
         for (auto *ptr = reinterpret_cast<uint8_t*>(addr);
              ptr && reinterpret_cast<uintptr_t>(ptr) < len + addr;)
         {
             uint64_t notHit = -1;
-            auto baseAddr = reinterpret_cast<uint64_t*>(ptr);
             size_t shift = 1;
-            for (const auto &[pat, pmsk, bmsk] : searchStruct.view())
+
+            auto baseAddr = reinterpret_cast<uint64_t*>(ptr);
+            auto pat = searchStruct.pattern.u64ptr;
+            for (auto pmsk = searchStruct.pmsk().data(),
+                bmsk = searchStruct.bmsk().data();
+                pat < pend; ++pmsk, ++bmsk, ++pat)
             {
-                const auto val = *baseAddr & pmsk;
-                const auto valMasked = val | bmsk;
-                const auto patMasked = pat & pmsk | bmsk;
-                if (((notHit = valMasked ^ patMasked)))
+                const auto val = *baseAddr & *pmsk;
+                const auto valMasked = val | *bmsk;
+                const auto patMasked = *pat & *pmsk | *bmsk;
+                if ((notHit = valMasked ^ patMasked))
                 {
                     shift = std::countr_zero(notHit) >> 3;
                     shift = shift < 1 ? 1 : shift;
@@ -95,12 +103,12 @@ namespace PMO
             {
                 ptr += shift;   // xx[xxxxxxxx]x ... xx0
                 len -= shift;   // xxx[xxxxxxxx] ... xx0
-                // xxx[xxxxxxxx]x ... x0
+                                // xxx[xxxxxxxx]x ... x0
             }
             else
             {
                 result = true;
-                searchStruct.push_back(reinterpret_cast<uintptr_t>(ptr));
+                searchStruct.push_back(reinterpret_cast<uintptr_t>(ptr) + offset);
                 if (stopOne)
                     break;
                 ptr += 8;   // [yyyyyyyy]xxxxxxxx

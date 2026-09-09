@@ -357,15 +357,8 @@ namespace PMO
 
     inline bool replaceAllCodeExternal(HANDLE proc, Pattern &pattern) noexcept
     {
-        // DWORD exitCode = 0;
-        // if (!proc || pattern.empty() || GetExitCodeProcess(proc, &exitCode) && STILL_ACTIVE != exitCode)
-        // {
-        //     return false;
-        // }
         return std::ranges::all_of(pattern, [&proc, &pattern](const uintptr_t addr)
         {
-            // void *address = reinterpret_cast<void *>(addr);
-            // return replaceCodeExternal(proc, address, pattern);
             return replaceCodeExternal(proc, pattern);
         });
     }
