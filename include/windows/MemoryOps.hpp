@@ -19,7 +19,6 @@
 #define WMEMORYOPS_HPP
 
 #include <filesystem>
-#include <future>
 
 #include "types/NullStream.hpp"
 #include "../MemoryOps.hpp"
@@ -223,6 +222,8 @@ namespace PMO
         }
     }
 
+    // no it doesn't. ReSharper can't even reference types in structs
+    // ReSharper disable once CppDFAConstantFunctionResult
     inline bool findPatternsExternal(const DWORD &pid, Pattern &searchStruct,
         const bool stopOne = false) noexcept
     {
@@ -234,6 +235,9 @@ namespace PMO
         bool result = false;
         MEMORY_BASIC_INFORMATION mbi;
         std::vector<char> buffer(8192);
+
+        const auto end = searchStruct.pattern.cptr + searchStruct.patternLen;
+        const PointerUnion theEnd = {.cptr = end};
 
         for (uintptr_t address = 0;
              VirtualQueryEx(proc, reinterpret_cast<LPCVOID>(address), &mbi, sizeof(mbi)) == sizeof(
@@ -252,43 +256,23 @@ namespace PMO
                                       &bytesRead))
                 {
                     size_t rva = 0;
-                    for (auto data = buffer.data(); data < bytesRead + buffer.data(); ++rva)
-                    {
-
-                        auto view = std::views::zip(
-                            std::span(searchStruct.pattern.cptr, searchStruct.patternLen),
-                            std::span(searchStruct.mask.cptr, searchStruct.patternLen),
-                            std::span(data, searchStruct.patternLen)
-                        );
-                        bool notHit = true;
-                        for (const auto &[pat, msk, val] : view)
-                        {
-                            if ('?' != msk && ((notHit = pat ^ val)))
-                            {
-                                break;
-                            }
-                        }
-                        if (notHit)
-                        {
-                            ++data;
-                        }
-                        else
-                        {
-                            searchStruct.
-                                push_back(reinterpret_cast<uintptr_t>(mbi.BaseAddress) + rva);
-                            if (stopOne)
-                            {
-                                CloseHandle(proc);
-                                return true;
-                            }
-                            result = true;
-                            data += searchStruct.patternLen;
-                        }
-                    }
+                    PointerUnion pointer = {.cptr = buffer.data()};
+                    SearchContext ctx{
+                        .theEnd = theEnd,
+                        .offset = reinterpret_cast<uintptr_t>(mbi.BaseAddress) - pointer.address,
+                        .pointer = pointer,
+                        .len = rva,
+                        .searchStruct = searchStruct,
+                        .result = result,
+                    };
+                    // TODO figure out if shift is applied during this traversal
+                    while (pointer.cptr < bytesRead + buffer.data())
+                        if (searchChunked(ctx) && stopOne)
+                            goto finished;
                 }
             }
         }
-
+finished:
         CloseHandle(proc);
         return result;
     }
@@ -341,14 +325,7 @@ namespace PMO
 
     static inline bool replaceCodeExternal(HANDLE proc, void *address, const Pattern &pattern) noexcept
     {
-        size_t bytesWritten = 0;
-        if (!WriteProcessMemory(proc,
-                                address,
-                                pattern.code.ptr,
-                                pattern.codeLen,
-                                &bytesWritten))
-            return false;
-        return true;
+        return WriteProcessMemory(proc, address, pattern.code.ptr, pattern.codeLen, nullptr);
     }
 
     inline bool replaceCodeExternal(HANDLE proc, Pattern &pattern) noexcept
@@ -364,15 +341,9 @@ namespace PMO
 
     inline bool replaceAllCodeExternal(HANDLE proc, Pattern &pattern) noexcept
     {
-        DWORD exitCode = 0;
-        if (!proc || pattern.empty() || GetExitCodeProcess(proc, &exitCode) && STILL_ACTIVE != exitCode)
-        {
-            return false;
-        }
         return std::ranges::all_of(pattern, [&proc, &pattern](const uintptr_t addr)
         {
-            void *address = reinterpret_cast<void *>(addr);
-            return replaceCodeExternal(proc, address, pattern);
+            return replaceCodeExternal(proc, pattern);
         });
     }
 

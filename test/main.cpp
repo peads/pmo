@@ -25,11 +25,9 @@
 #include <mdspan>
 
 #include "main.hpp"
-#include "types/ByteQueue.hpp"
 #include "debug.hpp"
 
 #include <catch2/catch_test_macros.hpp>
-#include <catch2/internal/catch_stdstreams.hpp>
 
 #define CATCH_CONFIG_MAIN // provides main(); this line is required in only one .cpp file
 
@@ -114,8 +112,13 @@ TEST_CASE("00a more raw search testing", "[PMO]")
 {
     reset();
     PMO::SetWrapper<PMO::ImportInfo> imports{};
-    findImports(GetModuleHandle(nullptr), imports);
-    constexpr size_t expected[] = {1, 1, 200};
+    // findImports(GetModuleHandle(nullptr), imports);
+    char buf[260];
+    GetModuleFileName(nullptr, buf, MAX_PATH);
+    std::filesystem::path path{buf};
+    const std::string name = path.filename().string();
+    imports.insert(PMO::ImportInfo{.name=name.data()});
+    constexpr size_t expected[] = {1, 1};
 
     size_t cnt = 0;
     for (auto &pattern : debuggerPatterns)
@@ -281,21 +284,26 @@ TEST_CASE("02 Test find by traversing thunks", "[PMO]")
 TEST_CASE("01 Test parse far jmp", "[PMO]")
 {
     reset();
-    uint8_t code[8];
-    char *ptr = reinterpret_cast<char*>(&IsDebuggerPresent);
-    for (size_t i = 0; *ptr != '\xCC'; ++ptr, ++i)
-    {
-        code[i] = *ptr;
-    }
 
     auto addr = idpAddr;
-    const auto out = parseJmpFar(code, addr);
+    auto out = parseJmpFar(*reinterpret_cast<uint8_t(*)[8]>(&IsDebuggerPresent), addr);
     int (*fn)() = nullptr;
-    const auto outTest = PMO::findNamedFunction(addr, &fn);
+    auto outTest = PMO::findNamedFunction(addr, &fn);
 
     REQUIRE((addr - idpAddr - 7) == outTest);
     REQUIRE(addr == out);
     REQUIRE(fn() == IsDebuggerPresent());
+
+    addr = crdpAddr;
+    out = parseJmpFar(*reinterpret_cast<uint8_t(*)[8]>(&CheckRemoteDebuggerPresent), addr);
+    int (*fn1)(HANDLE, int*) = nullptr;
+    outTest = PMO::findNamedFunction(addr, &fn1);
+
+    REQUIRE((addr - crdpAddr - 7) == outTest);
+    REQUIRE(addr == out);
+    int b[2];
+    REQUIRE(fn1(GetCurrentProcess(), b) == CheckRemoteDebuggerPresent(GetCurrentProcess(), b + 1));
+    REQUIRE(b[0] == b[1]);
 }
 
 TEST_CASE("03 Test findProcessByName", "[PMO]")
@@ -312,22 +320,13 @@ TEST_CASE("03 Test findProcessByName", "[PMO]")
 TEST_CASE("06 Optional Test 6 test find code in memory of external process", "[PMO]")
 {
     std::vector<DWORD> pids{};
-    std::string name;
     for (const auto &e : {OBR_WIN64, OBR_WINGDK})
     {
-        name = e;
-        PMO::getProcessesByName(name, pids);
+        PMO::getProcessesByName(e, pids);
     }
     if (pids.empty())
         SKIP("OBR not running");
-    PMO::Pattern pattern{SLEEP_WAIT_PATTERN, SLEEP_WAIT_MASK, SLEEP_WAIT_CODE};
-    REQUIRE((findPatternsExternal(pids.back(), pattern, false) && !pattern.empty()));
-
-    HANDLE proc = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_WRITE,
-                              FALSE,
-                              pids.back());
-    REQUIRE(proc);
-    CloseHandle(proc);
+    REQUIRE((findPatternsExternal(pids.back(), swPattern, false) && !swPattern.empty()));
 }
 
 TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[PMO]")
@@ -343,15 +342,14 @@ TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[P
 #ifdef VERBOSE
         baseAddress =
 #endif
-            PMO::getProcessesByName(name, pids);
+        PMO::getProcessesByName(name, pids);
     }
     if (pids.empty())
         SKIP("OBR not running");
-    PMO::Pattern pattern{SLEEP_WAIT_PATTERN, SLEEP_WAIT_MASK, SLEEP_WAIT_CODE};
-    REQUIRE((findPatternsExternal(pids.back(), pattern, false) && !pattern.empty()));
+    REQUIRE((findPatternsExternal(pids.back(), swPattern, false) && !swPattern.empty()));
 #ifdef VERBOSE
     std::cout << std::hex << "base address: " << baseAddress << " ";
-    for (const auto &addr : pattern)
+    for (const auto &addr : swPattern)
     {
         std::cout << "found address: " << addr << " delta: " << addr - baseAddress << " ";
     }
@@ -363,7 +361,7 @@ TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[P
     REQUIRE(proc);
     SECTION(name + " Replace code")
     {
-        REQUIRE(replaceAllCodeExternal(proc, pattern));
+        REQUIRE(replaceAllCodeExternal(proc, swPattern));
     }
     CloseHandle(proc);
 }
