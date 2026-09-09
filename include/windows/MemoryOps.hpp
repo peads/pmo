@@ -256,14 +256,7 @@ namespace PMO
                     size_t rva = 0;
                     for (auto data = buffer.data(); data < bytesRead + buffer.data(); ++rva)
                     {
-
-                        // auto view = std::views::zip(
-                        //     std::span(searchStruct.pattern.cptr, searchStruct.patternLen),
-                        //     std::span(searchStruct.mask.cptr, searchStruct.patternLen),
-                        //     std::span(data, searchStruct.patternLen)
-                        // );
                         bool notHit = true;
-                        // for (const auto &[pat, msk, val] : view)
                         for (auto pat = searchStruct.pattern.cptr,
                                   msk = searchStruct.mask.cptr,
                                   val = data; pat < end; ++pat, ++msk, ++val)

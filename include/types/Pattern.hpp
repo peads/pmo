@@ -42,8 +42,7 @@ namespace PMO
 
         /**
          *
-         * @param cptr NULL-terminated pattern mask string
-         * @param optr Output pointer
+         * @param smask string mask to convert
          * @param isFine Indicates coarseness of mask
          */
         template <size_t M>
@@ -104,7 +103,6 @@ namespace PMO
             const PointerUnion pattern;
             const PointerUnion mask;
             const PointerUnion code;
-            // const SetWrapper<uint64_t> &occurrences = m_occurrences;
 
             void reset() noexcept
             {
@@ -147,14 +145,6 @@ namespace PMO
             {
                 return PointerUnion{.address = m_occurrences.back()};
             }
-
-            // [[nodiscard]] std::ranges::zip_view<
-            //     std::span<uint64_t>,
-            //     std::ranges::ref_view<const std::vector<uint64_t>>,
-            //     std::ranges::ref_view<const std::vector<uint64_t>>> view() const noexcept
-            // {
-            //     return std::views::zip(std::span(pattern.u64ptr, pSize), searchMask, byteMask);
-            // }
 
             [[nodiscard]] auto pmsk() const noexcept
             {
