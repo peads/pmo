@@ -20,7 +20,6 @@
 
 #include "types/Pattern.hpp"
 #include "parse/ParseJmp.hpp"
-#include <limits>
 #define STREAM_LEN (1 << 21)
 
 namespace PMO
@@ -148,8 +147,8 @@ namespace PMO
                              const searchFunc search = searchChunked) noexcept
     {
         bool result = false;
-        const PointerUnion theEnd = {.u64ptr = searchStruct.pattern.u64ptr + searchStruct.pSize};
-        PointerUnion pointer = {.u8ptr = reinterpret_cast<uint8_t*>(addr)};
+        const PointerUnion theEnd = {.address = searchStruct.pattern.address + searchStruct.patternLen};
+        PointerUnion pointer = {.address = addr};
 
         SearchContext ctx{
             .theEnd = theEnd,

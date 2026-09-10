@@ -223,6 +223,8 @@ namespace PMO
         }
     }
 
+    // no it doesn't. ReSharper can't even reference types in structs
+    // ReSharper disable once CppDFAConstantFunctionResult
     inline bool findPatternsExternal(const DWORD &pid, Pattern &searchStruct,
         const bool stopOne = false) noexcept
     {
@@ -236,6 +238,7 @@ namespace PMO
         std::vector<char> buffer(8192);
 
         const auto end = searchStruct.pattern.cptr + searchStruct.patternLen;
+        const PointerUnion theEnd = {.cptr = end};
 
         for (uintptr_t address = 0;
              VirtualQueryEx(proc, reinterpret_cast<LPCVOID>(address), &mbi, sizeof(mbi)) == sizeof(
@@ -254,39 +257,23 @@ namespace PMO
                                       &bytesRead))
                 {
                     size_t rva = 0;
-                    for (auto data = buffer.data(); data < bytesRead + buffer.data(); ++rva)
-                    {
-                        bool notHit = true;
-                        for (auto pat = searchStruct.pattern.cptr,
-                                  msk = searchStruct.mask.cptr,
-                                  val = data; pat < end; ++pat, ++msk, ++val)
-                        {
-                            if ('?' != *msk && ((notHit = *pat ^ *val)))
-                            {
-                                break;
-                            }
-                        }
-                        if (notHit)
-                        {
-                            ++data;
-                        }
-                        else
-                        {
-                            searchStruct.
-                                push_back(reinterpret_cast<uintptr_t>(mbi.BaseAddress) + rva);
-                            if (stopOne)
-                            {
-                                CloseHandle(proc);
-                                return true;
-                            }
-                            result = true;
-                            data += searchStruct.patternLen;
-                        }
-                    }
+                    PointerUnion pointer = {.cptr = buffer.data()};
+                    SearchContext ctx{
+                        .theEnd = theEnd,
+                        .offset = reinterpret_cast<uintptr_t>(mbi.BaseAddress) - pointer.address,
+                        .pointer = pointer,
+                        .len = rva,
+                        .searchStruct = searchStruct,
+                        .result = result,
+                    };
+                    // TODO figure out if shift is applied during this traversal
+                    while (pointer.cptr < bytesRead + buffer.data())
+                        if (searchChunked(ctx) && stopOne)
+                            goto finished;
                 }
             }
         }
-
+finished:
         CloseHandle(proc);
         return result;
     }
