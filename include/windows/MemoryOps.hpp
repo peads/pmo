@@ -237,8 +237,7 @@ namespace PMO
             ++pointer.cptr;
         else
         {
-            searchStruct.
-                push_back(len + offset);
+            searchStruct.push_back(len + offset);
             result = true;
             pointer.cptr += searchStruct.patternLen;
         }
@@ -282,21 +281,29 @@ namespace PMO
                     PointerUnion pointer = {.cptr = buffer.data()};
                     SearchContext ctx{
                         .theEnd = theEnd,
-                        .offset = reinterpret_cast<uintptr_t>(mbi.BaseAddress),
+                        .offset = reinterpret_cast<uintptr_t>(mbi.BaseAddress) - pointer.address,
                         .pointer = pointer,
                         .len = rva,
                         .searchStruct = searchStruct,
                         .result = result,
                     };
-                    for (; pointer.cptr < bytesRead + buffer.data(); ++ctx.len)
+                    while (pointer.cptr < bytesRead + buffer.data())
                     {
-                        if (searchExternal(ctx) && stopOne)
-                            break;
+                        if (searchChunked(ctx) && stopOne)
+                            goto finished;
                     }
+                    // for (; pointer.cptr < bytesRead + buffer.data(); ++ctx.len)
+                    // {
+                    //     if (searchExternal(ctx) && stopOne)
+                    //     {
+                    //         CloseHandle(proc);
+                    //         return true;
+                    //     }
+                    // }
                 }
             }
         }
-
+finished:
         CloseHandle(proc);
         return result;
     }
