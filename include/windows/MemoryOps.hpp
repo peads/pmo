@@ -223,6 +223,30 @@ namespace PMO
         }
     }
 
+    inline bool searchExternal(SearchContext ctx)
+    {
+        auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
+
+        bool notHit = true;
+        for (auto pat = searchStruct.pattern.cptr,
+                  msk = searchStruct.mask.cptr,
+                  val = pointer.cptr; pat < theEnd.cptr; ++pat, ++msk, ++val)
+            if ('?' != *msk && ((notHit = *pat ^ *val)))
+                break;
+        if (notHit)
+            ++pointer.cptr;
+        else
+        {
+            searchStruct.
+                push_back(len + offset);
+            result = true;
+            pointer.cptr += searchStruct.patternLen;
+        }
+        return result;
+    }
+
+    // no it doesn't. ReSharper can't even reference types in structs
+    // ReSharper disable once CppDFAConstantFunctionResult
     inline bool findPatternsExternal(const DWORD &pid, Pattern &searchStruct,
         const bool stopOne = false) noexcept
     {
@@ -236,6 +260,7 @@ namespace PMO
         std::vector<char> buffer(8192);
 
         const auto end = searchStruct.pattern.cptr + searchStruct.patternLen;
+        const PointerUnion theEnd = {.cptr = end};
 
         for (uintptr_t address = 0;
              VirtualQueryEx(proc, reinterpret_cast<LPCVOID>(address), &mbi, sizeof(mbi)) == sizeof(
@@ -254,34 +279,19 @@ namespace PMO
                                       &bytesRead))
                 {
                     size_t rva = 0;
-                    for (auto data = buffer.data(); data < bytesRead + buffer.data(); ++rva)
+                    PointerUnion pointer = {.cptr = buffer.data()};
+                    SearchContext ctx{
+                        .theEnd = theEnd,
+                        .offset = reinterpret_cast<uintptr_t>(mbi.BaseAddress),
+                        .pointer = pointer,
+                        .len = rva,
+                        .searchStruct = searchStruct,
+                        .result = result,
+                    };
+                    for (; pointer.cptr < bytesRead + buffer.data(); ++ctx.len)
                     {
-                        bool notHit = true;
-                        for (auto pat = searchStruct.pattern.cptr,
-                                  msk = searchStruct.mask.cptr,
-                                  val = data; pat < end; ++pat, ++msk, ++val)
-                        {
-                            if ('?' != *msk && ((notHit = *pat ^ *val)))
-                            {
-                                break;
-                            }
-                        }
-                        if (notHit)
-                        {
-                            ++data;
-                        }
-                        else
-                        {
-                            searchStruct.
-                                push_back(reinterpret_cast<uintptr_t>(mbi.BaseAddress) + rva);
-                            if (stopOne)
-                            {
-                                CloseHandle(proc);
-                                return true;
-                            }
-                            result = true;
-                            data += searchStruct.patternLen;
-                        }
+                        if (searchExternal(ctx) && stopOne)
+                            break;
                     }
                 }
             }
