@@ -118,26 +118,26 @@ namespace PMO
         return result;
     }
 
-    inline bool searchBytewise(SearchContext &ctx)
-    {
-        bool notHit = true;
-        auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
-        for (auto pat = searchStruct.pattern.cptr,
-                  msk = searchStruct.mask.cptr,
-                  val = pointer.cptr; pat < theEnd.cptr; ++pat, ++msk, ++val)
-            if ('?' != *msk && ((notHit = *pat ^ *val)))
-                break;
-
-        if (notHit)
-            ++pointer.cptr;
-        else
-        {
-            searchStruct.push_back(offset + pointer.address);
-            result = true;
-            pointer.cptr += searchStruct.patternLen;
-        }
-        return result;
-    }
+    // inline bool searchBytewise(SearchContext &ctx)
+    // {
+    //     bool notHit = true;
+    //     auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
+    //     for (auto pat = searchStruct.pattern.cptr,
+    //               msk = searchStruct.mask.cptr,
+    //               val = pointer.cptr; pat < theEnd.cptr; ++pat, ++msk, ++val)
+    //         if ('?' != *msk && ((notHit = *pat ^ *val)))
+    //             break;
+    //
+    //     if (notHit)
+    //         ++pointer.cptr;
+    //     else
+    //     {
+    //         searchStruct.push_back(offset + pointer.address);
+    //         result = true;
+    //         pointer.cptr += searchStruct.patternLen;
+    //     }
+    //     return result;
+    // }
 
     // no it doesn't. ReSharper can't even reference types in structs
     // ReSharper disable once CppDFAConstantFunctionResult
