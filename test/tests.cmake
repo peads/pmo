@@ -29,3 +29,6 @@ endif()
 if(TEST_OBR)
     target_compile_definitions(${TARGET} PRIVATE "TEST_OBR=${TEST_OBR}")
 endif()
+set_target_properties(${TARGET} PROPERTIES
+        MSVC_RUNTIME_CHECKS ""
+)

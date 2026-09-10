@@ -235,6 +235,8 @@ namespace PMO
         MEMORY_BASIC_INFORMATION mbi;
         std::vector<char> buffer(8192);
 
+        const auto end = searchStruct.pattern.cptr + searchStruct.patternLen;
+
         for (uintptr_t address = 0;
              VirtualQueryEx(proc, reinterpret_cast<LPCVOID>(address), &mbi, sizeof(mbi)) == sizeof(
                  mbi); address = reinterpret_cast<uintptr_t>(mbi.BaseAddress) + mbi.RegionSize)
@@ -254,16 +256,12 @@ namespace PMO
                     size_t rva = 0;
                     for (auto data = buffer.data(); data < bytesRead + buffer.data(); ++rva)
                     {
-
-                        auto view = std::views::zip(
-                            std::span(searchStruct.pattern.cptr, searchStruct.patternLen),
-                            std::span(searchStruct.mask.cptr, searchStruct.patternLen),
-                            std::span(data, searchStruct.patternLen)
-                        );
                         bool notHit = true;
-                        for (const auto &[pat, msk, val] : view)
+                        for (auto pat = searchStruct.pattern.cptr,
+                                  msk = searchStruct.mask.cptr,
+                                  val = data; pat < end; ++pat, ++msk, ++val)
                         {
-                            if ('?' != msk && ((notHit = pat ^ val)))
+                            if ('?' != *msk && ((notHit = *pat ^ *val)))
                             {
                                 break;
                             }
@@ -341,14 +339,7 @@ namespace PMO
 
     static inline bool replaceCodeExternal(HANDLE proc, void *address, const Pattern &pattern) noexcept
     {
-        size_t bytesWritten = 0;
-        if (!WriteProcessMemory(proc,
-                                address,
-                                pattern.code.ptr,
-                                pattern.codeLen,
-                                &bytesWritten))
-            return false;
-        return true;
+        return WriteProcessMemory(proc, address, pattern.code.ptr, pattern.codeLen, nullptr);
     }
 
     inline bool replaceCodeExternal(HANDLE proc, Pattern &pattern) noexcept
@@ -364,15 +355,9 @@ namespace PMO
 
     inline bool replaceAllCodeExternal(HANDLE proc, Pattern &pattern) noexcept
     {
-        DWORD exitCode = 0;
-        if (!proc || pattern.empty() || GetExitCodeProcess(proc, &exitCode) && STILL_ACTIVE != exitCode)
-        {
-            return false;
-        }
         return std::ranges::all_of(pattern, [&proc, &pattern](const uintptr_t addr)
         {
-            void *address = reinterpret_cast<void *>(addr);
-            return replaceCodeExternal(proc, address, pattern);
+            return replaceCodeExternal(proc, pattern);
         });
     }
 

@@ -21,10 +21,11 @@
 #include "windows/MemoryOps.hpp"
 #ifdef TEST_OBR
 #define SLEEP_WAIT_PATTERN      "\xF3\x0F\x10\x35\xF4\x9B\xCA\x01\xF3\x0F\x58\xC6\xF3\x0F\x11\x05"
-#define SLEEP_WAIT_MASK         "xxxxxxxxxxxxxxxx"
+#define SLEEP_WAIT_MASK         "xxxx?x??xxxxxxxx"
 #define SLEEP_WAIT_CODE         "\x0F\x57\xC0\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #define OBR_WIN64               "OblivionRemastered-Win64-Shipping.exe"
 #define OBR_WINGDK              "OblivionRemastered-WinGDK-Shipping.exe"
+inline PMO::Pattern swPattern{SLEEP_WAIT_PATTERN, SLEEP_WAIT_MASK, SLEEP_WAIT_CODE};
 #endif
 static const auto idpAddr = reinterpret_cast<uintptr_t>(&IsDebuggerPresent);
 static const auto crdpAddr = reinterpret_cast<uintptr_t>(&CheckRemoteDebuggerPresent);

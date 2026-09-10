@@ -20,7 +20,7 @@
 
 #include "types/Pattern.hpp"
 #include "parse/ParseJmp.hpp"
-
+#include <limits>
 #define STREAM_LEN (1 << 21)
 
 namespace PMO
@@ -66,46 +66,104 @@ namespace PMO
         return result;
     }
 
-    inline bool findPatterns(const uintptr_t addr, size_t len, Pattern &searchStruct,
-        const bool stopOne = false) noexcept
+    struct SearchContext
+    {
+        const PointerUnion theEnd;
+        const size_t offset;
+        PointerUnion &pointer;
+        size_t &len;
+        Pattern &searchStruct;
+        bool &result;
+    };
+
+    typedef bool (*searchFunc)(SearchContext &ctx);
+
+    inline bool searchChunked(SearchContext &ctx)
+    {
+        uint64_t notHit = -1;
+        size_t shift = 1;
+        auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
+        auto baseAddr = pointer.u64ptr;
+        auto pat = searchStruct.pattern.u64ptr;
+
+        for (auto pmsk = searchStruct.pmsk().data(),
+            bmsk = searchStruct.bmsk().data();
+            pat < theEnd.u64ptr; ++pmsk, ++bmsk, ++pat)
+        {
+            const auto val = *baseAddr & *pmsk;
+            const auto valMasked = val | *bmsk;
+            const auto patMasked = *pat & *pmsk | *bmsk;
+            if ((notHit = valMasked ^ patMasked))
+            {
+                shift = std::countr_zero(notHit) >> 3;
+                shift = shift < 1 ? 1 : shift;
+                break;
+            }
+            ++baseAddr;
+        }
+
+        if (notHit)
+        {
+            pointer.u64ptr += shift;   // xx[xxxxxxxx]x ... xx0
+            len -= shift;              // xxx[xxxxxxxx] ... xx0
+                                       // xxx[xxxxxxxx]x ... x0
+        }
+        else
+        {
+            result = true;
+            searchStruct.push_back(pointer.address + offset);
+            pointer.u64ptr += 8;    // [yyyyyyyy]xxxxxxxx
+                                    // yyyyyyyy[xxxxxxxx]
+        }
+        return result;
+    }
+
+    // inline bool searchBytewise(SearchContext &ctx)
+    // {
+    //     bool notHit = true;
+    //     auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
+    //     for (auto pat = searchStruct.pattern.cptr,
+    //               msk = searchStruct.mask.cptr,
+    //               val = pointer.cptr; pat < theEnd.cptr; ++pat, ++msk, ++val)
+    //         if ('?' != *msk && ((notHit = *pat ^ *val)))
+    //             break;
+    //
+    //     if (notHit)
+    //         ++pointer.cptr;
+    //     else
+    //     {
+    //         searchStruct.push_back(offset + pointer.address);
+    //         result = true;
+    //         pointer.cptr += searchStruct.patternLen;
+    //     }
+    //     return result;
+    // }
+
+    // no it doesn't. ReSharper can't even reference types in structs
+    // ReSharper disable once CppDFAConstantFunctionResult
+    inline bool findPatterns(const uintptr_t addr, size_t len,
+                             Pattern &searchStruct,
+                             const uint64_t offset = 0,
+                             const bool stopOne = false,
+                             const searchFunc search = searchChunked) noexcept
     {
         bool result = false;
+        const PointerUnion theEnd = {.u64ptr = searchStruct.pattern.u64ptr + searchStruct.pSize};
+        PointerUnion pointer = {.u8ptr = reinterpret_cast<uint8_t*>(addr)};
 
-        for (auto *ptr = reinterpret_cast<uint8_t*>(addr);
-             ptr && reinterpret_cast<uintptr_t>(ptr) < len + addr;)
+        SearchContext ctx{
+            .theEnd = theEnd,
+            .offset = offset,
+            .pointer = pointer,
+            .len = len,
+            .searchStruct = searchStruct,
+            .result = result,
+        };
+
+        while (pointer.cptr && pointer.address < len + addr)
         {
-            uint64_t notHit = -1;
-            auto baseAddr = reinterpret_cast<uint64_t*>(ptr);
-            size_t shift = 1;
-            for (const auto &[pat, pmsk, bmsk] : searchStruct.view())
-            {
-                const auto val = *baseAddr & pmsk;
-                const auto valMasked = val | bmsk;
-                const auto patMasked = pat & pmsk | bmsk;
-                if (((notHit = valMasked ^ patMasked)))
-                {
-                    shift = std::countr_zero(notHit) >> 3;
-                    shift = shift < 1 ? 1 : shift;
-                    break;
-                }
-                ++baseAddr;
-            }
-
-            if (notHit)
-            {
-                ptr += shift;   // xx[xxxxxxxx]x ... xx0
-                len -= shift;   // xxx[xxxxxxxx] ... xx0
-                // xxx[xxxxxxxx]x ... x0
-            }
-            else
-            {
-                result = true;
-                searchStruct.push_back(reinterpret_cast<uintptr_t>(ptr));
-                if (stopOne)
-                    break;
-                ptr += 8;   // [yyyyyyyy]xxxxxxxx
-                            // yyyyyyyy[xxxxxxxx]
-            }
+            if (search(ctx) && stopOne)
+                break;
         }
         return result;
     }

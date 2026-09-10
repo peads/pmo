@@ -27,6 +27,7 @@ namespace PMO
         const uintptr_t address;
         const char *str;
         uint64_t *u64ptr;
+        uint8_t *u8ptr;
 
         bool operator<(const PointerUnion &a) const noexcept
         {
