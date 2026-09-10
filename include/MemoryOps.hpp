@@ -68,9 +68,9 @@ namespace PMO
 
     struct SearchContext
     {
-        PointerUnion theEnd;
+        const PointerUnion theEnd;
         const size_t offset;
-        void *&ptr;
+        PointerUnion &pointer;
         size_t &len;
         Pattern &searchStruct;
         bool &result;
@@ -82,9 +82,8 @@ namespace PMO
     {
         uint64_t notHit = -1;
         size_t shift = 1;
-        auto &[theEnd, offset, vptr, len, searchStruct, result] = ctx;
-        char *&ptr = reinterpret_cast<char*&>(vptr);
-        auto baseAddr = reinterpret_cast<uint64_t*>(ptr);
+        auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
+        auto baseAddr = pointer.u64ptr;
         auto pat = searchStruct.pattern.u64ptr;
 
         for (auto pmsk = searchStruct.pmsk().data(),
@@ -105,16 +104,16 @@ namespace PMO
 
         if (notHit)
         {
-            ptr += shift;   // xx[xxxxxxxx]x ... xx0
-            len -= shift;   // xxx[xxxxxxxx] ... xx0
-                            // xxx[xxxxxxxx]x ... x0
+            pointer.u64ptr += shift;   // xx[xxxxxxxx]x ... xx0
+            len -= shift;              // xxx[xxxxxxxx] ... xx0
+                                       // xxx[xxxxxxxx]x ... x0
         }
         else
         {
             result = true;
-            searchStruct.push_back(reinterpret_cast<uintptr_t>(ptr) + offset);
-            ptr += 8;   // [yyyyyyyy]xxxxxxxx
-                        // yyyyyyyy[xxxxxxxx]
+            searchStruct.push_back(pointer.address + offset);
+            pointer.u64ptr += 8;    // [yyyyyyyy]xxxxxxxx
+                                    // yyyyyyyy[xxxxxxxx]
         }
         return result;
     }
@@ -122,44 +121,47 @@ namespace PMO
     inline bool searchBytewise(SearchContext &ctx)
     {
         bool notHit = true;
-        auto &[theEnd, offset, vptr, len, searchStruct, result] = ctx;
-        auto ptr = reinterpret_cast<char*&>(vptr);
+        auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
         for (auto pat = searchStruct.pattern.cptr,
                   msk = searchStruct.mask.cptr,
-                  val = ptr; pat < theEnd.cptr; ++pat, ++msk, ++val)
+                  val = pointer.cptr; pat < theEnd.cptr; ++pat, ++msk, ++val)
             if ('?' != *msk && ((notHit = *pat ^ *val)))
                 break;
 
         if (notHit)
-            ++ptr;
+            ++pointer.cptr;
         else
         {
-            searchStruct.push_back(offset + reinterpret_cast<uintptr_t>(ptr));
+            searchStruct.push_back(offset + pointer.address);
             result = true;
-            ptr += searchStruct.patternLen;
+            pointer.cptr += searchStruct.patternLen;
         }
         return result;
     }
 
-    inline searchFunc search = searchChunked;
-
     // no it doesn't. ReSharper can't even reference types in structs
     // ReSharper disable once CppDFAConstantFunctionResult
-    inline bool findPatterns(const uintptr_t addr, size_t len, Pattern &searchStruct,
-                             const uint64_t offset = 0, const bool stopOne = false) noexcept
+    inline bool findPatterns(const uintptr_t addr, size_t len,
+                             Pattern &searchStruct,
+                             const uint64_t offset = 0,
+                             const bool stopOne = false,
+                             const searchFunc search = searchChunked) noexcept
     {
         bool result = false;
-        for (auto *ptr = reinterpret_cast<uint8_t*>(addr);
-             ptr && reinterpret_cast<uintptr_t>(ptr) < len + addr;)
+        const PointerUnion theEnd = {.u64ptr = searchStruct.pattern.u64ptr + searchStruct.pSize};
+        PointerUnion pointer = {.u8ptr = reinterpret_cast<uint8_t*>(addr)};
+
+        SearchContext ctx{
+            .theEnd = theEnd,
+            .offset = offset,
+            .pointer = pointer,
+            .len = len,
+            .searchStruct = searchStruct,
+            .result = result,
+        };
+
+        while (pointer.cptr && pointer.address < len + addr)
         {
-           SearchContext ctx{
-                .theEnd = {.u64ptr = searchStruct.pattern.u64ptr + searchStruct.pSize},
-                .offset = offset,
-                .ptr = reinterpret_cast<void*&>(ptr),
-                .len = len,
-                .searchStruct = searchStruct,
-                .result = result,
-            };
             if (search(ctx) && stopOne)
                 break;
         }

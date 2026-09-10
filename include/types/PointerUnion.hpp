@@ -22,11 +22,12 @@ namespace PMO
 {
     union PointerUnion
     {
-        void *const ptr = nullptr;
-        char *const cptr;
+        void *ptr = nullptr;
+        char *cptr;
         const uintptr_t address;
-        const char *const str;
-        uint64_t *const u64ptr;
+        const char *str;
+        uint64_t *u64ptr;
+        uint8_t *u8ptr;
 
         bool operator<(const PointerUnion &a) const noexcept
         {
