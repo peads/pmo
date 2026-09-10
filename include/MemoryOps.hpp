@@ -66,51 +66,102 @@ namespace PMO
         return result;
     }
 
+    struct SearchContext
+    {
+        PointerUnion theEnd;
+        const size_t offset;
+        void *&ptr;
+        size_t &len;
+        Pattern &searchStruct;
+        bool &result;
+    };
+
+    typedef bool (*searchFunc)(SearchContext &ctx);
+
+    inline bool searchChunked(SearchContext &ctx)
+    {
+        uint64_t notHit = -1;
+        size_t shift = 1;
+        auto &[theEnd, offset, vptr, len, searchStruct, result] = ctx;
+        char *&ptr = reinterpret_cast<char*&>(vptr);
+        auto baseAddr = reinterpret_cast<uint64_t*>(ptr);
+        auto pat = searchStruct.pattern.u64ptr;
+
+        for (auto pmsk = searchStruct.pmsk().data(),
+            bmsk = searchStruct.bmsk().data();
+            pat < theEnd.u64ptr; ++pmsk, ++bmsk, ++pat)
+        {
+            const auto val = *baseAddr & *pmsk;
+            const auto valMasked = val | *bmsk;
+            const auto patMasked = *pat & *pmsk | *bmsk;
+            if ((notHit = valMasked ^ patMasked))
+            {
+                shift = std::countr_zero(notHit) >> 3;
+                shift = shift < 1 ? 1 : shift;
+                break;
+            }
+            ++baseAddr;
+        }
+
+        if (notHit)
+        {
+            ptr += shift;   // xx[xxxxxxxx]x ... xx0
+            len -= shift;   // xxx[xxxxxxxx] ... xx0
+                            // xxx[xxxxxxxx]x ... x0
+        }
+        else
+        {
+            result = true;
+            searchStruct.push_back(reinterpret_cast<uintptr_t>(ptr) + offset);
+            ptr += 8;   // [yyyyyyyy]xxxxxxxx
+                        // yyyyyyyy[xxxxxxxx]
+        }
+        return result;
+    }
+
+    inline bool searchBytewise(SearchContext &ctx)
+    {
+        bool notHit = true;
+        auto &[theEnd, offset, vptr, len, searchStruct, result] = ctx;
+        auto ptr = reinterpret_cast<char*&>(vptr);
+        for (auto pat = searchStruct.pattern.cptr,
+                  msk = searchStruct.mask.cptr,
+                  val = ptr; pat < theEnd.cptr; ++pat, ++msk, ++val)
+            if ('?' != *msk && ((notHit = *pat ^ *val)))
+                break;
+
+        if (notHit)
+            ++ptr;
+        else
+        {
+            searchStruct.push_back(offset + reinterpret_cast<uintptr_t>(ptr));
+            result = true;
+            ptr += searchStruct.patternLen;
+        }
+        return result;
+    }
+
+    inline searchFunc search = searchChunked;
+
+    // no it doesn't. ReSharper can't even reference types in structs
+    // ReSharper disable once CppDFAConstantFunctionResult
     inline bool findPatterns(const uintptr_t addr, size_t len, Pattern &searchStruct,
-        const uint64_t offset = 0, const bool stopOne = false) noexcept
+                             const uint64_t offset = 0, const bool stopOne = false) noexcept
     {
         bool result = false;
-
-        const auto pend = searchStruct.pattern.u64ptr + searchStruct.pSize;
         for (auto *ptr = reinterpret_cast<uint8_t*>(addr);
              ptr && reinterpret_cast<uintptr_t>(ptr) < len + addr;)
         {
-            uint64_t notHit = -1;
-            size_t shift = 1;
-
-            auto baseAddr = reinterpret_cast<uint64_t*>(ptr);
-            auto pat = searchStruct.pattern.u64ptr;
-            for (auto pmsk = searchStruct.pmsk().data(),
-                bmsk = searchStruct.bmsk().data();
-                pat < pend; ++pmsk, ++bmsk, ++pat)
-            {
-                const auto val = *baseAddr & *pmsk;
-                const auto valMasked = val | *bmsk;
-                const auto patMasked = *pat & *pmsk | *bmsk;
-                if ((notHit = valMasked ^ patMasked))
-                {
-                    shift = std::countr_zero(notHit) >> 3;
-                    shift = shift < 1 ? 1 : shift;
-                    break;
-                }
-                ++baseAddr;
-            }
-
-            if (notHit)
-            {
-                ptr += shift;   // xx[xxxxxxxx]x ... xx0
-                len -= shift;   // xxx[xxxxxxxx] ... xx0
-                                // xxx[xxxxxxxx]x ... x0
-            }
-            else
-            {
-                result = true;
-                searchStruct.push_back(reinterpret_cast<uintptr_t>(ptr) + offset);
-                if (stopOne)
-                    break;
-                ptr += 8;   // [yyyyyyyy]xxxxxxxx
-                            // yyyyyyyy[xxxxxxxx]
-            }
+           SearchContext ctx{
+                .theEnd = {.u64ptr = searchStruct.pattern.u64ptr + searchStruct.pSize},
+                .offset = offset,
+                .ptr = reinterpret_cast<void*&>(ptr),
+                .len = len,
+                .searchStruct = searchStruct,
+                .result = result,
+            };
+            if (search(ctx) && stopOne)
+                break;
         }
         return result;
     }

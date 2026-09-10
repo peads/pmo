@@ -25,7 +25,6 @@
 #include <mdspan>
 
 #include "main.hpp"
-#include "types/ByteQueue.hpp"
 #include "debug.hpp"
 
 #include <catch2/catch_test_macros.hpp>

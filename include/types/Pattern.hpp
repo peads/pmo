@@ -75,12 +75,11 @@ namespace PMO
         template <size_t M>
         static inline auto generatePatternMask(const char (&pattern)[M], const size_t len) noexcept
         {
-            auto iptr = reinterpret_cast<const uint8_t*>(pattern);
             std::vector result(len, 0ULL);
-            auto optr = reinterpret_cast<uint8_t*>(result.data());
+            const auto optr = reinterpret_cast<uint8_t*>(result.data());
             for (size_t i = 0; i < M; ++i)
             {
-                optr[i] |= generateTypedMask(iptr[i] & 0xFFULL);
+                optr[i] |= generateTypedMask(pattern[i] & 0xFFULL);
             }
             return std::move(result);
         }
