@@ -278,11 +278,11 @@ namespace PMO
                                       mbi.RegionSize,
                                       &bytesRead))
                 {
-                    size_t rva = 0;
+                    auto rva = reinterpret_cast<uintptr_t>(mbi.BaseAddress);
                     PointerUnion pointer = {.cptr = buffer.data()};
                     SearchContext ctx{
                         .theEnd = theEnd,
-                        .offset = reinterpret_cast<uintptr_t>(mbi.BaseAddress),
+                        .offset = bytesRead,
                         .pointer = pointer,
                         .len = rva,
                         .searchStruct = searchStruct,
