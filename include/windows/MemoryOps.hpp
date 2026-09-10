@@ -223,27 +223,6 @@ namespace PMO
         }
     }
 
-    inline bool searchExternal(SearchContext ctx)
-    {
-        auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
-
-        bool notHit = true;
-        for (auto pat = searchStruct.pattern.cptr,
-                  msk = searchStruct.mask.cptr,
-                  val = pointer.cptr; pat < theEnd.cptr; ++pat, ++msk, ++val)
-            if ('?' != *msk && ((notHit = *pat ^ *val)))
-                break;
-        if (notHit)
-            ++pointer.cptr;
-        else
-        {
-            searchStruct.push_back(len + offset);
-            result = true;
-            pointer.cptr += searchStruct.patternLen;
-        }
-        return result;
-    }
-
     // no it doesn't. ReSharper can't even reference types in structs
     // ReSharper disable once CppDFAConstantFunctionResult
     inline bool findPatternsExternal(const DWORD &pid, Pattern &searchStruct,
@@ -287,19 +266,10 @@ namespace PMO
                         .searchStruct = searchStruct,
                         .result = result,
                     };
+                    // TODO figure out if shift is applied during this traversal
                     while (pointer.cptr < bytesRead + buffer.data())
-                    {
                         if (searchChunked(ctx) && stopOne)
                             goto finished;
-                    }
-                    // for (; pointer.cptr < bytesRead + buffer.data(); ++ctx.len)
-                    // {
-                    //     if (searchExternal(ctx) && stopOne)
-                    //     {
-                    //         CloseHandle(proc);
-                    //         return true;
-                    //     }
-                    // }
                 }
             }
         }
