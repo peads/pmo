@@ -43,30 +43,45 @@ namespace PMO
         /**
          *
          * @param smask string mask to convert
-         * @param isFine Indicates coarseness of mask
+         * @param len
          */
         template <size_t M>
-        static inline auto generateBMI2Mask(const char (&smask)[M], const bool isFine) noexcept
+        static inline auto generateBMI2Mask(const char (&smask)[M], const size_t len) noexcept
         {
+            const bool isFine = (M >> 3) > len;
             const std::vector q(M, '?');
             const std::vector p(M, 'x');
-            const auto len = (M - 1) << (isFine ? 1 : 2);
             std::vector<uint64_t> result{};
 
-            auto *qs = reinterpret_cast<const uint64_t*>(q.data()),
-                 *xs = reinterpret_cast<const uint64_t*>(p.data()),
-                 *ptr = reinterpret_cast<const uint64_t*>(smask);
-            for (auto i = 0ULL; i < len; i += 16, ++ptr, ++qs, ++xs)
+            PointerUnion qs{.str = q.data()};
+            PointerUnion xs{.str = p.data()};
+            PointerUnion ptr{.str = smask};
+            // auto *qs = reinterpret_cast<const uint64_t*>(q.data()),
+            //      *xs = reinterpret_cast<const uint64_t*>(p.data()),
+            //      *ptr = reinterpret_cast<const uint64_t*>(smask);
+            uint64_t prev = 0;
+            for (auto i = 0ULL; i < len; ++i, ++ptr.u64ptr, ++qs.u64ptr, ++xs.u64ptr)
             {
-                if (!(*ptr ^ *xs))
+                if (!(*ptr.u64ptr ^ *xs.u64ptr))
                 {
-                    result.push_back(0);
+                    result.push_back(prev);
+                    prev = 0;
                     continue;
                 }
-                const auto del = *ptr ^ *qs;
-                auto mask = del - 0x0101'0101'0101'0101LLU;
-                mask &= ~del & 0x8080'8080'8080'8080LLU;
-                mask = (mask >> 15) * 0xF;
+
+                const auto del = *ptr.u64ptr ^ *qs.u64ptr;
+                // auto mask = del - 0x0101'0101'0101'0101LLU;
+                // mask &= ~del & 0x8080'8080'8080'8080LLU;
+                // mask = (mask >> 15) * 0xF;
+
+                auto mask = (((del - 0x0101'0101'0101'0101LLU) & (~del & 0x8080'8080'8080'8080LLU)) >> 7);
+                if (!isFine)
+                    mask *= 0xFF;
+                else
+                {
+                    mask |= (((del - 0x0101'0101'0101'0101LLU) & (~del & 0x8080'8080'8080'8080LLU)) >> 15);
+                    mask *= 0xF;
+                }
                 result.push_back(mask);
             }
             return std::move(result);
@@ -161,17 +176,17 @@ namespace PMO
                 : patternLen(N - 1ULL),
                   maskLen(M),
                   codeLen(P - 1ULL),
-                  pSize(N > 8 ? (N & 1ULL ? N + 1ULL : N) >> 3 : 1),
+                  pSize((N & 1ULL ? N + 1ULL : N) >> 3), // ceil(N) / 8
                   m_pattern(pattern),
                   m_mask(mask),
                   m_code(code),
-                  byteMask(generateBMI2Mask(mask, M == N)),
+                  byteMask(generateBMI2Mask(mask, pSize)),//N < M ? pSize << 1: pSize)),
                   searchMask(generatePatternMask(pattern, pSize)),
                   pattern{.str = m_pattern},
                   mask{.str = m_mask},
                   code{.str = m_code}
             {
-                static_assert(((N - 1ULL) == (M - 1ULL)) || (((N - 1ULL) >> 1) == (M - 1ULL)),
+                static_assert(((N - 1ULL) == (M - 1ULL)) || (((N - 1ULL)) == (M - 1ULL) >> 1),
                     "Pattern size to mask size ratio must be 1:1, or 2:1.");
             }
 

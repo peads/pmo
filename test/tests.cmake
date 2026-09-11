@@ -13,6 +13,14 @@ include(Catch)
 
 add_executable(${TARGET} "${CMAKE_SOURCE_DIR}/test/main.cpp")
 
+target_precompile_headers(${TARGET} PRIVATE
+        <cstdint>
+        <vector>
+        <iostream>
+        <windows.h>
+        <catch2/catch_test_macros.hpp>
+)
+
 target_include_directories(${TARGET} PUBLIC
         "${CMAKE_SOURCE_DIR}/include"
         "$<$<PLATFORM_ID:Windows>:${CMAKE_SOURCE_DIR}/include/windows>"

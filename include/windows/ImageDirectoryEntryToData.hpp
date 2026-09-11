@@ -18,7 +18,6 @@
 #ifndef IMAGEDIRECTORYENTRYTODATA_HPP
 #define IMAGEDIRECTORYENTRYTODATA_HPP
 
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <psapi.h>
 
