@@ -19,7 +19,6 @@
 #define WMEMORYOPS_HPP
 
 #include <filesystem>
-#include <future>
 
 #include "types/NullStream.hpp"
 #include "../MemoryOps.hpp"
