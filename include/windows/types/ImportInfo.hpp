@@ -18,7 +18,6 @@
 #ifndef IMPORTINFO_HPP
 #define IMPORTINFO_HPP
 
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <unordered_map>
 
