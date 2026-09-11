@@ -19,11 +19,11 @@
 #include "debug.hpp"
 #include "types/NullStream.hpp"
 
-template <typename T = char>
+template <typename T = TCHAR>
 bool disableDebuggerChecking(std::basic_ostream<T> &errBuf = PMO::devnull) noexcept
 {
     int (*idp)() = nullptr;
-    uintptr_t addr = reinterpret_cast<uintptr_t>(&IsDebuggerPresent);
+    auto addr = reinterpret_cast<uintptr_t>(&IsDebuggerPresent);
     PMO::findNamedFunction(addr, &idp);
     debuggerPatterns[0].push_back(reinterpret_cast<uintptr_t>(idp));
     bool result = replaceCode(debuggerPatterns[0].back(),

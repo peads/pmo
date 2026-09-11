@@ -228,9 +228,9 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
         for (const auto &p : e)
         {
             if (cnt++)
-                PMO::replaceCode<char>(p, e);
+                PMO::replaceCode({.address = p}, e.code.str, e.codeLen);
             else
-                PMO::replaceCode<char>(p, e, PMO::devnull, &knrlBase);
+                PMO::replaceCode({.address = p}, e.code.str, e.codeLen, &knrlBase);
             char *code = reinterpret_cast<char*>(p);
             for (size_t i = 0; i < e.codeLen; ++i, ++code)
             {

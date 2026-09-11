@@ -38,7 +38,7 @@ namespace PMO
      * @param errBuf Buffer for returning human-readable error message, if not NULL. Defaults cerr.
      * @return Pointer to the starting address where the pattern was found, or NULL if not found.
      */
-    template <size_t N, typename U>
+    template <size_t N, typename U = TCHAR>
     inline HMODULE findModule(
         const char *(&names)[N],
         std::basic_ostream<U> &errBuf = devnull
@@ -56,14 +56,18 @@ namespace PMO
         return nullptr;
     }
 
-    inline void getImportInfo(const HMODULE &module, MODULEINFO &info) noexcept
+    inline bool getImportInfo(const HMODULE &module, MODULEINFO &info) noexcept
     {
         if (!module)
-        {
-            info = {};
-            return;
-        }
-        GetModuleInformation(GetCurrentProcess(), module, &info, sizeof(MODULEINFO));
+            return false;
+        return GetModuleInformation(GetCurrentProcess(), module, &info, sizeof(MODULEINFO));
+    }
+
+    inline MODULEINFO getImportInfo(const HMODULE &module) noexcept
+    {
+        MODULEINFO info{};
+        getImportInfo(module, info);
+        return info;
     }
 
     // ReSharper disable once CppParameterMayBeConst
@@ -81,54 +85,39 @@ namespace PMO
      * @param size Number of bytes to be replaced.
      * @param errBuf Buffer for returning human-readable error message. Defaults cerr.
      */
-    template <typename T>
+    template <typename T = TCHAR>
     inline bool replaceCode(
-        LPVOID addr,
-        const char *code,
+        const PointerUnion &addr,
+        const char *const code,
         const size_t size,
-        std::basic_ostream<T> &errBuf = devnull,
-        HMODULE *module = nullptr
+        HMODULE *module = nullptr,
+        std::basic_ostream<T> &errBuf = devnull
     ) noexcept
     {
-        if (!addr || !code || !size)
+        if (!addr.address || !code || !size)
         {
             errBuf << "Invalid operands\n";
             return false;
         }
 
         DWORD flOldProtect;
-        if (!VirtualProtect(addr, size,PAGE_EXECUTE_READWRITE, &flOldProtect))
+        if (!VirtualProtect(addr.ptr, size, PAGE_EXECUTE_READWRITE, &flOldProtect))
         {
             errBuf << "Failed to set memory attributes.\n";
             return false;
         }
-        memcpy(addr, code, size);
-        if (!VirtualProtect(addr, size, flOldProtect, &flOldProtect))
+        memcpy(addr.ptr, code, size);
+        if (!VirtualProtect(addr.ptr, size, flOldProtect, &flOldProtect))
         {
             errBuf << "Failed to reset memory attributes.\n";
             return false;
         }
-        if (module && !FlushInstructionCache(*module, addr, size))
+        if (module && !FlushInstructionCache(*module, addr.ptr, size))
         {
             errBuf << "Failed to flush cache.\n";
             return false;
         }
         return true;
-    }
-
-    template <typename T>
-    inline bool replaceCode(
-        const uintptr_t addr,
-        const Pattern &pattern,
-        std::basic_ostream<T> &errBuf = devnull,
-        HMODULE *module = nullptr
-    ) noexcept
-    {
-        return replaceCode<T>(reinterpret_cast<void*>(addr),
-                              pattern.code.cptr,
-                              pattern.codeLen,
-                              errBuf,
-                              module);
     }
 
     inline bool findExportedFunctionName(
@@ -323,15 +312,21 @@ finished:
         return result;
     }
 
-    static inline bool replaceCodeExternal(HANDLE proc, void *address, const Pattern &pattern) noexcept
+    static inline bool replaceCodeExternal(
+        HANDLE proc,
+        void *address,
+        const Pattern &pattern
+    ) noexcept
     {
         return WriteProcessMemory(proc, address, pattern.code.ptr, pattern.codeLen, nullptr);
     }
 
+    // ReSharper disable once CppParameterMayBeConst
     inline bool replaceCodeExternal(HANDLE proc, Pattern &pattern) noexcept
     {
         DWORD exitCode = 0;
-        if (!proc || pattern.empty() || GetExitCodeProcess(proc, &exitCode) && STILL_ACTIVE != exitCode)
+        if (!proc || pattern.empty() || GetExitCodeProcess(proc, &exitCode) && STILL_ACTIVE !=
+            exitCode)
         {
             return false;
         }
@@ -349,14 +344,14 @@ finished:
 
     namespace Debug
     {
-        template <typename T>
+        template <typename T = TCHAR>
         inline void parseType(
             const MEMORY_BASIC_INFORMATION &mbi,
             std::basic_ostream<T> &out = devnull
         )
         {
             constexpr uint64_t masks[] = {MEM_IMAGE, MEM_MAPPED, MEM_PRIVATE};
-            auto type = mbi.Type;
+            const auto type = mbi.Type;
             if (!type)
             {
                 out << "MEM_FREE";
