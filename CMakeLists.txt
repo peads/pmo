@@ -8,13 +8,14 @@ if (NOT DEFINED GENERATE_TESTS)
     message(STATUS "This is only here to enable testing. There's no need to compile the library to use its headers in
         your project.")
 else()
-    add_compile_definitions(
-        "$<$<CXX_COMPILER_ID:Clang>:CMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} /clang:-m64 /clang:-O3 /clang:-march=native /EHsc- /WX- /Gy /clang:-flto /clang:-fomit-frame-pointer>"
-        CMAKE_EXE_LINKER_FLAGS="${CMAKE_EXE_LINKER_FLAGS} /LTCG /DEBUG:NONE /EMITPOGOPHASEINFO"
-        CMAKE_SHARED_LINKER_FLAGS="${CMAKE_SHARED_LINKER_FLAGS} /LTCG /DEBUG:NONE /EMITPOGOPHASEINFO"
-        WIN32_LEAN_AND_MEAN
-    )
-    add_compile_definitions($<$<CONFIG:Release>:OPTIMIZATIONS_ON>)
+    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND MSVC)
+        add_compile_options(/clang:-m64 /clang:-O3 /clang:-march=native /WX- /Gy /clang:-flto /clang:-fomit-frame-pointer)
+    elseif(MSVC)
+        add_compile_options(/O2 /Ox /Ob2 /Ot /Oy /Oi /WX- /GL /Gy /Gm- /MP)
+    endif()
+    add_link_options(/OPT:REF /OPT:ICF=3 /LTCG /DEBUG:NONE /EMITPOGOPHASEINFO)
+    add_compile_definitions(WIN32_LEAN_AND_MEAN)
+    add_compile_definitions(OPTIMIZATIONS_ON)
     set(ARE_TESTS_GENERATED ${GENERATE_TESTS}) # cmake throws annoying warning if iT's NoT uSeD
     include(${CMAKE_SOURCE_DIR}/test/tests.cmake)
 endif()
