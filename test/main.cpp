@@ -17,9 +17,6 @@
  */
 
 #include <deque>
-#ifdef VERBOSE
-#include <format>
-#endif
 #include <map>
 #include <ranges>
 #include <mdspan>
@@ -86,8 +83,6 @@ TEST_CASE("05 line coverage++", "[PMO]")
     std::unordered_map<PMO::ImportInfo, std::string> imMap{};
     std::map<PMO::ImportInfo, std::string> imTree{};
 
-    auto &st = PMO::NullStream::getInstance();
-
     for (size_t i = 0; i < 5; ++i)
     {
         auto val = 0x12345678 + i;
@@ -101,8 +96,6 @@ TEST_CASE("05 line coverage++", "[PMO]")
         imSet.insert(im);
         imMap.insert_or_assign(im, str);
         imTree.insert_or_assign(im, str);
-
-        st << str << std::endl;
     }
     uintptr_t addr;
     PMO::findNamedFunction(0, &addr);
@@ -331,30 +324,18 @@ TEST_CASE("06 Optional Test 6 test find code in memory of external process", "[P
 
 TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[PMO]")
 {
-#ifdef VERBOSE
-    uintptr_t baseAddress = 0;
-#endif
     std::vector<DWORD> pids{};
     std::string name;
     for (const auto &e : {OBR_WIN64, OBR_WINGDK})
     {
         name = e;
-#ifdef VERBOSE
-        baseAddress =
-#endif
         PMO::getProcessesByName(name, pids);
     }
     if (pids.empty())
         SKIP("OBR not running");
+
     REQUIRE((findPatternsExternal(pids.back(), swPattern, false) && !swPattern.empty()));
-#ifdef VERBOSE
-    std::cout << std::hex << "base address: " << baseAddress << " ";
-    for (const auto &addr : swPattern)
-    {
-        std::cout << "found address: " << addr << " delta: " << addr - baseAddress << " ";
-    }
-    std::cout << std::endl;
-#endif
+
     HANDLE proc = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_WRITE,
                               FALSE,
                               pids.back());

@@ -54,7 +54,6 @@ namespace PMO
             // case 4:     // [sib], ..., rsp
             //     break;
             case 5:     // [m16:32], [rbp+m16:16], [rbp+m16:32], rbp
-                // std::cout << "[";
                 return parseJmpFarAbsMod((*p >> 6) & 3, p);
             // case 6:     // [rsi], [rsi+m16:16], [rsi+m16:32], rsi
             // case 7:     // rdi, ...

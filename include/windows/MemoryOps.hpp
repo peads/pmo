@@ -20,7 +20,6 @@
 
 #include <filesystem>
 
-#include "types/NullStream.hpp"
 #include "../MemoryOps.hpp"
 #include "types/ImportInfo.hpp"
 #include "windows/ImageDirectoryEntryToData.hpp"
@@ -35,24 +34,15 @@ namespace PMO
      *          base address of same. Otherwise, returns NULL. names are assumed to be mutually
      *          exclusive.
      * @param names STL (Pseudo-)Container type holding names to search.
-     * @param errBuf Buffer for returning human-readable error message, if not NULL. Defaults cerr.
      * @return Pointer to the starting address where the pattern was found, or NULL if not found.
      */
-    template <size_t N, typename U = TCHAR>
-    inline HMODULE findModule(
-        const char *(&names)[N],
-        std::basic_ostream<U> &errBuf = devnull
-    ) noexcept
+    template <size_t N>
+    inline HMODULE findModule(const char *(&names)[N]) noexcept
     {
         for (auto name : names)
-        {
             if (const HMODULE outModule = GetModuleHandle(name); outModule)
-            {
                 return outModule;
-            }
-        }
 
-        errBuf << "Failed to find module in memory.\n";
         return nullptr;
     }
 
@@ -60,6 +50,7 @@ namespace PMO
     {
         if (!module)
             return false;
+
         return GetModuleInformation(GetCurrentProcess(), module, &info, sizeof(MODULEINFO));
     }
 
@@ -70,7 +61,6 @@ namespace PMO
         return info;
     }
 
-    // ReSharper disable once CppParameterMayBeConst
     /**
      * @brief Replaces the extant code at given memory address with code bytes at the given pointer,
      *          and returns success as boolean.
@@ -83,40 +73,30 @@ namespace PMO
      *             addr. May not be NULL.
      * @param module Module containing addr. May not be NULL;
      * @param size Number of bytes to be replaced.
-     * @param errBuf Buffer for returning human-readable error message. Defaults cerr.
      */
-    template <typename T = TCHAR>
     inline bool replaceCode(
         const PointerUnion &addr,
         const char *const code,
         const size_t size,
-        HMODULE *module = nullptr,
-        std::basic_ostream<T> &errBuf = devnull
+        const HMODULE *module = nullptr
     ) noexcept
     {
         if (!addr.address || !code || !size)
-        {
-            errBuf << "Invalid operands\n";
             return false;
-        }
 
         DWORD flOldProtect;
+
         if (!VirtualProtect(addr.ptr, size, PAGE_EXECUTE_READWRITE, &flOldProtect))
-        {
-            errBuf << "Failed to set memory attributes.\n";
             return false;
-        }
+
         memcpy(addr.ptr, code, size);
+
         if (!VirtualProtect(addr.ptr, size, flOldProtect, &flOldProtect))
-        {
-            errBuf << "Failed to reset memory attributes.\n";
             return false;
-        }
+
         if (module && !FlushInstructionCache(*module, addr.ptr, size))
-        {
-            errBuf << "Failed to flush cache.\n";
             return false;
-        }
+
         return true;
     }
 
@@ -213,8 +193,11 @@ namespace PMO
 
     // no it doesn't. ReSharper can't even reference types in structs
     // ReSharper disable once CppDFAConstantFunctionResult
-    inline bool findPatternsExternal(const DWORD &pid, Pattern &searchStruct,
-        const bool stopOne = false) noexcept
+    inline bool findPatternsExternal(
+        const DWORD &pid,
+        Pattern &searchStruct,
+        const bool stopOne = false
+    ) noexcept
     {
         const auto proc = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, FALSE, pid);
         if (!proc)
@@ -296,10 +279,10 @@ finished:
                         has_filename() && path.filename().string() == key)
                     {
                         out.push_back(pids[i]);
-                        HMODULE mods[1024];
                         MODULEINFO modInfo;
                         // Enumerate process modules
-                        if (EnumProcessModules(proc, mods, sizeof(mods), &cbNeeded)
+                        if (HMODULE mods[1024];
+                            EnumProcessModules(proc, mods, sizeof(mods), &cbNeeded)
                             && GetModuleInformation(proc, mods[0], &modInfo, sizeof(modInfo)))
                         {
                             result = reinterpret_cast<uintptr_t>(modInfo.lpBaseOfDll);
@@ -340,42 +323,6 @@ finished:
         {
             return replaceCodeExternal(proc, pattern);
         });
-    }
-
-    namespace Debug
-    {
-        template <typename T = TCHAR>
-        inline void parseType(
-            const MEMORY_BASIC_INFORMATION &mbi,
-            std::basic_ostream<T> &out = devnull
-        )
-        {
-            constexpr uint64_t masks[] = {MEM_IMAGE, MEM_MAPPED, MEM_PRIVATE};
-            const auto type = mbi.Type;
-            if (!type)
-            {
-                out << "MEM_FREE";
-            }
-
-            for (auto &mask : masks)
-            {
-                switch (type & mask)
-                {
-                    case MEM_IMAGE:
-                        out << "MEM_IMAGE ";
-                        break;
-                    case MEM_MAPPED:
-                        out << "MEM_MAPPED ";
-                        break;
-                    case MEM_PRIVATE:
-                        out << "MEM_PRIVATE ";
-                        break;
-                    default:
-                        // out << "invalid value ";
-                        break;
-                }
-            }
-        }
     }
 }
 #endif //WMEMORYOPS_HPP

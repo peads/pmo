@@ -17,30 +17,20 @@
  */
 #include <cstdint>
 #include "debug.hpp"
-#include "types/NullStream.hpp"
 
-template <typename T = TCHAR>
-bool disableDebuggerChecking(std::basic_ostream<T> &errBuf = PMO::devnull) noexcept
+bool disableDebuggerChecking() noexcept
 {
     int (*idp)() = nullptr;
     auto addr = reinterpret_cast<uintptr_t>(&IsDebuggerPresent);
     PMO::findNamedFunction(addr, &idp);
     debuggerPatterns[0].push_back(reinterpret_cast<uintptr_t>(idp));
-    bool result = replaceCode(debuggerPatterns[0].back(),
-                               debuggerPatterns[0],
-                               errBuf);
-    if (!result)
-        errBuf << "Failed to replace idb\n";
+    bool result = replaceCode(debuggerPatterns[0].back(), debuggerPatterns[0].code.str, debuggerPatterns[0].codeLen);
 
     int (*crdp)(HANDLE, int *) = nullptr;
     addr = reinterpret_cast<uintptr_t>(&CheckRemoteDebuggerPresent);
     PMO::findNamedFunction(addr, &crdp);
     debuggerPatterns[1].push_back(reinterpret_cast<uintptr_t>(crdp));
-    result &= replaceCode(debuggerPatterns[1].back(),
-                               debuggerPatterns[1],
-                               errBuf);
-    if (!result)
-        errBuf << "Failed to replace crdp\n";
+    result &= replaceCode(debuggerPatterns[1].back(),debuggerPatterns[1].code.str, debuggerPatterns[1].codeLen);
 
     return result;
 }
