@@ -22,6 +22,9 @@
 #include <mdspan>
 
 #include "main.hpp"
+
+#include <set>
+
 #include "debug.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -78,10 +81,12 @@ TEST_CASE("05 line coverage++", "[PMO]")
     std::set<PMO::PointerUnion> puSet{};
     std::unordered_map<PMO::PointerUnion, std::string> puMap{};
     std::map<PMO::PointerUnion, std::string> puTree{};
+    PMO::SetWrapper<PMO::PointerUnion> puSwU{};
 
-    std::set<PMO::ImportInfo> imSet{};
+    std::unordered_set<PMO::ImportInfo> imSet{};
     std::unordered_map<PMO::ImportInfo, std::string> imMap{};
     std::map<PMO::ImportInfo, std::string> imTree{};
+    PMO::SetWrapper<PMO::PointerUnion, std::set<PMO::ImportInfo>> imSwO{};
 
     for (size_t i = 0; i < 5; ++i)
     {
@@ -92,13 +97,15 @@ TEST_CASE("05 line coverage++", "[PMO]")
         puSet.insert(pu);
         puMap.insert_or_assign(pu, str);
         puTree.insert_or_assign(pu, str);
+        puSwU.insert(pu);
 
         imSet.insert(im);
         imMap.insert_or_assign(im, str);
         imTree.insert_or_assign(im, str);
+        imSwO.insert(im);
     }
     uintptr_t addr;
-    PMO::findNamedFunction(0, &addr);
+    REQUIRE((!PMO::findNamedFunction(0, &addr) && !addr));
 }
 
 TEST_CASE("00a more raw search testing", "[PMO]")
