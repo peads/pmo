@@ -23,9 +23,6 @@ target_include_directories(${TARGET} PUBLIC
 target_link_libraries(${TARGET} PRIVATE Catch2::Catch2WithMain)
 catch_discover_tests(${TARGET})
 
-if(VERBOSE)
-    target_compile_definitions(${TARGET} PRIVATE "VERBOSE=1")
-endif()
 if(TEST_OBR)
     target_compile_definitions(${TARGET} PRIVATE "TEST_OBR=${TEST_OBR}")
 endif()

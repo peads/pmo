@@ -18,7 +18,7 @@
 
 #ifndef DEBUG_HPP
 #define DEBUG_HPP
-#include "windows/MemoryOps.hpp"
+
 #include "types/Pattern.hpp"
 
 // IsDebuggerPresent uses the pattern below
@@ -35,5 +35,5 @@ static PMO::Pattern debuggerPatterns[] = {
     PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
 };
 
-template <typename T, typename = char> bool disableDebuggerChecking(std::basic_ostream<T> &) noexcept;
+bool disableDebuggerChecking() noexcept;
 #endif //DEBUG_HPP
