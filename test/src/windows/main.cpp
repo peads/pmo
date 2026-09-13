@@ -354,26 +354,6 @@ TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[P
     CloseHandle(proc);
 }
 
-// template <size_t M>
-// void printAutoMask(const char (&pattern)[M], std::stringstream &ss)
-// {
-//     std::vector<uint64_t> offsets(0);
-//     auto addrs = PMO::Pattern::autoGenerateMask(pattern, &offsets);
-//     size_t cnt = 0;
-//     ss << std::format("{::02X}\n", *reinterpret_cast<const uint8_t(*)[M]>(pattern)) << "[";
-//     for (auto &e : addrs)
-//     {
-//         ss << e;
-//         if (cnt > 0 && (cnt & 1))
-//         {
-//             ss << ", ";
-//         }
-//         cnt++;
-//     }
-//     ss << "]" << std::endl;
-//     ss << std::format("{::016X}\n", offsets) << std::endl;
-// }
-
 TEST_CASE("07 autogen mask", "[PMO]")
 {
     REQUIRE(PMO::Pattern::autoGenerateMask(CRDP_PATTERN) == CRDP_ANSWER);
