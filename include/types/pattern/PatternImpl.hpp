@@ -113,18 +113,17 @@ namespace PMO
                 : patternLen(N - 1ULL),
                   maskLen(M),
                   codeLen(P - 1ULL),
-                  pSize((N & 1ULL ? N + 1ULL : N) >> 3), // ceil[N / 8]
+                  pSize((N & 1ULL ? N + 1ULL : N) >> 3),
                   m_pattern(pattern),
                   m_mask(mask),
                   m_code(code),
-                  byteMask(generateBMI2Mask(mask, pSize)),//N < M ? pSize << 1: pSize)),
+                  byteMask(generateBMI2Mask(mask, pSize)),
                   searchMask(generatePatternMask(pattern, pSize)),
                   pattern{.str = m_pattern},
                   mask{.str = m_mask},
                   code{.str = m_code}
             {
-                static_assert(((N - 1ULL) == (M - 1ULL)) || (((N - 1ULL)) == (M - 1ULL) >> 1),
-                    "Pattern size to mask size ratio must be 1:1, or 2:1.");
+                static_assert(N == M, "Pattern size to mask size ratio must be 1:1.");
             }
 
             Pattern() = delete;

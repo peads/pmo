@@ -43,7 +43,6 @@ namespace PMO
     template <size_t M>
     inline auto Pattern::generateBMI2Mask(const char (&smask)[M], const size_t len) noexcept
     {
-        const bool isFine = (M >> 3) > len;
         const std::vector q(M, '?');
         const std::vector p(M, 'x');
         std::vector<uint64_t> result{};
@@ -51,9 +50,7 @@ namespace PMO
         PointerUnion qs{.str = q.data()};
         PointerUnion xs{.str = p.data()};
         PointerUnion ptr{.str = smask};
-        // auto *qs = reinterpret_cast<const uint64_t*>(q.data()),
-        //      *xs = reinterpret_cast<const uint64_t*>(p.data()),
-        //      *ptr = reinterpret_cast<const uint64_t*>(smask);
+
         uint64_t prev = 0;
         for (auto i = 0ULL; i < len; ++i, ++ptr.u64ptr, ++qs.u64ptr, ++xs.u64ptr)
         {
@@ -65,20 +62,9 @@ namespace PMO
             }
 
             const auto del = *ptr.u64ptr ^ *qs.u64ptr;
-            // auto mask = del - 0x0101'0101'0101'0101LLU;
-            // mask &= ~del & 0x8080'8080'8080'8080LLU;
-            // mask = (mask >> 15) * 0xF;
-
-            auto mask = (((del - 0x0101'0101'0101'0101LLU) & (~del & 0x8080'8080'8080'8080LLU)) >>
-                7);
-            if (!isFine)
-                mask *= 0xFF;
-            else
-            {
-                mask |= (((del - 0x0101'0101'0101'0101LLU) & (~del & 0x8080'8080'8080'8080LLU)) >>
-                    15);
-                mask *= 0xF;
-            }
+            auto mask = del - 0x0101'0101'0101'0101LLU;
+            mask &= ~del & 0x8080'8080'8080'8080LLU;
+            mask = (mask >> 7) * 0xFF;
             result.push_back(mask);
         }
         return std::move(result);
@@ -103,25 +89,23 @@ namespace PMO
     ) noexcept
     {
         PointerUnion ptr{.str = pattern};
-        std::string result((M & 1 ? M - 1 : M) << 1, 'x');
+        std::string result(M - 1, 'x');
         size_t width = 0;
         const auto pend = pattern + M - 1;
         for (char *idx = nullptr; ptr.cptr < pend;)
         {
             idx = ptr.cptr;
-            if (const uint64_t val = startParseJmp(ptr.u8ptr, &width); !val)
+            if (const uint64_t offset = startParseJmp(ptr.u8ptr, &width); !offset)
                 ptr.cptr = idx + 1; // reset on failure, move to the next
             else
             {
                 // calculate mask offset
-                const auto offset = static_cast<uintptr_t>(ptr.cptr - pattern) << 1;
+                const auto moffset = static_cast<uintptr_t>(ptr.cptr - pattern);
                 // move to next byte to process
                 ptr.u8ptr += width;
-                // calculate wildcard width
-                width <<= 1;
-                memcpy(result.data() + offset, std::string(width, '?').data(), width);
+                memcpy(result.data() + moffset, std::string(width, '?').data(), width);
                 if (offsets)
-                    offsets->push_back(val);
+                    offsets->push_back(offset);
             }
         }
         return std::move(result);

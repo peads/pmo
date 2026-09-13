@@ -356,8 +356,17 @@ TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[P
 
 TEST_CASE("07 autogen mask", "[PMO]")
 {
-    REQUIRE(PMO::Pattern::autoGenerateMask(CRDP_PATTERN) == CRDP_ANSWER);
+    auto crdpMask = PMO::Pattern::autoGenerateMask(CRDP_PATTERN);
+    REQUIRE(crdpMask == CRDP_MASK);
     REQUIRE(PMO::Pattern::autoGenerateMask(JUMPS_PATTERN) == JUMPS_ANSWER);
     REQUIRE(PMO::Pattern::autoGenerateMask(REX_JUMPS_PATTERN) == REX_JUMPS_ANSWER);
     REQUIRE(PMO::Pattern::autoGenerateMask(OTHER_JUMPS) == OTHER_JUMPS_ANSWER);
+
+    const HMODULE module = GetModuleHandle("KERNELBASE.dll");
+    auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getImportInfo(module);
+    PMO::PointerUnion pu{.cptr = crdpMask.data()};
+    PMO::Pattern p{CRDP_PATTERN, *reinterpret_cast<const char(*)[89]>(pu.str), CRDP_CODE};
+
+    findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, p);
+    REQUIRE(!p.empty());
 }
