@@ -18,7 +18,7 @@
 
 #ifndef SETWRAPPER_HPP
 #define SETWRAPPER_HPP
-#include <set>
+#include <unordered_set>
 #include "types/PseudoContainer.hpp"
 
 namespace PMO
@@ -30,7 +30,7 @@ namespace PMO
         c.erase(v);
     };
 
-    template <typename U, SetConcept T = std::set<U>>
+    template <typename U, SetConcept T = std::unordered_set<U>>
     class SetWrapper : public T
     {
         public:

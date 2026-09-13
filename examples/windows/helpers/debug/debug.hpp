@@ -19,7 +19,7 @@
 #ifndef DEBUG_HPP
 #define DEBUG_HPP
 
-#include "types/Pattern.hpp"
+#include "types/pattern/PatternImpl.hpp"
 
 // IsDebuggerPresent uses the pattern below
 #define IDP_PATTERN             "\x65\x48\x8B\x04\x25\x60\x00\x00\x00\x0F\xB6\x40\x02\xC3"

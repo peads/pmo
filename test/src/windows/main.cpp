@@ -19,7 +19,7 @@
 #include <deque>
 #include <map>
 #include <ranges>
-#include <mdspan>
+#include <set>
 
 #include "main.hpp"
 #include "debug.hpp"
@@ -78,10 +78,12 @@ TEST_CASE("05 line coverage++", "[PMO]")
     std::set<PMO::PointerUnion> puSet{};
     std::unordered_map<PMO::PointerUnion, std::string> puMap{};
     std::map<PMO::PointerUnion, std::string> puTree{};
+    PMO::SetWrapper<PMO::PointerUnion> puSwU{};
 
-    std::set<PMO::ImportInfo> imSet{};
+    std::unordered_set<PMO::ImportInfo> imSet{};
     std::unordered_map<PMO::ImportInfo, std::string> imMap{};
     std::map<PMO::ImportInfo, std::string> imTree{};
+    PMO::SetWrapper<PMO::PointerUnion, std::set<PMO::ImportInfo>> imSwO{};
 
     for (size_t i = 0; i < 5; ++i)
     {
@@ -92,13 +94,18 @@ TEST_CASE("05 line coverage++", "[PMO]")
         puSet.insert(pu);
         puMap.insert_or_assign(pu, str);
         puTree.insert_or_assign(pu, str);
+        puSwU.insert(pu);
 
         imSet.insert(im);
         imMap.insert_or_assign(im, str);
         imTree.insert_or_assign(im, str);
+        imSwO.insert(im);
     }
     uintptr_t addr;
-    PMO::findNamedFunction(0, &addr);
+    REQUIRE((!PMO::findNamedFunction(0, &addr) && !addr));
+    auto a = *puSet.begin();
+    PMO::PointerUnion b{.address = a.address};
+    REQUIRE(a == b);
 }
 
 TEST_CASE("00a more raw search testing", "[PMO]")
@@ -110,7 +117,7 @@ TEST_CASE("00a more raw search testing", "[PMO]")
     GetModuleFileName(nullptr, buf, MAX_PATH);
     std::filesystem::path path{buf};
     const std::string name = path.filename().string();
-    imports.insert(PMO::ImportInfo{.name=name.data()});
+    imports.insert(PMO::ImportInfo{.name = name.data()});
     constexpr size_t expected[] = {1, 1};
 
     size_t cnt = 0;
@@ -245,6 +252,7 @@ TEST_CASE("02 Test find by traversing thunks", "[PMO]")
     auto addr = idpAddr;
     int (*fn)() = nullptr;
     PMO::findNamedFunction(addr, &fn);
+    REQUIRE(fn() == IsDebuggerPresent());
     HMODULE module = GetModuleHandle(nullptr);
     REQUIRE(module);
 
@@ -289,7 +297,7 @@ TEST_CASE("01 Test parse far jmp", "[PMO]")
 
     addr = crdpAddr;
     out = parseJmpFar(*reinterpret_cast<uint8_t(*)[8]>(&CheckRemoteDebuggerPresent), addr);
-    int (*fn1)(HANDLE, int*) = nullptr;
+    int (*fn1)(HANDLE, int *) = nullptr;
     outTest = PMO::findNamedFunction(addr, &fn1);
 
     REQUIRE((addr - crdpAddr - 7) == outTest);
@@ -310,6 +318,7 @@ TEST_CASE("03 Test findProcessByName", "[PMO]")
     REQUIRE((!handles.empty() && handles.back() == GetCurrentProcessId()));
 }
 
+#ifdef TEST_OBR
 TEST_CASE("06 Optional Test 6 test find code in memory of external process", "[PMO]")
 {
     std::vector<DWORD> pids{};
@@ -345,4 +354,35 @@ TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[P
         REQUIRE(replaceAllCodeExternal(proc, swPattern));
     }
     CloseHandle(proc);
+}
+#endif
+
+TEST_CASE("07 autogen mask", "[PMO]")
+{
+    reset();
+
+    auto crdpMask = PMO::Pattern::autoGenerateMask(CRDP_PATTERN);
+    REQUIRE(crdpMask == CRDP_MASK);
+    REQUIRE(PMO::Pattern::autoGenerateMask(JUMPS_PATTERN) == JUMPS_ANSWER);
+    REQUIRE(PMO::Pattern::autoGenerateMask(REX_JUMPS_PATTERN) == REX_JUMPS_ANSWER);
+    REQUIRE(PMO::Pattern::autoGenerateMask(OTHER_JUMPS) == OTHER_JUMPS_ANSWER);
+
+    const HMODULE module = GetModuleHandle("KERNELBASE.dll");
+    auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getImportInfo(module);
+    PMO::Pattern a{
+        CRDP_PATTERN,
+        sizeof(CRDP_PATTERN) - 1,
+        crdpMask.data(),
+        crdpMask.length() + 1,
+        CRDP_CODE,
+        sizeof(CRDP_CODE) - 1
+    };
+
+    findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, a);
+    REQUIRE(!a.empty());
+
+    int b[2] = {};
+    int (*fn2)(HMODULE, int *) = *reinterpret_cast<int(*)(HMODULE, int *)>(a.back().address);
+    REQUIRE(fn2(module, b + 0) == CheckRemoteDebuggerPresent(module, b + 1));
+    REQUIRE(b[0] == b[1]);
 }

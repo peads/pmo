@@ -17,12 +17,12 @@
  */
 #ifndef POINTERUNION_HPP
 #define POINTERUNION_HPP
-
+#include <functional>
 namespace PMO
 {
     union PointerUnion
     {
-        void *ptr = nullptr;
+        void *const ptr;
         char *cptr;
         const uintptr_t address;
         const char *str;

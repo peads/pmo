@@ -18,9 +18,8 @@
 #ifndef MEMORYOPS_HPP
 #define MEMORYOPS_HPP
 
-#include "types/Pattern.hpp"
+#include "types/pattern/Pattern.hpp"
 #include "parse/ParseJmp.hpp"
-#define STREAM_LEN (1 << 21)
 
 namespace PMO
 {
