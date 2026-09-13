@@ -19,11 +19,9 @@
 #include <deque>
 #include <map>
 #include <ranges>
-#include <print>
 
 #include "main.hpp"
 
-#include <iostream>
 #include <set>
 
 #include "debug.hpp"
@@ -356,66 +354,30 @@ TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[P
     CloseHandle(proc);
 }
 
-template <size_t M>
-void printAutoMask(const char (&pattern)[M], std::stringstream &ss)
-{
-    std::vector<uint64_t> offsets(0);
-    auto addrs = PMO::Pattern::autoGenerateMask(pattern, &offsets);
-    size_t cnt = 0;
-    ss << std::format("{::02X}\n", *reinterpret_cast<const uint8_t(*)[M]>(pattern)) << "[";
-    for (auto &e : addrs)
-    {
-        ss << e;
-        if (cnt > 0 && (cnt & 1))
-        {
-            ss << ", ";
-        }
-        cnt++;
-    }
-    ss << "]" << std::endl;
-    ss << std::format("{::016X}\n", offsets) << std::endl;
-}
+// template <size_t M>
+// void printAutoMask(const char (&pattern)[M], std::stringstream &ss)
+// {
+//     std::vector<uint64_t> offsets(0);
+//     auto addrs = PMO::Pattern::autoGenerateMask(pattern, &offsets);
+//     size_t cnt = 0;
+//     ss << std::format("{::02X}\n", *reinterpret_cast<const uint8_t(*)[M]>(pattern)) << "[";
+//     for (auto &e : addrs)
+//     {
+//         ss << e;
+//         if (cnt > 0 && (cnt & 1))
+//         {
+//             ss << ", ";
+//         }
+//         cnt++;
+//     }
+//     ss << "]" << std::endl;
+//     ss << std::format("{::016X}\n", offsets) << std::endl;
+// }
+
 TEST_CASE("07 autogen mask", "[PMO]")
 {
-    std::stringstream ss{};
-    size_t size = (sizeof(CRDP_PATTERN) - 1) >> 3;
-    PMO::PointerUnion pu{.str = CRDP_PATTERN};
-    std::vector sxFours(0, 0ULL);
-
-    sxFours.insert(sxFours.begin(), pu.u64ptr, pu.u64ptr + size);
-    ss << std::format("{::016X} ", sxFours) << std::endl;
-    printAutoMask(CRDP_PATTERN, ss);
-
-    pu.str = JUMPS_PATTERN;
-    size = (sizeof(JUMPS_PATTERN) - 1) >> 3;
-    sxFours.clear();
-    sxFours.insert(sxFours.begin(), pu.u64ptr, pu.u64ptr + size);
-    ss << std::format("{::016X} ", sxFours) << std::endl;
-    printAutoMask(JUMPS_PATTERN, ss);
-
-    pu.str = REX_JUMPS_PATTERN;
-    size = (sizeof(REX_JUMPS_PATTERN) - 1) >> 3;
-    sxFours.clear();
-    sxFours.insert(sxFours.begin(), pu.u64ptr, pu.u64ptr + size);
-    ss << std::format("{::016X} ", sxFours) << std::endl;
-    printAutoMask(REX_JUMPS_PATTERN, ss);
-
-    pu.str = IDFK_JUMPS_AND_SHIT;
-    size = (sizeof(IDFK_JUMPS_AND_SHIT) - 1) >> 3;
-    sxFours.clear();
-    sxFours.insert(sxFours.begin(), pu.u64ptr, pu.u64ptr + size);
-    ss << std::format("{::016X} ", sxFours) << std::endl;
-    printAutoMask(IDFK_JUMPS_AND_SHIT, ss);
-
-    std::cout << ss.str();
-    ss.clear();
-
-    // std::println("{::02X}", *(uint8_t(*)[88])CRDP_PATTERN);
-    // std::cout << addrs << std::endl << CRDP_MASK << std::endl;
-    // for (auto &e : indcs)
-    // {
-    //
-    //     // std::println("{:016X} {:016X} ", e, ~e + 1);
-    //     std::println("{::02X}", *(uint8_t(*)[8]) (&CRDP_PATTERN[e]));
-    // }
+    REQUIRE(PMO::Pattern::autoGenerateMask(CRDP_PATTERN) == CRDP_ANSWER);
+    REQUIRE(PMO::Pattern::autoGenerateMask(JUMPS_PATTERN) == JUMPS_ANSWER);
+    REQUIRE(PMO::Pattern::autoGenerateMask(REX_JUMPS_PATTERN) == REX_JUMPS_ANSWER);
+    REQUIRE(PMO::Pattern::autoGenerateMask(OTHER_JUMPS) == OTHER_JUMPS_ANSWER);
 }
