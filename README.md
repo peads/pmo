@@ -7,3 +7,6 @@
 1. ????
 1. PROFIT
 1. Check examples and test directories to get started.
+# Build and run tests
+- clone the repo like you do.
+- `cd /path/to/pmo && mkdir build && cd build && cmake -G Ninja <-DCMAKE_CXX_COMPILER=clang-cl> -DCMAKE_BUILD_TYPE=Release -DGENERATE_TESTS=ON .. && cmake --build . && ./pmo.exe --order lex`
