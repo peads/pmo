@@ -106,6 +106,9 @@ TEST_CASE("05 line coverage++", "[PMO]")
     }
     uintptr_t addr;
     REQUIRE((!PMO::findNamedFunction(0, &addr) && !addr));
+    auto a = *puSet.begin();
+    PMO::PointerUnion b{.address = a.address};
+    REQUIRE(a == b);
 }
 
 TEST_CASE("00a more raw search testing", "[PMO]")
@@ -316,7 +319,7 @@ TEST_CASE("03 Test findProcessByName", "[PMO]")
     PMO::getProcessesByName(path.filename().string(), handles);
     REQUIRE((!handles.empty() && handles.back() == GetCurrentProcessId()));
 }
-
+#ifdef TEST_OBR
 TEST_CASE("06 Optional Test 6 test find code in memory of external process", "[PMO]")
 {
     std::vector<DWORD> pids{};
@@ -353,6 +356,7 @@ TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[P
     }
     CloseHandle(proc);
 }
+#endif
 
 TEST_CASE("07 autogen mask", "[PMO]")
 {

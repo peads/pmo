@@ -17,7 +17,7 @@
  */
 #ifndef POINTERUNION_HPP
 #define POINTERUNION_HPP
-
+#include <functional>
 namespace PMO
 {
     union PointerUnion
