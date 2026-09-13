@@ -19,15 +19,12 @@
 #include <deque>
 #include <map>
 #include <ranges>
-
-#include "main.hpp"
-
 #include <set>
 
+#include "main.hpp"
 #include "debug.hpp"
 
 #include <catch2/catch_test_macros.hpp>
-#include <catch2/internal/catch_stdstreams.hpp>
 
 #define CATCH_CONFIG_MAIN // provides main(); this line is required in only one .cpp file
 
@@ -255,6 +252,7 @@ TEST_CASE("02 Test find by traversing thunks", "[PMO]")
     auto addr = idpAddr;
     int (*fn)() = nullptr;
     PMO::findNamedFunction(addr, &fn);
+    REQUIRE(fn() == IsDebuggerPresent());
     HMODULE module = GetModuleHandle(nullptr);
     REQUIRE(module);
 
@@ -319,6 +317,7 @@ TEST_CASE("03 Test findProcessByName", "[PMO]")
     PMO::getProcessesByName(path.filename().string(), handles);
     REQUIRE((!handles.empty() && handles.back() == GetCurrentProcessId()));
 }
+
 #ifdef TEST_OBR
 TEST_CASE("06 Optional Test 6 test find code in memory of external process", "[PMO]")
 {
@@ -360,6 +359,8 @@ TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[P
 
 TEST_CASE("07 autogen mask", "[PMO]")
 {
+    reset();
+
     auto crdpMask = PMO::Pattern::autoGenerateMask(CRDP_PATTERN);
     REQUIRE(crdpMask == CRDP_MASK);
     REQUIRE(PMO::Pattern::autoGenerateMask(JUMPS_PATTERN) == JUMPS_ANSWER);
@@ -368,9 +369,20 @@ TEST_CASE("07 autogen mask", "[PMO]")
 
     const HMODULE module = GetModuleHandle("KERNELBASE.dll");
     auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getImportInfo(module);
-    PMO::PointerUnion pu{.cptr = crdpMask.data()};
-    PMO::Pattern p{CRDP_PATTERN, *reinterpret_cast<const char(*)[89]>(pu.str), CRDP_CODE};
+    PMO::Pattern a{
+        CRDP_PATTERN,
+        sizeof(CRDP_PATTERN) - 1,
+        crdpMask.data(),
+        crdpMask.length() + 1,
+        CRDP_CODE,
+        sizeof(CRDP_CODE) - 1
+    };
 
-    findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, p);
-    REQUIRE(!p.empty());
+    findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, a);
+    REQUIRE(!a.empty());
+
+    int b[2] = {};
+    int (*fn2)(HMODULE, int *) = *reinterpret_cast<int(*)(HMODULE, int *)>(a.back().address);
+    REQUIRE(fn2(module, b + 0) == CheckRemoteDebuggerPresent(module, b + 1));
+    REQUIRE(b[0] == b[1]);
 }

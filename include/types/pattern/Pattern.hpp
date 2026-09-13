@@ -32,19 +32,17 @@ namespace PMO
         {
             return static_cast<T>(~static_cast<T>(0));
         }
-        return (static_cast<T>(1) << bits) - 1;
+        return std::move((static_cast<T>(1) << bits) - 1);
     }
 
-    /**
-     *
-     * @param smask string mask to convert
-     * @param len
-     */
-    template <size_t M>
-    inline auto Pattern::generateBMI2Mask(const char (&smask)[M], const size_t len) noexcept
+    inline std::vector<uint64_t> Pattern::generateBMI2Mask(
+        const char *smask,
+        const size_t mlen,
+        const size_t len
+    ) noexcept
     {
-        const std::vector q(M, '?');
-        const std::vector p(M, 'x');
+        const std::vector q(mlen, '?');
+        const std::vector p(mlen, 'x');
         std::vector<uint64_t> result{};
 
         PointerUnion qs{.str = q.data()};
@@ -70,12 +68,15 @@ namespace PMO
         return std::move(result);
     }
 
-    template <size_t M>
-    inline auto Pattern::generatePatternMask(const char (&pattern)[M], const size_t len) noexcept
+    inline std::vector<uint64_t> Pattern::generatePatternMask(
+        const char *pattern,
+        const size_t plen,
+        const size_t len
+    ) noexcept
     {
         std::vector result(len, 0ULL);
         const auto optr = reinterpret_cast<uint8_t*>(result.data());
-        for (size_t i = 0; i < M; ++i)
+        for (size_t i = 0; i < plen; ++i)
         {
             optr[i] |= generateTypedMask(pattern[i] & 0xFFULL);
         }

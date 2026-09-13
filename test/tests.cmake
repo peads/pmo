@@ -15,6 +15,7 @@ add_executable(${TARGET} "${CMAKE_SOURCE_DIR}/test/src/windows/main.cpp")
 
 target_include_directories(${TARGET} PUBLIC
         "${CMAKE_SOURCE_DIR}/include"
+        "${CMAKE_SOURCE_DIR}/test/include"
         "$<$<PLATFORM_ID:Windows>:${CMAKE_SOURCE_DIR}/include/windows>"
         "$<$<PLATFORM_ID:Windows>:${CMAKE_SOURCE_DIR}/test/include/windows>"
         "$<$<PLATFORM_ID:Windows>:${CMAKE_SOURCE_DIR}/examples/windows/helpers/debug>"

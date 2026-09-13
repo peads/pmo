@@ -27,23 +27,29 @@ namespace PMO
 {
     class Pattern final
     {
-        template <size_t M>
-        static inline auto generatePatternMask(const char (&)[M], size_t) noexcept;
-        template <size_t M>
-        static inline auto generateBMI2Mask(const char (&)[M], size_t) noexcept;
+        static inline std::vector<uint64_t> generatePatternMask(
+            const char *,
+            size_t,
+            size_t
+        ) noexcept;
+
+        static inline std::vector<uint64_t> generateBMI2Mask(const char *, size_t, size_t) noexcept;
+
         template <typename T>
         static inline T generateTypedMask(T) noexcept;
 
         public:
             template <size_t M>
-            static inline auto autoGenerateMask(const char (&)[M], std::vector<uint64_t> * = nullptr) noexcept;
+            static inline auto autoGenerateMask(
+                const char (&)[M],
+                std::vector<uint64_t> * = nullptr
+            ) noexcept;
 
             const size_t patternLen;
-            const size_t maskLen;
             const size_t codeLen;
-            const size_t pSize;
 
         private:
+            const size_t pSize;
             const char *const m_pattern;
             const char *const m_mask;
             const char *const m_code;
@@ -111,20 +117,42 @@ namespace PMO
             template <size_t N, size_t M, size_t P>
             Pattern(const char (&pattern)[N], const char (&mask)[M], const char (&code)[P])
                 : patternLen(N - 1ULL),
-                  maskLen(M),
                   codeLen(P - 1ULL),
                   pSize((N & 1ULL ? N + 1ULL : N) >> 3),
                   m_pattern(pattern),
                   m_mask(mask),
                   m_code(code),
-                  byteMask(generateBMI2Mask(mask, pSize)),
-                  searchMask(generatePatternMask(pattern, pSize)),
+                  byteMask(generateBMI2Mask(mask, M, pSize)),
+                  searchMask(generatePatternMask(pattern, N, pSize)),
                   pattern{.str = m_pattern},
                   mask{.str = m_mask},
                   code{.str = m_code}
             {
                 static_assert(N == M, "Pattern size to mask size ratio must be 1:1.");
             }
+
+            template <typename T, typename V>
+            Pattern(
+                T pattern,
+                const size_t plen,
+                const char *mask,
+                const size_t mlen,
+                V code,
+                const size_t clen
+            ) requires std::is_pointer_v<T> && std::is_pointer_v<V>
+                && (!(std::is_bounded_array_v<T> || std::is_bounded_array_v<V>))
+                : patternLen(plen),
+                  codeLen(clen),
+                  pSize((plen & 1ULL ? plen + 1ULL : plen) >> 3),
+                  m_pattern(pattern),
+                  m_mask(mask),
+                  m_code(code),
+                  byteMask(generateBMI2Mask(mask, mlen, pSize)),
+                  searchMask(generatePatternMask(pattern, plen, pSize)),
+                  pattern{.str = m_pattern},
+                  mask{.str = m_mask},
+                  code{.str = m_code}
+            {}
 
             Pattern() = delete;
             Pattern(const Pattern&) = delete;

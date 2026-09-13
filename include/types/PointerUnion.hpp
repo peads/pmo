@@ -22,7 +22,7 @@ namespace PMO
 {
     union PointerUnion
     {
-        void *ptr = nullptr;
+        void *const ptr;
         char *cptr;
         const uintptr_t address;
         const char *str;
