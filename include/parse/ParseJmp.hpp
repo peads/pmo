@@ -22,12 +22,12 @@
 
 namespace PMO
 {
-    inline uint64_t parseJmpFarAbsAddr(const uint64_t mask, const uint8_t *p) noexcept
+    inline uint64_t parseJmpFarAbsAddr(const uint64_t mask, uint8_t *&p) noexcept
     {
         return *reinterpret_cast<const uint64_t*>(p) & mask;
     }
 
-    inline uint64_t parseJmpFarAbsMod(const uint8_t mod, const uint8_t *p) noexcept
+    inline uint64_t parseJmpFarAbsMod(const uint8_t mod, uint8_t *&p) noexcept
     {
         switch (mod) // NOLINT(*-multiway-paths-covered)
         {
@@ -43,7 +43,7 @@ namespace PMO
         return false;
     }
 
-    inline uint64_t parseJmpFarAbsRm(const uint8_t rm, const uint8_t *p) noexcept
+    inline uint64_t parseJmpFarAbsRm(const uint8_t rm, uint8_t *&p) noexcept
     {
         switch (rm) // NOLINT(*-multiway-paths-covered)
         {
@@ -52,8 +52,7 @@ namespace PMO
             // case 2:     // [rdx], ...
             // case 3:     // [rbx], ...
             // case 4:     // [sib], ..., rsp
-            //     break;
-            case 5:     // [m16:32], [rbp+m16:16], [rbp+m16:32], rbp
+            case 5:        // [m16:32], [rbp+m16:16], [rbp+m16:32], rbp
                 return parseJmpFarAbsMod((*p >> 6) & 3, p);
             // case 6:     // [rsi], [rsi+m16:16], [rsi+m16:32], rsi
             // case 7:     // rdi, ...
@@ -63,7 +62,7 @@ namespace PMO
         return false;
     }
 
-    inline uint64_t parseJmpFarAbs(uint8_t *p) noexcept
+    inline uint64_t parseJmpFarAbs(uint8_t *&p) noexcept
     {
         // e.g., 0000'04ca'8125'ff48h
         // mod | reg  | r/m
@@ -75,19 +74,25 @@ namespace PMO
         return parseJmpFarAbsRm((*reinterpret_cast<uint64_t*>(p) & 0xFF) & 7, p);
     }
 
-    inline uint64_t parseJmp(uint8_t *p) noexcept
+    inline uint64_t parseJmp(uint8_t *&p, size_t *width = nullptr) noexcept
     {
         switch (*p & 0xFF) // NOLINT(*-multiway-paths-covered)
         {
-            // case 0xEB:  // EB cb jmp short, rip = rip+cb        (cb 8-bit sx to 64-bit)
-            // case 0xE9:  // E9 cd jmp near rel., rip = rip+cd    (cd 32-bit sx...)
-            //     break;
+            case 0xEB:   // EB cb jmp short, rip = rip+cb        (cb 8-bit sx to 64-bit)
+                if (width) *width = 1;
+                return *++p & 0xFF;
+                // return *(p + 1) & 0xFF;
+            case 0xE9:   // E9 cd jmp near rel., rip = rip+cd    (cd 32-bit sx...)
+                if (width) *width = 4;
+                return *reinterpret_cast<uint64_t*>(++p) & 0xFFFF'FFFF;;
+                // return *reinterpret_cast<uint64_t*>(p + 1) & 0xFFFF'FFFF;
             case 0xFF:
                 // FF r/m64  jmp near abs. ind., rip = r/m64 (r/m64 is offset)
-                // FF m16:16 jmp far abs. ind., rip = m16:16 (ModRM)
-                // FF m16:32 jmp far abs. ind., rip = m16:32 (ModRM)
-                // FF m16:32 jmp far abs. ind., rip = m16:32 ...
-                // FF m16:64 jmp far abs. ind., rip = m16:64 ...
+                            // FF m16:16 jmp far abs. ind., rip = m16:16 (ModRM)
+                            // FF m16:32 jmp far abs. ind., rip = m16:32 (ModRM)
+                            // FF m16:32 jmp far abs. ind., rip = m16:32 ...
+                            // FF m16:64 jmp far abs. ind., rip = m16:64 ...
+                if (width) *width = 4;
                 return parseJmpFarAbs(++p);
             default:
                 break;
@@ -95,17 +100,28 @@ namespace PMO
 
         return false;
     }
-
-    inline uint64_t startParseJmp(uint8_t *p) noexcept
+    /**
+     * Parse the address of the jump. As a side effect, it moves the
+     *  input pointer to beginning of the jump address.
+     * @param p start position of memory to parse
+     * @return jump address
+     */
+    inline uint64_t startParseJmp(uint8_t *&p, size_t *width = nullptr) noexcept
     {
         if (!p)
             return 0;
-        return parseJmp((*p & 0xFF ^ 0x48) ? p : ++p);
+        return parseJmp((*p & 0xFF ^ 0x48) ? p : ++p, width);
     }
 
-    inline uint64_t startParseJmp(const uintptr_t addr) noexcept
+    /**
+     * Same as above, but doesn't clobber the input address.
+     * @param addr start position of memory to parse
+     * @return jump address
+     */
+    inline uint64_t startParseJmp(const uintptr_t addr, size_t *width = nullptr) noexcept
     {
-        return startParseJmp(reinterpret_cast<uint8_t*>(addr));
+        auto temp = reinterpret_cast<uint8_t*>(addr);
+        return startParseJmp(temp, width);
     }
 }
 #endif //PARSEJMP_HPP

@@ -19,15 +19,17 @@
 #include <deque>
 #include <map>
 #include <ranges>
-#include <mdspan>
+#include <print>
 
 #include "main.hpp"
 
+#include <iostream>
 #include <set>
 
 #include "debug.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/internal/catch_stdstreams.hpp>
 
 #define CATCH_CONFIG_MAIN // provides main(); this line is required in only one .cpp file
 
@@ -117,7 +119,7 @@ TEST_CASE("00a more raw search testing", "[PMO]")
     GetModuleFileName(nullptr, buf, MAX_PATH);
     std::filesystem::path path{buf};
     const std::string name = path.filename().string();
-    imports.insert(PMO::ImportInfo{.name=name.data()});
+    imports.insert(PMO::ImportInfo{.name = name.data()});
     constexpr size_t expected[] = {1, 1};
 
     size_t cnt = 0;
@@ -296,7 +298,7 @@ TEST_CASE("01 Test parse far jmp", "[PMO]")
 
     addr = crdpAddr;
     out = parseJmpFar(*reinterpret_cast<uint8_t(*)[8]>(&CheckRemoteDebuggerPresent), addr);
-    int (*fn1)(HANDLE, int*) = nullptr;
+    int (*fn1)(HANDLE, int *) = nullptr;
     outTest = PMO::findNamedFunction(addr, &fn1);
 
     REQUIRE((addr - crdpAddr - 7) == outTest);
@@ -352,4 +354,68 @@ TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[P
         REQUIRE(replaceAllCodeExternal(proc, swPattern));
     }
     CloseHandle(proc);
+}
+
+template <size_t M>
+void printAutoMask(const char (&pattern)[M], std::stringstream &ss)
+{
+    std::vector<uint64_t> offsets(0);
+    auto addrs = PMO::Pattern::autoGenerateMask(pattern, &offsets);
+    size_t cnt = 0;
+    ss << std::format("{::02X}\n", *reinterpret_cast<const uint8_t(*)[M]>(pattern)) << "[";
+    for (auto &e : addrs)
+    {
+        ss << e;
+        if (cnt > 0 && (cnt & 1))
+        {
+            ss << ", ";
+        }
+        cnt++;
+    }
+    ss << "]" << std::endl;
+    ss << std::format("{::016X}\n", offsets) << std::endl;
+}
+TEST_CASE("07 autogen mask", "[PMO]")
+{
+    std::stringstream ss{};
+    size_t size = (sizeof(CRDP_PATTERN) - 1) >> 3;
+    PMO::PointerUnion pu{.str = CRDP_PATTERN};
+    std::vector sxFours(0, 0ULL);
+
+    sxFours.insert(sxFours.begin(), pu.u64ptr, pu.u64ptr + size);
+    ss << std::format("{::016X} ", sxFours) << std::endl;
+    printAutoMask(CRDP_PATTERN, ss);
+
+    pu.str = JUMPS_PATTERN;
+    size = (sizeof(JUMPS_PATTERN) - 1) >> 3;
+    sxFours.clear();
+    sxFours.insert(sxFours.begin(), pu.u64ptr, pu.u64ptr + size);
+    ss << std::format("{::016X} ", sxFours) << std::endl;
+    printAutoMask(JUMPS_PATTERN, ss);
+
+    pu.str = REX_JUMPS_PATTERN;
+    size = (sizeof(REX_JUMPS_PATTERN) - 1) >> 3;
+    sxFours.clear();
+    sxFours.insert(sxFours.begin(), pu.u64ptr, pu.u64ptr + size);
+    ss << std::format("{::016X} ", sxFours) << std::endl;
+    printAutoMask(REX_JUMPS_PATTERN, ss);
+
+    pu.str = IDFK_JUMPS_AND_SHIT;
+    size = (sizeof(IDFK_JUMPS_AND_SHIT) - 1) >> 3;
+    sxFours.clear();
+    sxFours.insert(sxFours.begin(), pu.u64ptr, pu.u64ptr + size);
+    ss << std::format("{::016X} ", sxFours) << std::endl;
+    printAutoMask(IDFK_JUMPS_AND_SHIT, ss);
+
+    std::cout << ss.str();
+    ss.clear();
+
+    // std::println("{::02X}", *(uint8_t(*)[88])CRDP_PATTERN);
+    // std::cout << addrs << std::endl << CRDP_MASK << std::endl;
+    // for (auto &e : indcs)
+    // {
+    //
+    //     // std::println("{:016X} {:016X} ", e, ~e + 1);
+    //     std::println("{::02X}", *(uint8_t(*)[8]) (&CRDP_PATTERN[e]));
+    // }
 }

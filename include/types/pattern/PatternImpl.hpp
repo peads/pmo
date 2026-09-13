@@ -18,8 +18,8 @@
 #ifndef PATTERN_HPP
 #define PATTERN_HPP
 
-#include "PointerUnion.hpp"
-#include "SetWrapper.hpp"
+#include "types/PointerUnion.hpp"
+#include "types/SetWrapper.hpp"
 #include <vector>
 #include <ranges>
 
@@ -27,79 +27,17 @@ namespace PMO
 {
     class Pattern final
     {
+        template <size_t M>
+        static inline auto generatePatternMask(const char (&)[M], size_t) noexcept;
+        template <size_t M>
+        static inline auto generateBMI2Mask(const char (&)[M], size_t) noexcept;
         template <typename T>
-        static inline T generateTypedMask(T n) noexcept
-        {
-            if (!n)
-                return 0;
-            int bits = std::bit_width(n);
-            if (bits >= (sizeof(T) << 3))
-            {
-                return static_cast<T>(~static_cast<T>(0));
-            }
-            return (static_cast<T>(1) << bits) - 1;
-        }
-
-        /**
-         *
-         * @param smask string mask to convert
-         * @param len
-         */
-        template <size_t M>
-        static inline auto generateBMI2Mask(const char (&smask)[M], const size_t len) noexcept
-        {
-            const bool isFine = (M >> 3) > len;
-            const std::vector q(M, '?');
-            const std::vector p(M, 'x');
-            std::vector<uint64_t> result{};
-
-            PointerUnion qs{.str = q.data()};
-            PointerUnion xs{.str = p.data()};
-            PointerUnion ptr{.str = smask};
-            // auto *qs = reinterpret_cast<const uint64_t*>(q.data()),
-            //      *xs = reinterpret_cast<const uint64_t*>(p.data()),
-            //      *ptr = reinterpret_cast<const uint64_t*>(smask);
-            uint64_t prev = 0;
-            for (auto i = 0ULL; i < len; ++i, ++ptr.u64ptr, ++qs.u64ptr, ++xs.u64ptr)
-            {
-                if (!(*ptr.u64ptr ^ *xs.u64ptr))
-                {
-                    result.push_back(prev);
-                    prev = 0;
-                    continue;
-                }
-
-                const auto del = *ptr.u64ptr ^ *qs.u64ptr;
-                // auto mask = del - 0x0101'0101'0101'0101LLU;
-                // mask &= ~del & 0x8080'8080'8080'8080LLU;
-                // mask = (mask >> 15) * 0xF;
-
-                auto mask = (((del - 0x0101'0101'0101'0101LLU) & (~del & 0x8080'8080'8080'8080LLU)) >> 7);
-                if (!isFine)
-                    mask *= 0xFF;
-                else
-                {
-                    mask |= (((del - 0x0101'0101'0101'0101LLU) & (~del & 0x8080'8080'8080'8080LLU)) >> 15);
-                    mask *= 0xF;
-                }
-                result.push_back(mask);
-            }
-            return std::move(result);
-        }
-
-        template <size_t M>
-        static inline auto generatePatternMask(const char (&pattern)[M], const size_t len) noexcept
-        {
-            std::vector result(len, 0ULL);
-            const auto optr = reinterpret_cast<uint8_t*>(result.data());
-            for (size_t i = 0; i < M; ++i)
-            {
-                optr[i] |= generateTypedMask(pattern[i] & 0xFFULL);
-            }
-            return std::move(result);
-        }
+        static inline T generateTypedMask(T) noexcept;
 
         public:
+            template <size_t M>
+            static inline auto autoGenerateMask(const char (&)[M], std::vector<uint64_t> * = nullptr) noexcept;
+
             const size_t patternLen;
             const size_t maskLen;
             const size_t codeLen;
@@ -165,7 +103,6 @@ namespace PMO
                 return std::ranges::ref_view(searchMask) | std::views::as_const;
             }
 
-
             [[nodiscard]] auto bmsk() const noexcept
             {
                 return std::ranges::ref_view(byteMask) | std::views::as_const;
@@ -176,7 +113,7 @@ namespace PMO
                 : patternLen(N - 1ULL),
                   maskLen(M),
                   codeLen(P - 1ULL),
-                  pSize((N & 1ULL ? N + 1ULL : N) >> 3), // ceil(N) / 8
+                  pSize((N & 1ULL ? N + 1ULL : N) >> 3), // ceil[N / 8]
                   m_pattern(pattern),
                   m_mask(mask),
                   m_code(code),
