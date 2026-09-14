@@ -1,5 +1,5 @@
 /*
-* This file is part of the pmo (peads Memory Operations) distribution
+ * This file is part of the pmo (peads Memory Operations) distribution
  * (https://github.com/peads/pmo).
  * Copyright (c) 2026 Patrick Eads.
  *
@@ -16,9 +16,15 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include <cstdint>
-#include <windows.h>
 #include "debug.hpp"
-
+#include "windows/MemoryOps.hpp"
+#ifndef DBGPATS
+#define DBGPATS
+static PMO::Pattern debuggerPatterns[] = {
+    PMO::Pattern{IDP_PATTERN, IDP_MASK, IDP_CODE},
+    PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
+};
+#endif
 bool disableDebuggerChecking() noexcept
 {
     int (*idp)() = nullptr;

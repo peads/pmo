@@ -324,5 +324,49 @@ finished:
             return replaceCodeExternal(proc, pattern);
         });
     }
+
+    template <typename IterFunction, PseudoContainer T>
+    inline size_t traverseExports(IterFunction fn, T &imports) noexcept
+    {
+        size_t cnt = 0;
+        for (auto it = imports.begin(); it != imports.end(); ++it)
+        {
+            cnt += fn(it);
+            findImports(GetModuleHandle(it->name), imports);
+        }
+        return cnt;
+    }
+
+    template <typename IterFunction>
+    inline size_t traverseExports(IterFunction fn, const char *const name = nullptr) noexcept
+    {
+        SetWrapper<ImportInfo> imports{};
+        findImports(GetModuleHandle(name), imports);
+        return traverseExports(fn, imports);
+    }
+
+    // static inline auto generateExportMerger(std::map<uintptr_t, std::string> &exports)
+    // {
+    //     return std::move([&exports]<typename iter>(iter &it)FORCE_INLINE_LAMBDA
+    //     {
+    //         exports.insert(it->fnNames.begin(), it->fnNames.end());
+    //         return it->fnNames.size();
+    //     });
+    // }
+
+    // template <PseudoContainer T>
+    // inline auto mergeExports(T &imports) noexcept
+    // {
+    //     std::map<uintptr_t, std::string> exports{};
+    //     traverseExports(generateExportMerger(exports), imports);
+    //     return std::move(exports);
+    // }
+
+    // inline auto mergeExports(const char *name = nullptr) noexcept
+    // {
+    //     std::map<uintptr_t, std::string> exports{};
+    //     traverseExports(generateExportMerger(exports), name);
+    //     return std::move(exports);
+    // }
 }
 #endif //WMEMORYOPS_HPP
