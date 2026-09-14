@@ -18,7 +18,7 @@
 
 #ifndef WMAIN_HPP
 #define WMAIN_HPP
-#include "windows/MemoryOps.hpp"
+#include "debug.hpp"
 #ifdef TEST_OBR
 #define SLEEP_WAIT_PATTERN      "\xF3\x0F\x10\x35\xF4\x9B\xCA\x01\xF3\x0F\x58\xC6\xF3\x0F\x11\x05"
 #define SLEEP_WAIT_MASK         "xxxxxxxxxxxxxxxx"
