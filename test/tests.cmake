@@ -11,7 +11,8 @@ FetchContent_MakeAvailable(Catch2)
 include(CTest)
 include(Catch)
 
-add_executable(${TARGET} "${CMAKE_SOURCE_DIR}/test/src/windows/main.cpp")
+add_executable(${TARGET} "${CMAKE_SOURCE_DIR}/test/src/windows/main.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/windows/helpers/debug/debug.cpp")
 
 target_include_directories(${TARGET} PUBLIC
         "${CMAKE_SOURCE_DIR}/include"

@@ -200,50 +200,26 @@ TEST_CASE("04 Test expected function name", "[PMO]")
 TEST_CASE("ZZ Test replace by function name", "[PMO]")
 {
     reset();
-    int outB = 0;
 
-    int (*idp)() = nullptr;
-    auto addr = idpAddr;
-    PMO::findNamedFunction(addr, &idp);
-    // ReSharper disable once CppCStyleCast
-    debuggerPatterns[0].push_back((uintptr_t) idp);
-    // int (*idp)() = *reinterpret_cast<int(**)()>(ptr);
-    REQUIRE(idp() == IsDebuggerPresent());
+    int bl[2] = {};
 
-    int (*crdp)(HANDLE, int *) = nullptr;
-    addr = crdpAddr;
-    PMO::findNamedFunction(addr, &crdp);
-    // ReSharper disable once CppCStyleCast
-    debuggerPatterns[1].push_back((uintptr_t) crdp);
-    // int (*crdp)(HANDLE, int *) = *reinterpret_cast<int(**)(HANDLE, int *)>(ptr);
-    int outBB = 0;
-    REQUIRE(1 == crdp(GetCurrentProcess(), &outBB));
-    REQUIRE(1 == CheckRemoteDebuggerPresent(GetCurrentProcess(), &outB));
-    REQUIRE(outBB == outB);
+    REQUIRE(CheckRemoteDebuggerPresent(GetCurrentProcess(), bl + 0));
+    REQUIRE(IsDebuggerPresent() == bl[0]);
 
-    auto knrlBase = GetModuleHandle("KERNELBASE.dll");
-    auto cnt = 0;
-    for (const auto &e : debuggerPatterns)
-    {
-        for (const auto &p : e)
-        {
-            if (cnt++)
-                PMO::replaceCode({.address = p}, e.code.str, e.codeLen);
-            else
-                PMO::replaceCode({.address = p}, e.code.str, e.codeLen, &knrlBase);
-            char *code = reinterpret_cast<char*>(p);
-            for (size_t i = 0; i < e.codeLen; ++i, ++code)
-            {
-                REQUIRE(e.code.cptr[i] == *code);
-            }
-        }
-    }
+    REQUIRE(disableDebuggerChecking());
 
-    outB = 0;
-    REQUIRE(!IsDebuggerPresent());
-    REQUIRE(1 == crdp(GetCurrentProcess(), &outBB));
-    REQUIRE(1 == CheckRemoteDebuggerPresent(GetCurrentProcess(), &outB));
-    REQUIRE(!outB);
+    REQUIRE(CheckRemoteDebuggerPresent(GetCurrentProcess(), bl + 1));
+    REQUIRE((IsDebuggerPresent() == bl[1] && !bl[1]));
+
+    PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
+    PMO::Pattern b{CRDP_CODE, CRDP_MASK, CRDP_CODE};
+
+    auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getImportInfo(GetModuleHandle("KERNELBASE.dll"));
+    findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, a);
+    REQUIRE(!a.empty());
+    findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, b);
+    REQUIRE(!b.empty());
+
 }
 
 TEST_CASE("02 Test find by traversing thunks", "[PMO]")
