@@ -1,12 +1,15 @@
 cmake_minimum_required(VERSION 3.29)
-set(TARGET Example1)
+set(TARGET Example2)
 project(${TARGET} CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_library(${TARGET} SHARED "${CMAKE_CURRENT_SOURCE_DIR}/debug.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/debug.hpp")
+if(BUILD_SHARED_LIB)
+add_library(${TARGET} SHARED "${CMAKE_CURRENT_SOURCE_DIR}/PrintExports.cpp")
+else()
+add_executable(${TARGET} "${CMAKE_CURRENT_SOURCE_DIR}/PrintExports.cpp")
+endif()
 target_include_directories(${TARGET} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../../include")
-target_compile_definitions(${TARGET} PRIVATE "BUILD_SHARED_LIB=ON")
 
 # build with something like:
 #

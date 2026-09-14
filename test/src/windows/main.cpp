@@ -21,8 +21,7 @@
 #include <ranges>
 #include <set>
 
-#include "main.hpp"
-#include "debug.hpp"
+#include "windows/main.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 

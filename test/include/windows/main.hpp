@@ -18,14 +18,18 @@
 
 #ifndef WMAIN_HPP
 #define WMAIN_HPP
-#include "debug.hpp"
+#include "windows/MemoryOps.hpp"
+#include "windows/helpers/debug/debug.hpp"
+#ifndef DBGPATS
+#define DBGPATS
+static inline PMO::Pattern debuggerPatterns[] = {
+    PMO::Pattern{IDP_PATTERN, IDP_MASK, IDP_CODE},
+    PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
+};
+#endif
 #ifdef TEST_OBR
-#define SLEEP_WAIT_PATTERN      "\xF3\x0F\x10\x35\xF4\x9B\xCA\x01\xF3\x0F\x58\xC6\xF3\x0F\x11\x05"
-#define SLEEP_WAIT_MASK         "xxxxxxxxxxxxxxxx"
-#define SLEEP_WAIT_CODE         "\x0F\x57\xC0\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#define OBR_WIN64               "OblivionRemastered-Win64-Shipping.exe"
-#define OBR_WINGDK              "OblivionRemastered-WinGDK-Shipping.exe"
-inline PMO::Pattern swPattern{SLEEP_WAIT_PATTERN, SLEEP_WAIT_MASK, SLEEP_WAIT_CODE};
+#include "windows/games/mods/qswprime.hpp"
+static inline PMO::Pattern swPattern{SLEEP_WAIT_PATTERN, SLEEP_WAIT_MASK, SLEEP_WAIT_CODE};
 #endif
 #define JUMPS_PATTERN           "\xFF\x15\xF0\xFF\x7F\x00\xFF\x25\xF1\xFF\x7F\x00\xFF\x15\xF2\xFF\x7F\x00\xFF\x25\xF3\xFF\x7F\x00\xFF\x15\xF4\xFF\x7F\x00"
 #define REX_JUMPS_PATTERN       "\x48\xFF\x25\xF0\xFF\xFF\x00\x48\xFF\x15\xF1\xFF\xFF\x00\x48\xFF\x25\xF2\xFF\xFF\x00\x48\xFF\x15\xF3\xFF\xFF\x00\x48\xFF\x25\xF4\xFF\xFF\x00\x48\xFF\x15\xF5\xFF\xFF\x00"
