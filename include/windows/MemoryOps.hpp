@@ -21,12 +21,11 @@
 #include <filesystem>
 
 #include "../MemoryOps.hpp"
-#include "types/ExportInfo.hpp"
 #include "types/ImportInfo.hpp"
 #include "windows/ImageDirectoryEntryToData.hpp"
 
 #define PID_NAME_LEN 8192
-    #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #define FORCE_INLINE_LAMBDA __attribute__((always_inline))
 #elif defined(_MSC_VER)
     #define FORCE_INLINE_LAMBDA [[msvc::forceinline]]
@@ -108,8 +107,11 @@ namespace PMO
         return true;
     }
 
-    template <PseudoContainer T>
-    inline bool findExports(const HMODULE &module, T &out, const uintptr_t *searchKey = nullptr) noexcept
+    inline bool findExports(
+        const HMODULE &module,
+        std::map<uintptr_t, std::tuple<WORD, std::string>> &out,
+        const uintptr_t *searchKey = nullptr
+    ) noexcept
     {
         if (!module)
             return false;
@@ -141,10 +143,7 @@ namespace PMO
             const auto ordinal = ordinals[i];
             if (const auto fn = baseAddress + addresses[ordinal]; !searchKey || *searchKey == fn)
             {
-                auto str = reinterpret_cast<char*>(baseAddress + names[i]);
-                uintptr_t gn = 0;
-                findNamedFunction(fn, &gn);
-                out.push_back(ExportInfo{fn, gn, ordinal, str});
+                out.emplace(fn, std::make_tuple(ordinal, std::string(reinterpret_cast<char*>(baseAddress + names[i]))));
                 if (searchKey)
                     break;
             }
@@ -290,8 +289,10 @@ finished:
                         out.push_back(pids[i]);
                         MODULEINFO modInfo;
                         // Enumerate process modules
-                        if (HMODULE mods[1024];
-                            EnumProcessModules(proc, mods, sizeof(mods), &cbNeeded)
+                        if (HMODULE mods[1024]; EnumProcessModules(proc,
+                                mods,
+                                sizeof(mods),
+                                &cbNeeded)
                             && GetModuleInformation(proc, mods[0], &modInfo, sizeof(modInfo)))
                         {
                             result = reinterpret_cast<uintptr_t>(modInfo.lpBaseOfDll);
@@ -328,10 +329,11 @@ finished:
 
     inline bool replaceAllCodeExternal(HANDLE proc, Pattern &pattern) noexcept
     {
-        return std::ranges::all_of(pattern, [&proc, &pattern](const uintptr_t addr)
-        {
-            return replaceCodeExternal(proc, pattern);
-        });
+        return std::ranges::all_of(pattern,
+                                   [&proc, &pattern](const uintptr_t addr)
+                                   {
+                                       return replaceCodeExternal(proc, pattern);
+                                   });
     }
 }
 #endif //WMEMORYOPS_HPP

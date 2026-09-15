@@ -185,18 +185,23 @@ TEST_CASE("04 Test expected function name", "[PMO]")
     const auto idp = idpAddr;
     const auto crdp = crdpAddr;
 
-    PMO::ExportInfo info{};
     for (const auto &im : imports)
     {
         if (!strcmp("KERNEL32.dll", im.name))
         {
-            info.name = "IsDebuggerPresent";
-            REQUIRE(im.exports.contains(info));
-            info.name = "CheckRemoteDebuggerPresent";
-            REQUIRE(im.exports.contains(info));
+            auto view = im.exports | std::views::elements<1> | std::views::elements<1>;
+            REQUIRE(!(view | std::views::filter([](auto &e)
+            {
+                return e == "IsDebuggerPresent";
+            })).empty());
+            REQUIRE(!(view | std::views::filter([](auto &e)
+            {
+                return e == "CheckRemoteDebuggerPresent";
+            })).empty());
             break;
         }
     }
+    imports.clear();
 }
 
 TEST_CASE("ZZ Test replace by function name", "[PMO]")

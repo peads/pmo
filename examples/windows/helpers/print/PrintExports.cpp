@@ -18,28 +18,8 @@
 
 #include <iostream>
 #include <execution>
-#include <map>
 
 #include "windows/MemoryOps.hpp"
-
-static inline size_t printExports()
-{
-    // PMO::SetWrapper<std::string, std::set<std::string>> exports{};
-    std::map<uintptr_t, std::string> exports{};
-    const size_t cnt = PMO::traverseExports([&exports]<typename iter>(iter &it)FORCE_INLINE_LAMBDA
-    {
-        exports.insert(it->fnNames.begin(), it->fnNames.end());
-        return it->fnNames.size();
-    });
-
-    std::cout <<
-        std::reduce(std::execution::seq, exports.cbegin(), exports.cend(), std::string{},
-             [](const std::string &acc, auto &keyVal)
-             {
-                 return acc + std::format("{} @ {:016X}\n", keyVal.second, keyVal.first);
-             });
-    return cnt;
-}
 
 extern "C" {
 #ifndef BUILD_SHARED_LIB
@@ -49,6 +29,9 @@ extern "C" {
     __declspec(dllexport) int DllMain() noexcept
     {
 #endif
-        return !printExports();
+        PMO::SetWrapper<PMO::ImportInfo> imports{};
+        findImports(GetModuleHandle(nullptr), imports);
+        PMO::ImportInfo::printExports(imports);
+        return !imports.empty();
     }
 }
