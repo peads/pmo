@@ -25,6 +25,13 @@
 #include "windows/ImageDirectoryEntryToData.hpp"
 
 #define PID_NAME_LEN 8192
+    #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#define FORCE_INLINE_LAMBDA __attribute__((always_inline))
+#elif defined(_MSC_VER)
+    #define FORCE_INLINE_LAMBDA [[msvc::forceinline]]
+#else
+    #define FORCE_INLINE_LAMBDA
+#endif
 
 namespace PMO
 {
