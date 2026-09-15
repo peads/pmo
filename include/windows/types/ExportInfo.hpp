@@ -6,6 +6,7 @@
 #define EXPORTINFO_HPP
 #include <string>
 #include <windows.h>
+
 namespace PMO
 {
     struct ExportInfo
@@ -22,7 +23,7 @@ namespace PMO
 
         bool operator==(const ExportInfo &a) const noexcept
         {
-            return ordinal == a.ordinal;
+            return name == a.name;
         }
     };
 }

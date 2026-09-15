@@ -24,10 +24,11 @@
 namespace PMO
 {
     template <typename T>
-    concept SetConcept = PseudoContainer<T> && requires(T c, typename T::value_type v)
+    concept SetConcept = PseudoContainer<T> && requires(T c, typename T::key_type u, typename T::value_type v)
     {
         c.insert(v);
         c.erase(v);
+        c.contains(u);
     };
 
     template <typename U, SetConcept T = std::unordered_set<U>>

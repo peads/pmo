@@ -102,35 +102,40 @@ TEST_CASE("05 line coverage++", "[PMO]")
     }
     uintptr_t addr;
     REQUIRE((!PMO::findNamedFunction(0, &addr) && !addr));
-    auto a = puSwU.pop_back();
+    auto a = *puSet.begin();
     PMO::PointerUnion b{.address = a.address};
     REQUIRE(a == b);
-    PMO::traverseExports([]<typename iter> (iter it) {return 1;});
 }
 
 TEST_CASE("00a more raw search testing", "[PMO]")
 {
     reset();
     PMO::SetWrapper<PMO::ImportInfo> imports{};
-    char buf[MAX_PATH];
+    // findImports(GetModuleHandle(nullptr), imports);
+    char buf[260];
     GetModuleFileName(nullptr, buf, MAX_PATH);
-    const auto name = std::filesystem::path{buf}.filename().string();
+    std::filesystem::path path{buf};
+    const std::string name = path.filename().string();
     imports.insert(PMO::ImportInfo{.name = name.data()});
-    constexpr size_t arr[] = {1, 1};
-    const size_t *expected = arr;
+    constexpr size_t expected[] = {1, 1};
 
+    size_t cnt = 0;
     for (auto &pattern : debuggerPatterns)
     {
-        const size_t foundAtLeastOne = traverseExports(
-           [&pattern]<typename iter>(iter jt)FORCE_INLINE_LAMBDA
-           {
-               auto [lpBaseOfDll, SizeOfImage, EntryPoint] =
-                   PMO::getImportInfo(GetModuleHandle(jt->name));
-               return findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage,
-                   pattern);
-           }, imports);
+        bool foundAtLeastOne = false;
+        for (auto it = imports.begin(); it != imports.end(); ++it)
+        {
+            auto module = GetModuleHandle(it->name);
+            findImports(module, imports);
+            MODULEINFO info{};
+            PMO::getImportInfo(module, info);
+            foundAtLeastOne |= findPatterns(reinterpret_cast<uintptr_t>(info.
+                                                lpBaseOfDll),
+                                            info.SizeOfImage,
+                                            pattern);
+        }
         REQUIRE(foundAtLeastOne);
-        REQUIRE(pattern.size() >= *expected++);
+        REQUIRE(pattern.size() >= expected[cnt++]);
     }
 }
 
@@ -144,21 +149,25 @@ TEST_CASE("00 raw search testing", "[PMO]")
                 debuggerPatterns[0].patternLen, debuggerPatterns[0]));
 
     auto module = GetModuleHandle("KERNELBASE.dll");
-    auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getImportInfo(module);
-    REQUIRE(PMO::findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage,
-                debuggerPatterns[0]));
-    REQUIRE(reinterpret_cast<int(*)()>(debuggerPatterns[0].back().address)() == IsDebuggerPresent());
+    MODULEINFO info{};
+    PMO::getImportInfo(module, info);
+    REQUIRE(PMO::findPatterns(reinterpret_cast<uintptr_t>(info.lpBaseOfDll), info.
+                SizeOfImage, debuggerPatterns[0]));
+    REQUIRE(reinterpret_cast<int(*)()>(debuggerPatterns[0].back().address)() == IsDebuggerPresent(
+            ));
     PMO::SetWrapper<PMO::ImportInfo> imports{};
     findImports(GetModuleHandle(nullptr), imports);
-    const size_t foundAtLeastOne = traverseExports(
-       []<typename iter>(iter jt)FORCE_INLINE_LAMBDA
-       {
-           auto [lpBaseOfDll, SizeOfImage, EntryPoint] =
-               PMO::getImportInfo(GetModuleHandle(jt->name));
-           return findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage,
-               debuggerPatterns[0]);
-       },
-       imports);
+    bool foundAtLeastOne = false;
+    for (auto it = imports.begin(); it != imports.end(); ++it)
+    {
+        module = GetModuleHandle(it->name);
+        findImports(module, imports);
+        PMO::getImportInfo(module, info);
+        foundAtLeastOne |= findPatterns(reinterpret_cast<uintptr_t>(info.
+                                            lpBaseOfDll),
+                                        info.SizeOfImage,
+                                        debuggerPatterns[0]);
+    }
     REQUIRE(foundAtLeastOne);
     for (unsigned long long f : debuggerPatterns[0])
     {
@@ -176,12 +185,15 @@ TEST_CASE("04 Test expected function name", "[PMO]")
     const auto idp = idpAddr;
     const auto crdp = crdpAddr;
 
+    PMO::ExportInfo info{};
     for (const auto &im : imports)
     {
         if (!strcmp("KERNEL32.dll", im.name))
         {
-            REQUIRE(im.fnNames.at(idp)=="IsDebuggerPresent");
-            REQUIRE(im.fnNames.at(crdp)=="CheckRemoteDebuggerPresent");
+            info.name = "IsDebuggerPresent";
+            REQUIRE(im.exports.contains(info));
+            info.name = "CheckRemoteDebuggerPresent";
+            REQUIRE(im.exports.contains(info));
             break;
         }
     }
@@ -204,8 +216,7 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
     PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
     PMO::Pattern b{CRDP_CODE, CRDP_MASK, CRDP_CODE};
 
-    auto [lpBaseOfDll, SizeOfImage, EntryPoint] =
-        PMO::getImportInfo(GetModuleHandle("KERNELBASE.dll"));
+    auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getImportInfo(GetModuleHandle("KERNELBASE.dll"));
     findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, a);
     REQUIRE(!a.empty());
     findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, b);

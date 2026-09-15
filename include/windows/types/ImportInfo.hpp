@@ -27,7 +27,7 @@ namespace PMO
     {
         HMODULE mod = nullptr;
         const char *name;
-        std::unordered_map<uintptr_t, std::string> fnNames{};
+        SetWrapper<ExportInfo> exports{};
         std::unordered_map<uintptr_t, uintptr_t> thunks{};
 
         bool operator<(const ImportInfo &a) const noexcept
