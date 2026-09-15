@@ -21,6 +21,7 @@
 #include <filesystem>
 
 #include "../MemoryOps.hpp"
+#include "types/ExportInfo.hpp"
 #include "types/ImportInfo.hpp"
 #include "windows/ImageDirectoryEntryToData.hpp"
 
@@ -105,6 +106,48 @@ namespace PMO
             return false;
 
         return true;
+    }
+
+    template <PseudoContainer T>
+    inline bool findExports(const HMODULE &module, T &out) noexcept
+    {
+        if (!module)
+            return false;
+
+        const auto baseAddress = reinterpret_cast<uintptr_t>(module);
+        const auto dosHeader = reinterpret_cast<PIMAGE_DOS_HEADER>(baseAddress);
+
+        if (dosHeader->e_magic ^ IMAGE_DOS_SIGNATURE)
+            return false;
+
+        const auto [virtualAddress, size]
+            = reinterpret_cast<PIMAGE_NT_HEADERS>(baseAddress + dosHeader->e_lfanew)
+            ->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+
+        if (!virtualAddress)
+            return false;
+
+        const auto exportDirectory
+            = reinterpret_cast<PIMAGE_EXPORT_DIRECTORY>(baseAddress + virtualAddress);
+        const auto addresses
+            = reinterpret_cast<PDWORD>(baseAddress + exportDirectory->AddressOfFunctions);
+        const auto names = reinterpret_cast<PDWORD>(baseAddress + exportDirectory->AddressOfNames);
+        const auto ordinals
+            = reinterpret_cast<PWORD>(baseAddress + exportDirectory->AddressOfNameOrdinals);
+
+        size_t i = 0;
+        for (; i < exportDirectory->NumberOfNames; ++i)
+        {
+            auto ordinal = ordinals[i];
+            auto str = reinterpret_cast<char*>(baseAddress + names[i]);
+            const auto fn = baseAddress + addresses[ordinal];
+
+            uintptr_t gn = 0;
+            findNamedFunction(fn, &gn);
+
+            out.push_back(ExportInfo{fn, gn, ordinal, str});
+        }
+        return i;
     }
 
     inline bool findExportedFunctionName(
