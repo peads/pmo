@@ -28,8 +28,9 @@ namespace PMO
     {
         HMODULE mod = nullptr;
         const char *name;
-        std::map<uintptr_t, std::tuple<WORD, std::string>> exports{};
+        std::map<uintptr_t, std::pair<WORD, std::string>> exports{};
         std::map<uintptr_t, uintptr_t> thunks{};
+        DWORD ordinalBase;
 
         bool operator<(const ImportInfo &a) const noexcept
         {
@@ -40,16 +41,6 @@ namespace PMO
         {
             return name == a.name;
         }
-
-        // inline void printExports(std::ostream &out = std::cout)
-        // {
-        //     out << name << "\n----------------------" << std::endl;
-        //     for (auto &[thunkAddr, funcAddr, ordinal, name] : exports)
-        //     {
-        //         out << std::format("{:016X}:\t{} @ {}\n", funcAddr, name, ordinal);
-        //     }
-        //     out << "----------------------\n";
-        // }
     };
 }
 

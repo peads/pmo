@@ -107,9 +107,9 @@ namespace PMO
         return true;
     }
 
-    inline bool findExports(
+    inline DWORD findExports(
         const HMODULE &module,
-        std::map<uintptr_t, std::tuple<WORD, std::string>> &out,
+        std::map<uintptr_t, std::pair<WORD, std::string>> &out,
         const uintptr_t *searchKey = nullptr
     ) noexcept
     {
@@ -124,7 +124,7 @@ namespace PMO
 
         const auto [virtualAddress, size]
             = reinterpret_cast<PIMAGE_NT_HEADERS>(baseAddress + dosHeader->e_lfanew)
-            ->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+                ->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
 
         if (!virtualAddress)
             return false;
@@ -137,8 +137,7 @@ namespace PMO
         const auto ordinals
             = reinterpret_cast<PWORD>(baseAddress + exportDirectory->AddressOfNameOrdinals);
 
-        size_t i = 0;
-        for (; i < exportDirectory->NumberOfNames; ++i)
+        for (size_t i = 0; i < exportDirectory->NumberOfNames; ++i)
         {
             const auto ordinal = ordinals[i];
             if (const auto fn = baseAddress + addresses[ordinal]; !searchKey || *searchKey == fn)
@@ -148,54 +147,61 @@ namespace PMO
                     break;
             }
         }
-        return i;
+        if (searchKey)
+            return exportDirectory->Base;
+
+        for(size_t i = 0; i < exportDirectory->NumberOfFunctions; ++i)
+        {
+            const auto addr = baseAddress + addresses[i];
+            out.insert({addr, std::make_pair((WORD)i, std::string{})});
+        }
+        return exportDirectory->Base;
     }
 
-    inline void findThunks(
+    inline DWORD findThunks(
         const HMODULE &module,
         const IMAGE_IMPORT_DESCRIPTOR &desc,
         ImportInfo &out
     ) noexcept
     {
+        DWORD result = 0;
         auto thunk = reinterpret_cast<PIMAGE_THUNK_DATA>(
             reinterpret_cast<PBYTE>(module) + desc.FirstThunk);
         for (; thunk->u1.AddressOfData; ++thunk)
         {
-            uintptr_t fn = thunk->u1.Function;
-            uintptr_t gn = 0;
-
             if (const auto thisModule = GetModuleHandle(out.name); thisModule)
             {
-                findExports(thisModule, out.exports, &fn);
+                uintptr_t fn = thunk->u1.Function;
+                uintptr_t gn = 0;
+                result = findExports(thisModule, out.exports, &fn);
                 findNamedFunction(fn, &gn);
                 out.thunks.emplace(fn, gn);
             }
         }
+        return result;
     }
 
     template <PseudoContainer T>
     inline void findImports(const HMODULE &module, T &out) noexcept
     {
         ULONG size;
-        auto importDescriptor = static_cast<PIMAGE_IMPORT_DESCRIPTOR>(
+        auto desc = static_cast<PIMAGE_IMPORT_DESCRIPTOR>(
             ImageDirectoryEntryToDataEx(module,
                                         TRUE,
                                         IMAGE_DIRECTORY_ENTRY_IMPORT,
                                         &size,
                                         nullptr));
 
-        for (; importDescriptor && importDescriptor->Characteristics && importDescriptor->Name;
-               ++importDescriptor)
+        ImportInfo info{};
+        for (; desc && desc->Characteristics && desc->Name; ++desc)
         {
-            ImportInfo imports{};
-            imports.name = reinterpret_cast<PSTR>(
-                reinterpret_cast<PBYTE>(module) + importDescriptor->Name);
+            info.name = reinterpret_cast<PSTR>(reinterpret_cast<PBYTE>(module) + desc->Name);
             GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
                               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                              imports.name,
-                              &imports.mod);
-            findThunks(imports.mod, *importDescriptor, imports);
-            out.push_back(imports);
+                              info.name,
+                              &info.mod);
+            info.ordinalBase = findThunks(info.mod, *desc, info);
+            out.push_back(std::move(info));
         }
     }
 

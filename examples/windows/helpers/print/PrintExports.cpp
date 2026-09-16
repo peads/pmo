@@ -21,6 +21,8 @@
 
 #include "windows/MemoryOps.hpp"
 
+#define DWMAPI_PATH "C:/Windows/System32/dwmapi.dll"
+
 extern "C" {
 #ifndef BUILD_SHARED_LIB
     int main() noexcept
@@ -29,9 +31,34 @@ extern "C" {
     __declspec(dllexport) int DllMain() noexcept
     {
 #endif
-        PMO::SetWrapper<PMO::ImportInfo> imports{};
-        findImports(GetModuleHandle(nullptr), imports);
-        PMO::ImportInfo::printExports(imports);
-        return !imports.empty();
+        const HMODULE module = LoadLibrary(DWMAPI_PATH);
+        std::map<uintptr_t, std::pair<WORD, std::string>> exports{};
+        const DWORD ordBase = PMO::findExports(module, exports);
+        std::stringstream buf;
+
+        for (const auto &[fn, tup] : exports)
+        {
+            const auto &[ord, name] = tup;
+            buf << std::format("{:016X}: {:03}:{:03} -> {}\n", fn, ord, ordBase + ord, name);
+        }
+
+        const auto &addr = (exports | std::views::filter([](auto &e)
+        {
+            auto &[ord, name] = e.second;
+            return name == "DwmFlush";
+        }) | std::views::keys).back();
+
+        buf << "DwmFlush result: ";
+        HRESULT (*DwmFlush)() = *reinterpret_cast<HRESULT (*)()>(addr);
+        const HRESULT result = DwmFlush();
+
+        if (result != S_OK)
+            buf << result << std::endl;
+        else
+            buf << "S_OK" << std::endl;
+        std::cout << buf.str();
+
+        FreeLibrary(module);
+        return result;
     }
 }

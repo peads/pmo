@@ -182,8 +182,6 @@ TEST_CASE("04 Test expected function name", "[PMO]")
     reset();
     std::deque<PMO::ImportInfo> imports;
     findImports(GetModuleHandle(nullptr), imports);
-    const auto idp = idpAddr;
-    const auto crdp = crdpAddr;
 
     for (const auto &im : imports)
     {
