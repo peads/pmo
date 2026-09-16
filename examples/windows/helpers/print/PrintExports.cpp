@@ -21,7 +21,7 @@
 
 #include "windows/MemoryOps.hpp"
 
-#define DWMAPI_PATH "C:/Windows/System32/dwmapi.dll"
+#define DWMAPI_NAME "dwmapi.dll"
 
 extern "C" {
 #ifndef BUILD_SHARED_LIB
@@ -31,7 +31,12 @@ extern "C" {
     __declspec(dllexport) int DllMain() noexcept
     {
 #endif
-        const HMODULE module = LoadLibrary(DWMAPI_PATH);
+        char systemDir[MAX_PATH];
+        GetSystemDirectory(systemDir, MAX_PATH);
+        std::filesystem::path path(systemDir);
+        path.append(DWMAPI_NAME);
+        const HMODULE module = LoadLibrary(path.string().c_str());
+
         std::map<uintptr_t, std::pair<WORD, std::string>> exports{};
         const DWORD ordBase = PMO::findExports(module, exports);
         std::stringstream buf;

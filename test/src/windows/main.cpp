@@ -367,3 +367,24 @@ TEST_CASE("07 autogen mask", "[PMO]")
     REQUIRE(fn2(module, b + 0) == CheckRemoteDebuggerPresent(module, b + 1));
     REQUIRE(b[0] == b[1]);
 }
+
+TEST_CASE("08 Test findExports", "[PMO]")
+{
+    char systemDir[MAX_PATH];
+    GetSystemDirectory(systemDir, MAX_PATH);
+    std::filesystem::path path(systemDir);
+    path.append(DWMAPI_NAME);
+    const HMODULE module = LoadLibrary(path.string().c_str());
+    std::map<uintptr_t, std::pair<WORD, std::string>> exports{};
+    const DWORD ordBase = PMO::findExports(module, exports);
+
+    for (const auto &[fn, ord, name] : exports | std::views::transform([](auto &e)
+    {
+        return std::make_tuple(e.first, e.second.first, e.second.second);
+    }))
+    {
+        auto val = GetProcAddress(module,
+                                  name.empty() ? MAKEINTRESOURCE(ordBase + ord) : name.c_str());
+        REQUIRE(fn == reinterpret_cast<uintptr_t>(val));
+    }
+}

@@ -152,8 +152,7 @@ namespace PMO
 
         for(size_t i = 0; i < exportDirectory->NumberOfFunctions; ++i)
         {
-            const auto addr = baseAddress + addresses[i];
-            out.insert({addr, std::make_pair((WORD)i, std::string{})});
+            out.insert({baseAddress + addresses[i], std::make_pair((WORD)i, std::string{})});
         }
         return exportDirectory->Base;
     }
