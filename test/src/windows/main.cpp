@@ -190,11 +190,11 @@ TEST_CASE("04 Test expected function name", "[PMO]")
             auto view = im.exports | std::views::elements<1> | std::views::elements<1>;
             REQUIRE(!(view | std::views::filter([](auto &e)
             {
-                return e == "IsDebuggerPresent";
+                return std::string(e) == "IsDebuggerPresent";
             })).empty());
             REQUIRE(!(view | std::views::filter([](auto &e)
             {
-                return e == "CheckRemoteDebuggerPresent";
+                return std::string(e) == "CheckRemoteDebuggerPresent";
             })).empty());
             break;
         }
@@ -375,16 +375,14 @@ TEST_CASE("08 Test findExports", "[PMO]")
     std::filesystem::path path(systemDir);
     path.append(DWMAPI_NAME);
     const HMODULE module = LoadLibrary(path.string().c_str());
-    std::map<uintptr_t, std::pair<WORD, std::string>> exports{};
+    std::map<WORD, std::tuple<uintptr_t, char*, bool>> exports{};
     const DWORD ordBase = PMO::findExports(module, exports);
 
-    for (const auto &[fn, ord, name] : exports | std::views::transform([](auto &e)
+    for (const auto &[fn, name, isNamed] : exports | std::views::values)
     {
-        return std::make_tuple(e.first, e.second.first, e.second.second);
-    }))
-    {
-        auto val = GetProcAddress(module,
-                                  name.empty() ? MAKEINTRESOURCE(ordBase + ord) : name.c_str());
+        // auto &[fn, name] = tup;
+        auto val = GetProcAddress(module, name);
+                                  // !name ? MAKEINTRESOURCE(ordBase + ord) : name);
         REQUIRE(fn == reinterpret_cast<uintptr_t>(val));
     }
 }

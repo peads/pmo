@@ -22,6 +22,15 @@
 #include "windows/MemoryOps.hpp"
 
 #define DWMAPI_NAME "dwmapi.dll"
+static inline auto searchAddr(const char *key, std::map<uintptr_t, std::pair<WORD, std::string>> &exports)
+{
+    return (exports | std::views::filter([&key](auto &e)
+    {
+        auto &[ord, name] = e.second;
+        return name == key;
+    }) | std::views::keys).back();
+}
+typedef HRESULT (*hresultProducer)();
 
 extern "C" {
 #ifndef BUILD_SHARED_LIB
@@ -47,20 +56,29 @@ extern "C" {
             buf << std::format("{:016X}: {:03}:{:03} -> {}\n", fn, ord, ordBase + ord, name);
         }
 
-        const auto &addr = (exports | std::views::filter([](auto &e)
-        {
-            auto &[ord, name] = e.second;
-            return name == "DwmFlush";
-        }) | std::views::keys).back();
+        auto addr = searchAddr("DwmFlush", exports);
 
         buf << "DwmFlush result: ";
-        HRESULT (*DwmFlush)() = *reinterpret_cast<HRESULT (*)()>(addr);
-        const HRESULT result = DwmFlush();
+        // HRESULT (*DwmFlush)()
+        const hresultProducer DwmFlush = *reinterpret_cast<hresultProducer>(addr);
+        HRESULT result = DwmFlush();
 
         if (result != S_OK)
             buf << result << std::endl;
         else
             buf << "S_OK" << std::endl;
+
+        addr = searchAddr("DwmFlush", exports);
+
+        buf << "DllCanUnloadNow result: ";
+        // HRESULT (*DwmFlush)()
+        const hresultProducer DllCanUnloadNow = *reinterpret_cast<hresultProducer>(addr);
+        result = DllCanUnloadNow();
+        if (result != S_OK)
+            buf << result << std::endl;
+        else
+            buf << "S_OK" << std::endl;
+
         std::cout << buf.str();
 
         FreeLibrary(module);

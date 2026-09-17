@@ -109,7 +109,7 @@ namespace PMO
 
     inline DWORD findExports(
         const HMODULE &module,
-        std::map<uintptr_t, std::pair<WORD, std::string>> &out,
+        std::map<WORD, std::tuple<uintptr_t, char*, bool>>  &out,
         const uintptr_t *searchKey = nullptr
     ) noexcept
     {
@@ -142,7 +142,7 @@ namespace PMO
             const auto ordinal = ordinals[i];
             if (const auto fn = baseAddress + addresses[ordinal]; !searchKey || *searchKey == fn)
             {
-                out.emplace(fn, std::make_tuple(ordinal, std::string(reinterpret_cast<char*>(baseAddress + names[i]))));
+                out.emplace(ordinal, std::make_tuple(fn, reinterpret_cast<char*>(baseAddress + names[i]), true));
                 if (searchKey)
                     break;
             }
@@ -152,7 +152,9 @@ namespace PMO
 
         for(size_t i = 0; i < exportDirectory->NumberOfFunctions; ++i)
         {
-            out.insert({baseAddress + addresses[i], std::make_pair((WORD)i, std::string{})});
+            auto ord = (WORD)i;
+            if (out.contains(ord)) continue;
+            out.insert({ord, std::make_tuple(baseAddress + addresses[i], MAKEINTRESOURCE(exportDirectory->Base + ord), false)});
         }
         return exportDirectory->Base;
     }

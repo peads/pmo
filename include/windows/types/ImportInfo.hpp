@@ -28,7 +28,7 @@ namespace PMO
     {
         HMODULE mod = nullptr;
         const char *name;
-        std::map<uintptr_t, std::pair<WORD, std::string>> exports{};
+        std::map<WORD, std::tuple<uintptr_t, char*, bool>> exports{};
         std::map<uintptr_t, uintptr_t> thunks{};
         DWORD ordinalBase;
 
