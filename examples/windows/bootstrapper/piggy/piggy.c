@@ -23,7 +23,7 @@
 #include <locale.h>
 #include <stdio.h>
 
-BOOL WINAPI DllMain(const HMODULE dll, const DWORD reason, LPVOID lpvReserved)
+__declspec(dllexport) int DllMain()
 {
     setlocale(LC_ALL, "");
 
