@@ -86,8 +86,7 @@ BOOL WINAPI DllMain([[maybe_unused]] const HMODULE dll, const DWORD reason, LPVO
         case DLL_PROCESS_ATTACH:
         {
             static const char *bsName = BOOTSTRAPPED_DLL;
-            if (const auto name = generateSystemDllPath(dllName ? dllName : DEFAULT_DLL_NAME); !
-                populateDllInfo(name))
+            if (const auto name = generateSystemDllPath(dllName); !populateDllInfo(name))
                 return FALSE;
             generateMapping(dllInfo.exports.size());
             bsDll = LoadLibrary(bsName);
