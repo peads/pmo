@@ -3,14 +3,16 @@ project(Example4 CXX)
 set(CMAKE_CXX_STANDARD 23)
 
 if (NOT DEFINED OUT_PATH)
-    set(OUT_PATH "${CMAKE_BINARY_DIR}")
+    set(OUT_PATH "${CMAKE_CURRENT_BINARY_DIR}")
 endif()
 
 if (VERBOSE)
     add_compile_definitions(IS_VERBOSE)
 endif()
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../../../include" "${CMAKE_CURRENT_SOURCE_DIR}/SysWhispers3")
-#set(LIBS "libvcruntime.lib" "libcmt.lib" "ucrt.lib" "kernel32.lib" "msvcprt.lib" )# "msvcprt.lib" "libcpmt.lib" "ucrtd.lib"
+
+set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
+set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(LIBS "libvcruntimed.lib" "libcmtd.lib" "ucrtd.lib" "kernel32.lib" "msvcprtd.lib")

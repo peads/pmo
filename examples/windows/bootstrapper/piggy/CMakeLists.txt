@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.29)
 project(piggy C)
 set(CMAKE_C_STANDARD 23)
+set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
+set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
 
 add_library(piggy SHARED piggy.c)
 
