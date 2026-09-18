@@ -22,13 +22,13 @@
 #include "windows/MemoryOps.hpp"
 
 #define DWMAPI_NAME "dwmapi.dll"
-static inline auto searchAddr(const char *key, std::map<uintptr_t, std::pair<WORD, std::string>> &exports)
+static inline auto searchAddr(const char *key, std::map<WORD, std::tuple<uintptr_t, char*, bool>> &exports)
 {
     return (exports | std::views::filter([&key](auto &e)
     {
-        auto &[ord, name] = e.second;
-        return name == key;
-    }) | std::views::keys).back();
+        auto &[fn, name, isNamed] = e.second;
+        return isNamed && !strcmp(name, key);
+    }) | std::views::values | std::views::keys).back();
 }
 typedef HRESULT (*hresultProducer)();
 
@@ -46,14 +46,14 @@ extern "C" {
         path.append(DWMAPI_NAME);
         const HMODULE module = LoadLibrary(path.string().c_str());
 
-        std::map<uintptr_t, std::pair<WORD, std::string>> exports{};
+        std::map<WORD, std::tuple<uintptr_t, char*, bool>> exports{};
         const DWORD ordBase = PMO::findExports(module, exports);
         std::stringstream buf;
 
-        for (const auto &[fn, tup] : exports)
+        for (const auto &[ord, tup] : exports)
         {
-            const auto &[ord, name] = tup;
-            buf << std::format("{:016X}: {:03}:{:03} -> {}\n", fn, ord, ordBase + ord, name);
+            const auto &[fn, name, isNamed] = tup;
+            buf << std::format("{:016X}: {:03}:{:03} -> {}\n", fn, ord, ordBase + ord, isNamed ? name : "");
         }
 
         auto addr = searchAddr("DwmFlush", exports);
