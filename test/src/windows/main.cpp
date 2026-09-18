@@ -219,7 +219,8 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
     PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
     PMO::Pattern b{CRDP_CODE, CRDP_MASK, CRDP_CODE};
 
-    auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getImportInfo(GetModuleHandle("KERNELBASE.dll"));
+    auto [lpBaseOfDll, SizeOfImage, EntryPoint] =
+        PMO::getImportInfo(GetModuleHandle("KERNELBASE.dll"));
     findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, a);
     REQUIRE(!a.empty());
     findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, b);
@@ -375,14 +376,11 @@ TEST_CASE("08 Test findExports", "[PMO]")
     std::filesystem::path path(systemDir);
     path.append(DWMAPI_NAME);
     const HMODULE module = LoadLibrary(path.string().c_str());
-    std::map<WORD, std::tuple<uintptr_t, char*, bool>> exports{};
-    const DWORD ordBase = PMO::findExports(module, exports);
 
-    for (const auto &[fn, name, isNamed] : exports | std::views::values)
+    for (std::map<WORD, std::tuple<uintptr_t, char*, bool>> exports{}; const auto &[fn, name,
+             isNamed] : exports | std::views::values)
     {
-        // auto &[fn, name] = tup;
         auto val = GetProcAddress(module, name);
-                                  // !name ? MAKEINTRESOURCE(ordBase + ord) : name);
         REQUIRE(fn == reinterpret_cast<uintptr_t>(val));
     }
 }

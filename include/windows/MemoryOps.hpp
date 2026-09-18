@@ -109,7 +109,7 @@ namespace PMO
 
     inline DWORD findExports(
         const HMODULE &module,
-        std::map<WORD, std::tuple<uintptr_t, char*, bool>>  &out,
+        std::map<WORD, std::tuple<uintptr_t, char*, bool>> &out,
         const uintptr_t *searchKey = nullptr
     ) noexcept
     {
@@ -142,7 +142,8 @@ namespace PMO
             const auto ordinal = ordinals[i];
             if (const auto fn = baseAddress + addresses[ordinal]; !searchKey || *searchKey == fn)
             {
-                out.emplace(ordinal, std::make_tuple(fn, reinterpret_cast<char*>(baseAddress + names[i]), true));
+                out.emplace(ordinal,
+                    std::make_tuple(fn, reinterpret_cast<char*>(baseAddress + names[i]), true));
                 if (searchKey)
                     break;
             }
@@ -150,11 +151,12 @@ namespace PMO
         if (searchKey)
             return exportDirectory->Base;
 
-        for(size_t i = 0; i < exportDirectory->NumberOfFunctions; ++i)
+        for (size_t i = 0; i < exportDirectory->NumberOfFunctions; ++i)
         {
-            auto ord = (WORD)i;
+            auto ord = static_cast<WORD>(i);
             if (out.contains(ord)) continue;
-            out.insert({ord, std::make_tuple(baseAddress + addresses[i], MAKEINTRESOURCE(exportDirectory->Base + ord), false)});
+            out.insert({ord, std::make_tuple(baseAddress + addresses[i],
+                MAKEINTRESOURCE(exportDirectory->Base + ord), false)});
         }
         return exportDirectory->Base;
     }
@@ -312,11 +314,8 @@ finished:
         return result;
     }
 
-    static inline bool replaceCodeExternal(
-        HANDLE proc,
-        void *address,
-        const Pattern &pattern
-    ) noexcept
+    // ReSharper disable once CppParameterMayBeConst
+    static inline bool replaceCodeExternal(HANDLE proc, void *address, const Pattern &pattern) noexcept
     {
         return WriteProcessMemory(proc, address, pattern.code.ptr, pattern.codeLen, nullptr);
     }
@@ -337,10 +336,10 @@ finished:
     inline bool replaceAllCodeExternal(HANDLE proc, Pattern &pattern) noexcept
     {
         return std::ranges::all_of(pattern,
-                                   [&proc, &pattern](const uintptr_t addr)
-                                   {
-                                       return replaceCodeExternal(proc, pattern);
-                                   });
+       [&proc, &pattern](const uintptr_t addr)
+       {
+           return replaceCodeExternal(proc, pattern);
+       });
     }
 }
 #endif //WMEMORYOPS_HPP
