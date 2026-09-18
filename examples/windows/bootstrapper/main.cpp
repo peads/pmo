@@ -20,6 +20,7 @@
 #endif
 
 #include <windows/MemoryOps.hpp>
+#include "syscalls.h"
 #include <fstream>
 
 #define DEFAULT_DLL_NAME "dwmapi.dll"
@@ -32,9 +33,37 @@ static struct DllInfo
     std::map<WORD, std::tuple<uintptr_t, char*, bool>> exports{};
 } dllInfo;
 
+typedef void (*UnicodeBiConsumer)(UNICODE_STRING *, const wchar_t *);
+typedef long (*DllQuadFunction)(const wchar_t *, ULONG, UNICODE_STRING *, void *);
+
+HMODULE loadLibrary(const char *name)
+{
+    const HMODULE hNtdll = GetModuleHandle("ntdll.dll");
+    if (!hNtdll)
+        return nullptr;
+
+    const auto RtlInitUnicodeString = reinterpret_cast<UnicodeBiConsumer>(
+        GetProcAddress(hNtdll, "RtlInitUnicodeString"));
+    const auto LdrLoadDll = reinterpret_cast<DllQuadFunction>(GetProcAddress(hNtdll, "LdrLoadDll"));
+    if (!(RtlInitUnicodeString && LdrLoadDll))
+        return nullptr;
+
+    const std::string sName(name);
+    const std::wstring wsName(sName.begin(), sName.end());
+    const LPCWSTR wname = wsName.c_str();
+
+    HANDLE module = nullptr;
+    UNICODE_STRING uname;
+    RtlInitUnicodeString(&uname, wname);
+
+    if (LdrLoadDll(nullptr, 0, &uname, &module) >= 0) // NT_SUCCESS(status)
+        return static_cast<HMODULE>(module);
+    return nullptr;
+}
+
 static bool populateDllInfo(const std::filesystem::path &name)
 {
-    dllInfo.module = LoadLibrary(name.string().c_str());
+    dllInfo.module = loadLibrary(name.string().c_str());
     dllInfo.ordinalBase = PMO::findExports(dllInfo.module, dllInfo.exports);
     return !!dllInfo.module;
 }
@@ -72,7 +101,7 @@ bool loadDllsFromFile(const char *const name, std::unordered_map<const char*, HM
         return false;
 
     for (std::string line; std::getline(file, line);)
-        if (const HMODULE module = LoadLibrary(line.c_str()); module)
+        if (const HMODULE module = loadLibrary(line.c_str()); module)
             out.emplace(line.c_str(), module);
 
     file.close();
@@ -124,7 +153,8 @@ int main(const int argc, char **argv)
 {
     const auto fname = argc < 2 ? DEFAULT_DLL_NAME : argv[1];
     const auto fpath = generateSystemDllPath(fname);
-    if (!populateDllInfo(fpath)) return -1;
+    if (!populateDllInfo(fpath))
+        return -1;
 
     const auto fstem = fpath.stem();
     const auto &[module, ordinalBase, exports] = dllInfo;
@@ -138,7 +168,7 @@ int main(const int argc, char **argv)
     path = path.parent_path().append(fstem.string() + ".def");
     std::ofstream defOut(path);
 
-    asmHeader  << "bits 64\nsection .text\nextern mapping\nglobal ";
+    asmHeader << "bits 64\nsection .text\nextern mapping\nglobal ";
     asmBody << "\n";
     defOut << std::format("LIBRARY {}\nEXPORTS\n", fstem.string());
 
@@ -148,7 +178,9 @@ int main(const int argc, char **argv)
         const auto oord = ord + ordinalBase;
         const auto foord = std::format("f{}", ord);
 
-        asmBody << std::format("{}:\n\tmov rax, [rel mapping]\n\tjmp [rax + {}]\n", foord, ord << 3);
+        asmBody << std::format("{}:\n\tmov rax, [rel mapping]\n\tjmp [rax + {}]\n",
+                               foord,
+                               ord << 3);
         asmHeader << std::format("{},", foord);
 
         if (isNamed)
@@ -162,9 +194,9 @@ int main(const int argc, char **argv)
         defOut << std::format("{} @{}\n", foord, oord);
     }
 
-    asmOut << asmHeader.str() << "dllName\n" << asmBody.str() << std::format("section .rdata\n\tdllName db \"{}\", 0\n", fname);
+    asmOut << asmHeader.str() << "dllName\n" << asmBody.str() <<
+        std::format("section .rdata\n\tdllName db \"{}\", 0\n", fname);
     defOut << "\n";
-
 
     path = path.parent_path().append("bootstrap.txt");
     std::ofstream bootOut(path);
