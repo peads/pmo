@@ -26,3 +26,7 @@
 *.lib binary
 *.dll binary
 *.exe binary
+*.dll binary
+*.lib binary
+*.pdb binary
+*.ilk binary

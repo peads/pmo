@@ -18,36 +18,19 @@
 
 #include <iostream>
 #include <execution>
-#include <map>
 
 #include "windows/MemoryOps.hpp"
 
-#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
-#define FORCE_INLINE_LAMBDA __attribute__((always_inline))
-#elif defined(_MSC_VER)
-    #define FORCE_INLINE_LAMBDA [[msvc::forceinline]]
-#else
-    #define FORCE_INLINE_LAMBDA
-#endif
-
-static inline size_t printExports()
+#define DWMAPI_NAME "dwmapi.dll"
+static inline auto searchAddr(const char *key, std::map<WORD, std::tuple<uintptr_t, char*, bool>> &exports)
 {
-    // PMO::SetWrapper<std::string, std::set<std::string>> exports{};
-    std::map<uintptr_t, std::string> exports{};
-    const size_t cnt = PMO::traverseExports([&exports]<typename iter>(iter &it)FORCE_INLINE_LAMBDA
+    return (exports | std::views::filter([&key](auto &e)
     {
-        exports.insert(it->fnNames.begin(), it->fnNames.end());
-        return it->fnNames.size();
-    });
-
-    std::cout <<
-        std::reduce(std::execution::seq, exports.cbegin(), exports.cend(), std::string{},
-             [](const std::string &acc, auto &keyVal)
-             {
-                 return acc + std::format("{} @ {:016X}\n", keyVal.second, keyVal.first);
-             });
-    return cnt;
+        auto &[fn, name, isNamed] = e.second;
+        return isNamed && !strcmp(name, key);
+    }) | std::views::values | std::views::keys).back();
 }
+typedef HRESULT (*hresultProducer)();
 
 extern "C" {
 #ifndef BUILD_SHARED_LIB
@@ -57,6 +40,48 @@ extern "C" {
     __declspec(dllexport) int DllMain() noexcept
     {
 #endif
-        return !printExports();
+        char systemDir[MAX_PATH];
+        GetSystemDirectory(systemDir, MAX_PATH);
+        std::filesystem::path path(systemDir);
+        path.append(DWMAPI_NAME);
+        const HMODULE module = LoadLibrary(path.string().c_str());
+
+        std::map<WORD, std::tuple<uintptr_t, char*, bool>> exports{};
+        const DWORD ordBase = PMO::findExports(module, exports);
+        std::stringstream buf;
+
+        for (const auto &[ord, tup] : exports)
+        {
+            const auto &[fn, name, isNamed] = tup;
+            buf << std::format("{:016X}: {:03}:{:03} -> {}\n", fn, ord, ordBase + ord, isNamed ? name : "");
+        }
+
+        auto addr = searchAddr("DwmFlush", exports);
+
+        buf << "DwmFlush result: ";
+        // HRESULT (*DwmFlush)()
+        const hresultProducer DwmFlush = *reinterpret_cast<hresultProducer>(addr);
+        HRESULT result = DwmFlush();
+
+        if (result != S_OK)
+            buf << result << std::endl;
+        else
+            buf << "S_OK" << std::endl;
+
+        addr = searchAddr("DwmFlush", exports);
+
+        buf << "DllCanUnloadNow result: ";
+        // HRESULT (*DwmFlush)()
+        const hresultProducer DllCanUnloadNow = *reinterpret_cast<hresultProducer>(addr);
+        result = DllCanUnloadNow();
+        if (result != S_OK)
+            buf << result << std::endl;
+        else
+            buf << "S_OK" << std::endl;
+
+        std::cout << buf.str();
+
+        FreeLibrary(module);
+        return result;
     }
 }

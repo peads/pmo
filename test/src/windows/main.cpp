@@ -182,18 +182,24 @@ TEST_CASE("04 Test expected function name", "[PMO]")
     reset();
     std::deque<PMO::ImportInfo> imports;
     findImports(GetModuleHandle(nullptr), imports);
-    const auto idp = idpAddr;
-    const auto crdp = crdpAddr;
 
     for (const auto &im : imports)
     {
         if (!strcmp("KERNEL32.dll", im.name))
         {
-            REQUIRE(im.fnNames.at(idp)=="IsDebuggerPresent");
-            REQUIRE(im.fnNames.at(crdp)=="CheckRemoteDebuggerPresent");
+            auto view = im.exports | std::views::elements<1> | std::views::elements<1>;
+            REQUIRE(!(view | std::views::filter([](auto &e)
+            {
+                return std::string(e) == "IsDebuggerPresent";
+            })).empty());
+            REQUIRE(!(view | std::views::filter([](auto &e)
+            {
+                return std::string(e) == "CheckRemoteDebuggerPresent";
+            })).empty());
             break;
         }
     }
+    imports.clear();
 }
 
 TEST_CASE("ZZ Test replace by function name", "[PMO]")
@@ -213,7 +219,8 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
     PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
     PMO::Pattern b{CRDP_CODE, CRDP_MASK, CRDP_CODE};
 
-    auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getImportInfo(GetModuleHandle("KERNELBASE.dll"));
+    auto [lpBaseOfDll, SizeOfImage, EntryPoint] =
+        PMO::getImportInfo(GetModuleHandle("KERNELBASE.dll"));
     findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, a);
     REQUIRE(!a.empty());
     findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, b);
@@ -360,4 +367,20 @@ TEST_CASE("07 autogen mask", "[PMO]")
     int (*fn2)(HMODULE, int *) = *reinterpret_cast<int(*)(HMODULE, int *)>(a.back().address);
     REQUIRE(fn2(module, b + 0) == CheckRemoteDebuggerPresent(module, b + 1));
     REQUIRE(b[0] == b[1]);
+}
+
+TEST_CASE("08 Test findExports", "[PMO]")
+{
+    char systemDir[MAX_PATH];
+    GetSystemDirectory(systemDir, MAX_PATH);
+    std::filesystem::path path(systemDir);
+    path.append(DWMAPI_NAME);
+    const HMODULE module = LoadLibrary(path.string().c_str());
+
+    for (std::map<WORD, std::tuple<uintptr_t, char*, bool>> exports{}; const auto &[fn, name,
+             isNamed] : exports | std::views::values)
+    {
+        auto val = GetProcAddress(module, name);
+        REQUIRE(fn == reinterpret_cast<uintptr_t>(val));
+    }
 }

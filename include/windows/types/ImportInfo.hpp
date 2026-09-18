@@ -18,8 +18,9 @@
 #ifndef IMPORTINFO_HPP
 #define IMPORTINFO_HPP
 
+#include <iostream>
 #include <windows.h>
-#include <unordered_map>
+#include <map>
 
 namespace PMO
 {
@@ -27,8 +28,9 @@ namespace PMO
     {
         HMODULE mod = nullptr;
         const char *name;
-        std::unordered_map<uintptr_t, std::string> fnNames{};
-        std::unordered_map<uintptr_t, uintptr_t> thunks{};
+        std::map<WORD, std::tuple<uintptr_t, char*, bool>> exports{};
+        std::map<uintptr_t, uintptr_t> thunks{};
+        DWORD ordinalBase;
 
         bool operator<(const ImportInfo &a) const noexcept
         {

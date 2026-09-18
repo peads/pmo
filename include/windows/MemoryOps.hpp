@@ -25,6 +25,13 @@
 #include "windows/ImageDirectoryEntryToData.hpp"
 
 #define PID_NAME_LEN 8192
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#define FORCE_INLINE_LAMBDA __attribute__((always_inline))
+#elif defined(_MSC_VER)
+    #define FORCE_INLINE_LAMBDA [[msvc::forceinline]]
+#else
+    #define FORCE_INLINE_LAMBDA
+#endif
 
 namespace PMO
 {
@@ -100,10 +107,10 @@ namespace PMO
         return true;
     }
 
-    inline bool findExportedFunctionName(
+    inline DWORD findExports(
         const HMODULE &module,
-        const uintptr_t keyAddr,
-        std::string &out
+        std::map<WORD, std::tuple<uintptr_t, char*, bool>> &out,
+        const uintptr_t *searchKey = nullptr
     ) noexcept
     {
         if (!module)
@@ -117,7 +124,7 @@ namespace PMO
 
         const auto [virtualAddress, size]
             = reinterpret_cast<PIMAGE_NT_HEADERS>(baseAddress + dosHeader->e_lfanew)
-            ->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+                ->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
 
         if (!virtualAddress)
             return false;
@@ -132,62 +139,72 @@ namespace PMO
 
         for (size_t i = 0; i < exportDirectory->NumberOfNames; ++i)
         {
-            const WORD ordinal = ordinals[i];
-            if (const uintptr_t currAddr = baseAddress + addresses[ordinal]; currAddr == keyAddr)
+            const auto ordinal = ordinals[i];
+            if (const auto fn = baseAddress + addresses[ordinal]; !searchKey || *searchKey == fn)
             {
-                out = reinterpret_cast<char*>(baseAddress + names[i]);
-                return true;
+                out.emplace(ordinal,
+                    std::make_tuple(fn, reinterpret_cast<char*>(baseAddress + names[i]), true));
+                if (searchKey)
+                    break;
             }
         }
-        return false;
+        if (searchKey)
+            return exportDirectory->Base;
+
+        for (size_t i = 0; i < exportDirectory->NumberOfFunctions; ++i)
+        {
+            auto ord = static_cast<WORD>(i);
+            if (out.contains(ord)) continue;
+            out.insert({ord, std::make_tuple(baseAddress + addresses[i],
+                MAKEINTRESOURCE(exportDirectory->Base + ord), false)});
+        }
+        return exportDirectory->Base;
     }
 
-    inline void findThunks(
+    inline DWORD findThunks(
         const HMODULE &module,
         const IMAGE_IMPORT_DESCRIPTOR &desc,
         ImportInfo &out
     ) noexcept
     {
+        DWORD result = 0;
         auto thunk = reinterpret_cast<PIMAGE_THUNK_DATA>(
             reinterpret_cast<PBYTE>(module) + desc.FirstThunk);
         for (; thunk->u1.AddressOfData; ++thunk)
         {
-            uintptr_t fn = thunk->u1.Function;
-            uintptr_t gn = 0;
-
             if (const auto thisModule = GetModuleHandle(out.name); thisModule)
             {
-                if (std::string str; findExportedFunctionName(thisModule, fn, str))
-                    out.fnNames.emplace(fn, str);
+                uintptr_t fn = thunk->u1.Function;
+                uintptr_t gn = 0;
+                result = findExports(thisModule, out.exports, &fn);
                 findNamedFunction(fn, &gn);
                 out.thunks.emplace(fn, gn);
             }
         }
+        return result;
     }
 
     template <PseudoContainer T>
     inline void findImports(const HMODULE &module, T &out) noexcept
     {
         ULONG size;
-        auto importDescriptor = static_cast<PIMAGE_IMPORT_DESCRIPTOR>(
+        auto desc = static_cast<PIMAGE_IMPORT_DESCRIPTOR>(
             ImageDirectoryEntryToDataEx(module,
                                         TRUE,
                                         IMAGE_DIRECTORY_ENTRY_IMPORT,
                                         &size,
                                         nullptr));
 
-        for (; importDescriptor && importDescriptor->Characteristics && importDescriptor->Name;
-               ++importDescriptor)
+        ImportInfo info{};
+        for (; desc && desc->Characteristics && desc->Name; ++desc)
         {
-            ImportInfo imports{};
-            imports.name = reinterpret_cast<PSTR>(
-                reinterpret_cast<PBYTE>(module) + importDescriptor->Name);
+            info.name = reinterpret_cast<PSTR>(reinterpret_cast<PBYTE>(module) + desc->Name);
             GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
                               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                              imports.name,
-                              &imports.mod);
-            findThunks(imports.mod, *importDescriptor, imports);
-            out.push_back(imports);
+                              info.name,
+                              &info.mod);
+            info.ordinalBase = findThunks(info.mod, *desc, info);
+            out.push_back(std::move(info));
         }
     }
 
@@ -281,8 +298,10 @@ finished:
                         out.push_back(pids[i]);
                         MODULEINFO modInfo;
                         // Enumerate process modules
-                        if (HMODULE mods[1024];
-                            EnumProcessModules(proc, mods, sizeof(mods), &cbNeeded)
+                        if (HMODULE mods[1024]; EnumProcessModules(proc,
+                                mods,
+                                sizeof(mods),
+                                &cbNeeded)
                             && GetModuleInformation(proc, mods[0], &modInfo, sizeof(modInfo)))
                         {
                             result = reinterpret_cast<uintptr_t>(modInfo.lpBaseOfDll);
@@ -295,11 +314,8 @@ finished:
         return result;
     }
 
-    static inline bool replaceCodeExternal(
-        HANDLE proc,
-        void *address,
-        const Pattern &pattern
-    ) noexcept
+    // ReSharper disable once CppParameterMayBeConst
+    static inline bool replaceCodeExternal(HANDLE proc, void *address, const Pattern &pattern) noexcept
     {
         return WriteProcessMemory(proc, address, pattern.code.ptr, pattern.codeLen, nullptr);
     }
@@ -319,54 +335,11 @@ finished:
 
     inline bool replaceAllCodeExternal(HANDLE proc, Pattern &pattern) noexcept
     {
-        return std::ranges::all_of(pattern, [&proc, &pattern](const uintptr_t addr)
-        {
-            return replaceCodeExternal(proc, pattern);
-        });
+        return std::ranges::all_of(pattern,
+       [&proc, &pattern](const uintptr_t addr)
+       {
+           return replaceCodeExternal(proc, pattern);
+       });
     }
-
-    template <typename IterFunction, PseudoContainer T>
-    inline size_t traverseExports(IterFunction fn, T &imports) noexcept
-    {
-        size_t cnt = 0;
-        for (auto it = imports.begin(); it != imports.end(); ++it)
-        {
-            cnt += fn(it);
-            findImports(GetModuleHandle(it->name), imports);
-        }
-        return cnt;
-    }
-
-    template <typename IterFunction>
-    inline size_t traverseExports(IterFunction fn, const char *const name = nullptr) noexcept
-    {
-        SetWrapper<ImportInfo> imports{};
-        findImports(GetModuleHandle(name), imports);
-        return traverseExports(fn, imports);
-    }
-
-    // static inline auto generateExportMerger(std::map<uintptr_t, std::string> &exports)
-    // {
-    //     return std::move([&exports]<typename iter>(iter &it)FORCE_INLINE_LAMBDA
-    //     {
-    //         exports.insert(it->fnNames.begin(), it->fnNames.end());
-    //         return it->fnNames.size();
-    //     });
-    // }
-
-    // template <PseudoContainer T>
-    // inline auto mergeExports(T &imports) noexcept
-    // {
-    //     std::map<uintptr_t, std::string> exports{};
-    //     traverseExports(generateExportMerger(exports), imports);
-    //     return std::move(exports);
-    // }
-
-    // inline auto mergeExports(const char *name = nullptr) noexcept
-    // {
-    //     std::map<uintptr_t, std::string> exports{};
-    //     traverseExports(generateExportMerger(exports), name);
-    //     return std::move(exports);
-    // }
 }
 #endif //WMEMORYOPS_HPP

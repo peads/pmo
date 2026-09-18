@@ -13,4 +13,7 @@ CMakeFiles
 junk/
 *.vcxproj*
 *.sln
-
+*.pdb
+*.ilk
+*.lib
+cmake_install.cmake
