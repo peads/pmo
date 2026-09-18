@@ -18,9 +18,12 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+
 #include <windows/MemoryOps.hpp>
+#include <fstream>
+
 #define DEFAULT_DLL_NAME "dwmapi.dll"
-#define DEFAULT_BOOTSTRAPPED_DLL_NAME "piggy.dll"
+#define DEFAULT_DLL_LIST_NAME "dlls.txt"
 
 static struct DllInfo
 {
@@ -62,9 +65,23 @@ static auto generateMapping(const size_t cnt)
     return true;
 }
 
-BOOL WINAPI DllMain([[maybe_unused]] const HMODULE dll, const DWORD reason, LPVOID lpvReserved)
+bool loadDllsFromFile(const char *const name, std::unordered_map<const char*, HMODULE> &out)
 {
-    static HMODULE bsDll = nullptr;
+    std::ifstream file(name);
+    if (!file.is_open())
+        return false;
+
+    for (std::string line; std::getline(file, line);)
+        if (const HMODULE module = LoadLibrary(line.c_str()); module)
+            out.emplace(line.c_str(), module);
+
+    file.close();
+    return true;
+}
+
+BOOL WINAPI DllMain([[maybe_unused]] const HMODULE module, const DWORD reason, LPVOID lpvReserved)
+{
+    static std::unordered_map<const char*, HMODULE> loadedDlls{};
     switch (reason)
     {
         case DLL_PROCESS_DETACH:
@@ -73,32 +90,25 @@ BOOL WINAPI DllMain([[maybe_unused]] const HMODULE dll, const DWORD reason, LPVO
                 free(mapping);
                 mapping = nullptr;
                 FreeLibrary(dllInfo.module);
-#ifndef IS_VERBOSE
-                FreeLibrary(bsDll);
-#else
-                if (!FreeLibrary(bsDll))
+                for (auto &dll : loadedDlls | std::views::values)
                 {
-                    std::cerr << GetLastError() << std::endl;
-                }
+#ifndef IS_VERBOSE
+                    FreeLibrary(dll);
+#else
+                    if (!FreeLibrary(dll))
+                    {
+                        std::cerr << GetLastError() << std::endl;
+                    }
 #endif
+                }
             }
             break;
         case DLL_PROCESS_ATTACH:
         {
-            static const char *bsName = BOOTSTRAPPED_DLL;
             if (const auto name = generateSystemDllPath(dllName); !populateDllInfo(name))
                 return FALSE;
             generateMapping(dllInfo.exports.size());
-            bsDll = LoadLibrary(bsName);
-#ifdef IS_VERBOSE
-            if (!bsDll)
-            {
-                std::cerr << bsName << " could not be loaded" << std::endl;
-            }
-            char dllPath[MAX_PATH];
-            GetModuleFileName(dllInfo.module, dllPath, MAX_PATH);
-            std::cout << "Bootstrapped dll: " << dllPath << std::endl;
-#endif
+            loadDllsFromFile(DEFAULT_DLL_LIST_NAME, loadedDlls);
         }
         break;
         // case DLL_THREAD_DETACH:
@@ -110,7 +120,6 @@ BOOL WINAPI DllMain([[maybe_unused]] const HMODULE dll, const DWORD reason, LPVO
     return TRUE;
 }
 #else
-#include <fstream>
 int main(const int argc, char **argv)
 {
     const auto fname = argc < 2 ? DEFAULT_DLL_NAME : argv[1];
@@ -131,7 +140,7 @@ int main(const int argc, char **argv)
 
     asmHeader  << "bits 64\nsection .text\nextern mapping\nglobal ";
     asmBody << "\n";
-    defOut << "LIBRARY dwmapi\nEXPORTS\n";
+    defOut << std::format("LIBRARY {}\nEXPORTS\n", fstem.string());
 
     for (const auto &[ord, tup] : exports)
     {

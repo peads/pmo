@@ -1,3 +1,4 @@
+rmdir build-generator -Recurse -Force && rmdir build-bootstrapper -Recurse -Force
 mkdir build-generator
 cd build-generator && ^
 cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ^
