@@ -29,7 +29,7 @@ if (VERBOSE)
     add_compile_definitions(IS_VERBOSE)
 endif()
 
-if (NOT DEFINED DLL_NAME)
+if (NOT DEFINED DLL_NAME OR DEFINED GENERATE_TEST)
     set(DLL_NAME "dwmapi.dll")
 endif()
 
