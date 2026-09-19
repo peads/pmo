@@ -24,4 +24,7 @@ add_library(syscalls STATIC "${CMAKE_CURRENT_SOURCE_DIR}/syscalls-asm.x64.asm" "
 target_link_options(syscalls PRIVATE /NODEFAULTLIB /MACHINE:X64 /subsystem:console)
 target_compile_options(syscalls PRIVATE $<$<COMPILE_LANGUAGE:C>:-Zp8 -EHa>)
 target_compile_options(syscalls PRIVATE -nologo)
-set(SW3_LIB "$<TARGET_FILE:syscalls>")
+
+set_target_properties(syscalls PROPERTIES
+        MSVC_RUNTIME_CHECKS ""
+)

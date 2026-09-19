@@ -3,6 +3,7 @@ project(bootstrapper CXX ASM_NASM)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
 set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
+add_compile_definitions(OPTIMIZATIONS_ON)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(LIBS "libvcruntimed.lib" "libcmtd.lib" "ucrtd.lib" "kernel32.lib" "msvcprtd.lib")
@@ -34,4 +35,11 @@ if (DEFINED GENERATE_TEST AND GENERATE_TEST)
     target_link_libraries(dllloader PRIVATE "${SW3_BIN_DIR}/syscalls.lib")
     target_link_options(dllloader PRIVATE "/NODEFAULTLIB" "/MACHINE:X64" "/subsystem:console")
     target_link_libraries(dllloader PRIVATE "${LIBS}")
+    set_target_properties(dllloader PROPERTIES
+            MSVC_RUNTIME_CHECKS ""
+    )
 endif()
+
+set_target_properties(${FILE_STEM} PROPERTIES
+        MSVC_RUNTIME_CHECKS ""
+)

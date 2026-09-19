@@ -15,3 +15,7 @@ endif()
 target_link_options(piggy PRIVATE "/NODEFAULTLIB" "/MACHINE:X64" "/subsystem:console")
 target_link_libraries(piggy PRIVATE syscalls)
 target_link_libraries(piggy PRIVATE "${LIBS}")
+
+set_target_properties(piggy PROPERTIES
+        MSVC_RUNTIME_CHECKS ""
+)
