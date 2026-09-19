@@ -23,6 +23,8 @@ set_target_properties(${FILE_STEM} PROPERTIES
         LINK_FLAGS "/DEF:\"${OUT_PATH}/${FILE_STEM}.def\""
 )
 target_compile_definitions(${FILE_STEM} PRIVATE OUT_PATH="${OUT_PATH}")
+target_compile_options(${FILE_STEM} PRIVATE $<$<COMPILE_LANGUAGE:C>:-Zp8>)
+target_compile_options(${FILE_STEM} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Zp8>)
 target_link_options(${FILE_STEM} PRIVATE "/NODEFAULTLIB" "/MACHINE:X64" "/subsystem:console")
 target_link_libraries(${FILE_STEM} PRIVATE "${SW3_BIN_DIR}/syscalls.lib")
 target_link_libraries(${FILE_STEM} PRIVATE "${LIBS}")
