@@ -16,6 +16,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "bootstrapper.hpp"
+#include <fstream>
 #define DEFAULT_DLL_LIST_NAME "dlls.txt"
 
 extern "C" uintptr_t *mapping = nullptr;
@@ -87,7 +88,10 @@ extern "C" {
                     path = std::filesystem::path(spath);
                     path = path.parent_path();
                 }
-                if (const auto name = generateDllPath(dllName); !populateDllInfo(name))
+
+                std::filesystem::path dllPath(dllName);
+                generateDllPath(dllPath);
+                if (!populateDllInfo(dllPath))
                     return FALSE;
                 generateMapping(dllInfo.exports.size());
                 loadDllsFromFile(DEFAULT_DLL_LIST_NAME, path, loadedDlls);

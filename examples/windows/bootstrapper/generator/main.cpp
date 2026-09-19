@@ -16,13 +16,14 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "bootstrapper.hpp"
+#include <fstream>
 
 int main(const int argc, char **argv)
 {
     if (argc < 2)
         return -1;
-
-    const auto fpath = generateDllPath(argv[1]);
+    std::filesystem::path fpath(argv[1]);
+    generateDllPath(fpath);
     if (!populateDllInfo(fpath))
         return -2;
 

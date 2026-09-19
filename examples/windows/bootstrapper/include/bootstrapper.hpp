@@ -23,7 +23,6 @@
 
 #include <windows/MemoryOps.hpp>
 #include "syscalls.h"
-#include <fstream>
 
 inline struct DllInfo
 {
@@ -33,30 +32,25 @@ inline struct DllInfo
 } dllInfo;
 
 typedef void (*UnicodeBiConsumer)(UNICODE_STRING *, const wchar_t *);
-typedef long (*DllQuadFunction)(const wchar_t *, ULONG, UNICODE_STRING *, void *);
+typedef NTSTATUS (*DllQuadFunction)(UNICODE_STRING *, ULONG, UNICODE_STRING *, void *);
 
-static HMODULE loadLibrary(const char *name)
+static HMODULE loadLibrary(const std::filesystem::path &path)
 {
-    static const HMODULE ntDll = GetModuleHandle("ntdll.dll");
-    if (!ntDll)
-        return nullptr;
-
-    static const auto RtlInitUnicodeString = reinterpret_cast<UnicodeBiConsumer>(
-        GetProcAddress(ntDll, "RtlInitUnicodeString"));
+    static const auto ntDll = GetModuleHandle("ntdll.dll");
     static const auto LdrLoadDll = reinterpret_cast<DllQuadFunction>(
         GetProcAddress(ntDll, "LdrLoadDll"));
+    static const auto RtlInitUnicodeString = reinterpret_cast<UnicodeBiConsumer>(
+        GetProcAddress(ntDll, "RtlInitUnicodeString"));
 
-    if (!(RtlInitUnicodeString && LdrLoadDll))
+    if (!(ntDll && LdrLoadDll && RtlInitUnicodeString))
         return nullptr;
-
-    const std::string sName(name);
-    const std::wstring wsName(sName.begin(), sName.end());
 
     HANDLE module = nullptr;
     UNICODE_STRING uname;
-    RtlInitUnicodeString(&uname, wsName.c_str());
+    const auto wname = path.wstring();
+    RtlInitUnicodeString(&uname, wname.c_str());
 
-    if (LdrLoadDll(nullptr, 0, &uname, &module) >= 0) // NT_SUCCESS(status)
+    if (LdrLoadDll(nullptr, 0, &uname, &module) >= 0L)
     {
         return static_cast<HMODULE>(module);
     }
@@ -65,21 +59,19 @@ static HMODULE loadLibrary(const char *name)
 
 static bool populateDllInfo(const std::filesystem::path &name)
 {
-    dllInfo.module = loadLibrary(name.string().c_str());
+    dllInfo.module = loadLibrary(name);
     dllInfo.ordinalBase = PMO::findExports(dllInfo.module, dllInfo.exports);
     return !!dllInfo.module;
 }
 
-static std::filesystem::path generateDllPath(const char *const name)
+static void generateDllPath(std::filesystem::path &path)
 {
-    std::filesystem::path path(name);
     if (path.is_relative())
     {
         char systemDir[MAX_PATH];
         GetSystemDirectory(systemDir, MAX_PATH);
-        path = std::filesystem::path(systemDir);
-        path.append(name);
+        path = std::filesystem::path(systemDir).append(path.filename().string());
     }
-    return std::move(path);
+    // return std::move(path);
 }
 #endif //EXAMPLE4_BOOTSTRAPPER_HPP
