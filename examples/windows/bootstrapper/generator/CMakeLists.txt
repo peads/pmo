@@ -9,7 +9,7 @@ target_compile_definitions(bootstrapper-generator PRIVATE
         IS_BOOTSTRAP="${GENERATE_BOOTSTRAP}"
         OUT_PATH="${CMAKE_CURRENT_BINARY_DIR}"
 )
-target_link_options(bootstrapper-generator PRIVATE "/NODEFAULTLIB" "/MACHINE:X64")
+target_link_options(bootstrapper-generator PRIVATE "/NODEFAULTLIB" "/MACHINE:X64" "/subsystem:console")
 target_link_libraries(bootstrapper-generator PRIVATE syscalls)
 target_link_libraries(bootstrapper-generator PRIVATE "${LIBS}")
 

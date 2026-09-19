@@ -39,7 +39,7 @@ endif()
 
 add_subdirectory(${SW3_SRC_DIR} ${SW3_BIN_DIR})
 cmake_path(SET PMO_INCLUDE NORMALIZE "${CMAKE_CURRENT_SOURCE_DIR}/../../../include")
-include_directories("${PMO_INCLUDE}" "${SW3_SRC_DIR}") #${CMAKE_CURRENT_BINARY_DIR})# "${CMAKE_CURRENT_SOURCE_DIR}/SysWhispers3")
+include_directories("${PMO_INCLUDE}" "${SW3_SRC_DIR}")
 add_subdirectory(generator)
 if (DEFINED GENERATE_TEST AND GENERATE_TEST)
     add_subdirectory(piggy)
