@@ -35,29 +35,35 @@ static struct DllInfo
 
 typedef void (*UnicodeBiConsumer)(UNICODE_STRING *, const wchar_t *);
 typedef long (*DllQuadFunction)(const wchar_t *, ULONG, UNICODE_STRING *, void *);
+typedef void (*UnicodeConsumer)(UNICODE_STRING *);
 
 HMODULE loadLibrary(const char *name)
 {
-    const HMODULE hNtdll = GetModuleHandle("ntdll.dll");
-    if (!hNtdll)
+    static const HMODULE ntDll = GetModuleHandle("ntdll.dll");
+    if (!ntDll)
         return nullptr;
 
-    const auto RtlInitUnicodeString = reinterpret_cast<UnicodeBiConsumer>(
-        GetProcAddress(hNtdll, "RtlInitUnicodeString"));
-    const auto LdrLoadDll = reinterpret_cast<DllQuadFunction>(GetProcAddress(hNtdll, "LdrLoadDll"));
+    static const auto RtlInitUnicodeString = reinterpret_cast<UnicodeBiConsumer>(
+        GetProcAddress(ntDll, "RtlInitUnicodeString"));
+
+    static const auto LdrLoadDll = reinterpret_cast<DllQuadFunction>(GetProcAddress(ntDll, "LdrLoadDll"));
     if (!(RtlInitUnicodeString && LdrLoadDll))
         return nullptr;
 
     const std::string sName(name);
     const std::wstring wsName(sName.begin(), sName.end());
-    const LPCWSTR wname = wsName.c_str();
 
     HANDLE module = nullptr;
     UNICODE_STRING uname;
-    RtlInitUnicodeString(&uname, wname);
+    RtlInitUnicodeString(&uname, wsName.c_str());
 
     if (LdrLoadDll(nullptr, 0, &uname, &module) >= 0) // NT_SUCCESS(status)
+    {
+        // static const UnicodeConsumer RtlFreeUnicodeString = (UnicodeConsumer)GetProcAddress(ntDll, "RtlFreeUnicodeString");
+        // if (RtlFreeUnicodeString)
+            // RtlFreeUnicodeString(&uname);
         return static_cast<HMODULE>(module);
+    }
     return nullptr;
 }
 

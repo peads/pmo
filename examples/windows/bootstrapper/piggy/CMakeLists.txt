@@ -13,5 +13,7 @@ else()
 endif()
 
 target_link_options(piggy PRIVATE "/NODEFAULTLIB" "/MACHINE:X64")
-target_link_libraries(piggy PRIVATE "${CMAKE_SOURCE_DIR}/SysWhispers3/build/syscalls.lib")
+#target_link_libraries(piggy PRIVATE "${SW3_BIN_DIR}/syscalls.lib")
+#target_link_libraries(piggy PRIVATE "${SW3_LIB}")
+target_link_libraries(piggy PRIVATE syscalls)
 target_link_libraries(piggy PRIVATE "${LIBS}")
