@@ -37,7 +37,7 @@ typedef void (*UnicodeBiConsumer)(UNICODE_STRING *, const wchar_t *);
 typedef long (*DllQuadFunction)(const wchar_t *, ULONG, UNICODE_STRING *, void *);
 typedef void (*UnicodeConsumer)(UNICODE_STRING *);
 
-HMODULE loadLibrary(const char *name)
+static HMODULE loadLibrary(const char *name)
 {
     static const HMODULE ntDll = GetModuleHandle("ntdll.dll");
     if (!ntDll)
@@ -100,9 +100,10 @@ static auto generateMapping(const size_t cnt)
     return true;
 }
 
-bool loadDllsFromFile(const char *const name, std::unordered_map<const char*, HMODULE> &out)
+static bool loadDllsFromFile(const char *const name, std::filesystem::path &parent,
+    std::unordered_map<const char*, HMODULE> &out)
 {
-    std::ifstream file(name);
+    std::ifstream file(parent.append(name));
     if (!file.is_open())
         return false;
 
@@ -113,46 +114,52 @@ bool loadDllsFromFile(const char *const name, std::unordered_map<const char*, HM
     file.close();
     return true;
 }
-
-BOOL WINAPI DllMain([[maybe_unused]] const HMODULE module, const DWORD reason, LPVOID lpvReserved)
-{
-    static std::unordered_map<const char*, HMODULE> loadedDlls{};
-    switch (reason)
+extern "C" {
+    BOOL WINAPI DllMain(const HMODULE module, const DWORD reason, LPVOID lpvReserved)
     {
-        case DLL_PROCESS_DETACH:
-            if (!lpvReserved) // clean up if not proc termination
-            {
-                free(mapping);
-                mapping = nullptr;
-                FreeLibrary(dllInfo.module);
-                for (auto &dll : loadedDlls | std::views::values)
+        static std::unordered_map<const char*, HMODULE> loadedDlls{};
+        switch (reason)
+        {
+            case DLL_PROCESS_DETACH:
+                if (!lpvReserved) // clean up if not proc termination
                 {
-#ifndef IS_VERBOSE
-                    FreeLibrary(dll);
-#else
-                    if (!FreeLibrary(dll))
+                    free(mapping);
+                    mapping = nullptr;
+                    FreeLibrary(dllInfo.module);
+                    for (const auto &dll : loadedDlls | std::views::values)
                     {
-                        std::cerr << GetLastError() << std::endl;
-                    }
+#ifndef IS_VERBOSE
+                        FreeLibrary(dll);
+#else
+                        if (!FreeLibrary(dll))
+                        {
+                            std::cerr << GetLastError() << std::endl;
+                        }
 #endif
+                    }
                 }
+                break;
+            case DLL_PROCESS_ATTACH:
+            {
+                char spath[MAX_PATH];
+                std::filesystem::path path{};
+                if (GetModuleFileName(module, spath, MAX_PATH)) {
+                    path = std::filesystem::path(spath);
+                    path = path.parent_path();
+                }
+                if (const auto name = generateSystemDllPath(dllName); !populateDllInfo(name))
+                    return FALSE;
+                generateMapping(dllInfo.exports.size());
+                loadDllsFromFile(DEFAULT_DLL_LIST_NAME, path, loadedDlls);
             }
             break;
-        case DLL_PROCESS_ATTACH:
-        {
-            if (const auto name = generateSystemDllPath(dllName); !populateDllInfo(name))
-                return FALSE;
-            generateMapping(dllInfo.exports.size());
-            loadDllsFromFile(DEFAULT_DLL_LIST_NAME, loadedDlls);
+                // case DLL_THREAD_DETACH:
+                // case DLL_THREAD_ATTACH:
+            default:
+                break;
         }
-        break;
-        // case DLL_THREAD_DETACH:
-        // case DLL_THREAD_ATTACH:
-        default:
-            break;
+        return TRUE;
     }
-
-    return TRUE;
 }
 #else
 int main(const int argc, char **argv)
