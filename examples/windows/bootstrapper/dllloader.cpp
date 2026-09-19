@@ -25,7 +25,7 @@
 typedef HRESULT (*hresultProducer)();
 int main()
 {
-    const auto module = LoadLibrary("dwmapi.dll");
+    const auto module = LoadLibrary(DLL_NAME);
     if (!module)
         return -1;
 

@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FO
 
 add_executable(bootstrapper-generator ../main.cpp)
 target_compile_definitions(bootstrapper-generator PRIVATE
-        IS_BOOTSTRAP="${GENERATE_BOOTSTRAP}"
+        IS_BOOTSTRAP=ON
         OUT_PATH="${CMAKE_CURRENT_BINARY_DIR}"
 )
 target_link_options(bootstrapper-generator PRIVATE "/NODEFAULTLIB" "/MACHINE:X64" "/subsystem:console")
@@ -15,7 +15,7 @@ target_link_libraries(bootstrapper-generator PRIVATE "${LIBS}")
 
 add_custom_command(TARGET bootstrapper-generator
         POST_BUILD
-        COMMAND "${CMAKE_CURRENT_BINARY_DIR}/bootstrapper-generator.exe"
+        COMMAND "${CMAKE_CURRENT_BINARY_DIR}/bootstrapper-generator.exe" "${DLL_NAME}"
         COMMAND ${CMAKE_COMMAND}
             -G "${CMAKE_GENERATOR}"
             -S "${CMAKE_SOURCE_DIR}/bootstrapper"
@@ -30,6 +30,7 @@ add_custom_command(TARGET bootstrapper-generator
             -DCMAKE_CXX_FLAGS="${CMAKE_CXX_FLAGS}"
             -DCMAKE_C_FLAGS="${CMAKE_C_FLAGS}"
             -DGENERATE_TEST="${GENERATE_TEST}"
+            -DDLL_NAME="${DLL_NAME}"
         COMMAND ${CMAKE_COMMAND} --build "${CMAKE_BINARY_DIR}/bootstrapper"
         COMMENT "Building bootstrapper"
 )

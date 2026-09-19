@@ -29,6 +29,10 @@ if (VERBOSE)
     add_compile_definitions(IS_VERBOSE)
 endif()
 
+if (NOT DEFINED DLL_NAME)
+    set(DLL_NAME "dwmapi.dll")
+endif()
+
 set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
 set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
 

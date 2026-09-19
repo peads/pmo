@@ -16,8 +16,6 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifdef BUILD_SHARED_LIB
-
 #include "windows/MemoryOps.hpp"
 #include "qswprime.hpp"
 
@@ -34,4 +32,3 @@ extern "C" {
                   && replaceCode(pattern.back(), pattern.code.str,  pattern.codeLen);
     }
 }
-#endif

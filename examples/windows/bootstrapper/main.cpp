@@ -23,7 +23,6 @@
 #include "syscalls.h"
 #include <fstream>
 
-#define DEFAULT_DLL_NAME "dwmapi.dll"
 #define DEFAULT_DLL_LIST_NAME "dlls.txt"
 
 static struct DllInfo
@@ -35,7 +34,6 @@ static struct DllInfo
 
 typedef void (*UnicodeBiConsumer)(UNICODE_STRING *, const wchar_t *);
 typedef long (*DllQuadFunction)(const wchar_t *, ULONG, UNICODE_STRING *, void *);
-// typedef void (*UnicodeConsumer)(UNICODE_STRING *);
 
 static HMODULE loadLibrary(const char *name)
 {
@@ -45,8 +43,9 @@ static HMODULE loadLibrary(const char *name)
 
     static const auto RtlInitUnicodeString = reinterpret_cast<UnicodeBiConsumer>(
         GetProcAddress(ntDll, "RtlInitUnicodeString"));
+    static const auto LdrLoadDll = reinterpret_cast<DllQuadFunction>(
+        GetProcAddress(ntDll, "LdrLoadDll"));
 
-    static const auto LdrLoadDll = reinterpret_cast<DllQuadFunction>(GetProcAddress(ntDll, "LdrLoadDll"));
     if (!(RtlInitUnicodeString && LdrLoadDll))
         return nullptr;
 
@@ -59,9 +58,6 @@ static HMODULE loadLibrary(const char *name)
 
     if (LdrLoadDll(nullptr, 0, &uname, &module) >= 0) // NT_SUCCESS(status)
     {
-        // static const UnicodeConsumer RtlFreeUnicodeString = (UnicodeConsumer)GetProcAddress(ntDll, "RtlFreeUnicodeString");
-        // if (RtlFreeUnicodeString)
-            // RtlFreeUnicodeString(&uname);
         return static_cast<HMODULE>(module);
     }
     return nullptr;
@@ -100,8 +96,11 @@ static auto generateMapping(const size_t cnt)
     return true;
 }
 
-static bool loadDllsFromFile(const char *const name, std::filesystem::path &parent,
-    std::unordered_map<const char*, HMODULE> &out)
+static bool loadDllsFromFile(
+    const char *const name,
+    std::filesystem::path &parent,
+    std::unordered_map<const char*, HMODULE> &out
+)
 {
     std::ifstream file(parent.append(name));
     if (!file.is_open())
@@ -128,15 +127,16 @@ extern "C" {
                     FreeLibrary(dllInfo.module);
                     for (const auto &dll : loadedDlls | std::views::values)
                     {
+
 #ifndef IS_VERBOSE
-                        FreeLibrary(dll);
+FreeLibrary (dll);
 #else
-                        if (!FreeLibrary(dll))
+if (!FreeLibrary (dll))
                         {
                             std::cerr << GetLastError() << std::endl;
                         }
 #endif
-                    }
+}
                 }
                 break;
             case DLL_PROCESS_ATTACH:
@@ -153,9 +153,9 @@ extern "C" {
                 loadDllsFromFile(DEFAULT_DLL_LIST_NAME, path, loadedDlls);
             }
             break;
-                // case DLL_THREAD_DETACH:
-                // case DLL_THREAD_ATTACH:
-            default:
+// case DLL_THREAD_DETACH:
+// case DLL_THREAD_ATTACH:
+default :
                 break;
         }
         return TRUE;
@@ -164,10 +164,12 @@ extern "C" {
 #else
 int main(const int argc, char **argv)
 {
-    const auto fname = argc < 2 ? DEFAULT_DLL_NAME : argv[1];
-    const auto fpath = generateSystemDllPath(fname);
-    if (!populateDllInfo(fpath))
+    if (argc < 2)
         return -1;
+
+    const auto fpath = generateSystemDllPath(argv[1]);
+    if (!populateDllInfo(fpath))
+        return -2;
 
     const auto fstem = fpath.stem();
     const auto &[module, ordinalBase, exports] = dllInfo;
@@ -175,11 +177,15 @@ int main(const int argc, char **argv)
     std::filesystem::path path(OUT_PATH);
     path.append(fstem.string() + ".asm");
     std::ofstream asmOut(path);
+    if (!asmOut.is_open())
+        return -3;
     std::stringstream asmHeader{};
     std::stringstream asmBody{};
 
     path = path.parent_path().append(fstem.string() + ".def");
     std::ofstream defOut(path);
+    if (!defOut.is_open())
+        return -4;
 
     asmHeader << "bits 64\nsection .text\nextern mapping\nglobal ";
     asmBody << "\n";
@@ -208,11 +214,13 @@ int main(const int argc, char **argv)
     }
 
     asmOut << asmHeader.str() << "dllName\n" << asmBody.str() <<
-        std::format("section .rdata\n\tdllName db \"{}\", 0\n", fname);
+        std::format("section .rdata\n\tdllName db \"{}\", 0\n", fpath.filename().string());
     defOut << "\n";
 
     path = path.parent_path().append("bootstrap.txt");
     std::ofstream bootOut(path);
+    if (!bootOut.is_open())
+        return -5;
     bootOut << fstem.string() << std::endl;
 
     bootOut.close();
