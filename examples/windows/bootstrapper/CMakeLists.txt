@@ -1,10 +1,18 @@
 cmake_minimum_required(VERSION 3.29)
 project(Example4)
 cmake_policy(SET CMP0169 OLD)
+set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
+set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(LIBS "libvcruntimed.lib" "libcmtd.lib" "ucrtd.lib" "kernel32.lib" "msvcprtd.lib")
+else()
+    set(LIBS "libvcruntime.lib" "libcmt.lib" "ucrt.lib" "kernel32.lib" "msvcprt.lib")
+endif()
+add_compile_definitions(OPTIMIZATIONS_ON)
 
 find_package(Git REQUIRED)
 include(FetchContent)
-add_compile_definitions(OPTIMIZATIONS_ON)
 
 FetchContent_Declare(
         syswhispers3
@@ -31,15 +39,6 @@ endif()
 
 if (NOT DEFINED DLL_NAME OR DEFINED GENERATE_TEST)
     set(DLL_NAME "dwmapi.dll")
-endif()
-
-set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
-set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
-
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(LIBS "libvcruntimed.lib" "libcmtd.lib" "ucrtd.lib" "kernel32.lib" "msvcprtd.lib")
-else()
-    set(LIBS "libvcruntime.lib" "libcmt.lib" "ucrt.lib" "kernel32.lib" "msvcprt.lib")
 endif()
 
 add_subdirectory(${SW3_SRC_DIR} ${SW3_BIN_DIR})
