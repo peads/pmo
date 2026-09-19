@@ -37,3 +37,7 @@ add_custom_command(TARGET bootstrapper-generator
 if (NOT DEFINED OUT_PATH)
     set(OUT_PATH "${CMAKE_CURRENT_BINARY_DIR}")
 endif()
+
+set_target_properties(bootstrapper-generator PROPERTIES
+        MSVC_RUNTIME_CHECKS ""
+)

@@ -35,7 +35,7 @@ static struct DllInfo
 
 typedef void (*UnicodeBiConsumer)(UNICODE_STRING *, const wchar_t *);
 typedef long (*DllQuadFunction)(const wchar_t *, ULONG, UNICODE_STRING *, void *);
-typedef void (*UnicodeConsumer)(UNICODE_STRING *);
+// typedef void (*UnicodeConsumer)(UNICODE_STRING *);
 
 static HMODULE loadLibrary(const char *name)
 {

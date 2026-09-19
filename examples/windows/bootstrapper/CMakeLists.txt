@@ -4,6 +4,7 @@ cmake_policy(SET CMP0169 OLD)
 
 find_package(Git REQUIRED)
 include(FetchContent)
+add_compile_definitions(OPTIMIZATIONS_ON)
 
 FetchContent_Declare(
         syswhispers3
