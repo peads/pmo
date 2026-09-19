@@ -4,7 +4,8 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
 set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
 
-add_executable(bootstrapper-generator ../main.cpp)
+add_executable(bootstrapper-generator "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")
+target_include_directories(bootstrapper-generator PRIVATE "${PMO_INCLUDE}" "${SW3_SRC_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../include")
 target_compile_definitions(bootstrapper-generator PRIVATE
         IS_BOOTSTRAP=ON
         OUT_PATH="${CMAKE_CURRENT_BINARY_DIR}"

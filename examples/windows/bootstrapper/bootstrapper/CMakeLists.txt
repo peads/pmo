@@ -18,8 +18,8 @@ else()
     list(GET FILE_STEM 0 FILE_STEM)
 endif()
 
-add_library(${FILE_STEM} SHARED ../main.cpp "${OUT_PATH}/${FILE_STEM}.asm")
-target_include_directories(${FILE_STEM} PRIVATE "${PMO_INCLUDE}" "${SW3_SRC_DIR}")
+add_library(${FILE_STEM} SHARED "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp" "${OUT_PATH}/${FILE_STEM}.asm")
+target_include_directories(${FILE_STEM} PRIVATE "${PMO_INCLUDE}" "${SW3_SRC_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../include")
 set_target_properties(${FILE_STEM} PROPERTIES
         LINK_FLAGS "/DEF:\"${OUT_PATH}/${FILE_STEM}.def\""
 )
