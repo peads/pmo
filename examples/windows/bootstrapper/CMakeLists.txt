@@ -37,66 +37,11 @@ else()
     set(LIBS "libvcruntime.lib" "libcmt.lib" "ucrt.lib" "kernel32.lib" "msvcprt.lib")
 endif()
 
-#if (GENERATE_BOOTSTRAP)
-#    if (NOT DEFINED BOOTSTRAPPER_BUILD_DIR)
-#        set(BOOTSTRAPPER_BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build-bootstrapper")
-#    endif()
-#    add_executable(bootstrapper main.cpp)
-#    target_compile_definitions(bootstrapper PRIVATE
-#            IS_BOOTSTRAP="${GENERATE_BOOTSTRAP}"
-#            OUT_PATH="${BOOTSTRAPPER_BUILD_DIR}"
-#    )
-#    target_link_options(bootstrapper PRIVATE "/NODEFAULTLIB" "/MACHINE:X64")
-#    target_link_libraries(bootstrapper PRIVATE "${SW3_BIN_DIR}/syscalls.lib")
-#    target_link_libraries(bootstrapper PRIVATE "${LIBS}")
-#else()
-#    enable_language(ASM_NASM)
-#    if (NOT EXISTS "${OUT_PATH}/bootstrap.txt")
-#        message(FATAL_ERROR "Please build and run the generator half first.")
-#    else()
-#        file(STRINGS "${OUT_PATH}/bootstrap.txt" FILE_STEM)
-#        list(GET FILE_STEM 0 FILE_STEM)
-#    endif()
-#    add_library(${FILE_STEM} SHARED main.cpp "${OUT_PATH}/${FILE_STEM}.asm")
-#    set_target_properties(${FILE_STEM} PROPERTIES
-#            LINK_FLAGS "/DEF:\"${OUT_PATH}/${FILE_STEM}.def\""
-#    )
-#    target_compile_definitions(${FILE_STEM} PRIVATE OUT_PATH="${OUT_PATH}")
-#    target_link_options(${FILE_STEM} PRIVATE "/NODEFAULTLIB" "/MACHINE:X64")
-#    target_link_libraries(${FILE_STEM} PRIVATE "${SW3_BIN_DIR}/syscalls.lib")
-#    target_link_libraries(${FILE_STEM} PRIVATE "${LIBS}")
-#    if (GENERATE_TEST)
-#        add_executable(dllloader dllloader.cpp)
-#        add_subdirectory(piggy "${CMAKE_CURRENT_SOURCE_DIR}/piggy")
-#        file(WRITE "${OUT_PATH}/dlls.txt" "${CMAKE_CURRENT_SOURCE_DIR}/piggy/piggy.dll\n")
-#        target_link_options(dllloader PRIVATE "/NODEFAULTLIB" "/MACHINE:X64")
-#        target_link_libraries(dllloader PRIVATE "${SW3_BIN_DIR}/syscalls.lib")
-#        target_link_libraries(dllloader PRIVATE "${LIBS}")
-#    endif()
-#endif()
-
 add_subdirectory(${SW3_SRC_DIR} ${SW3_BIN_DIR})
 cmake_path(SET PMO_INCLUDE NORMALIZE "${CMAKE_CURRENT_SOURCE_DIR}/../../../include")
 include_directories("${PMO_INCLUDE}" "${SW3_SRC_DIR}") #${CMAKE_CURRENT_BINARY_DIR})# "${CMAKE_CURRENT_SOURCE_DIR}/SysWhispers3")
 add_subdirectory(generator)
 if (DEFINED GENERATE_TEST AND GENERATE_TEST)
     add_subdirectory(piggy)
-    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/bootstrapper/dlls.txt" "${CMAKE_CURRENT_SOURCE_DIR}/piggy/piggy.dll\n")
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/bootstrapper/dlls.txt" "${CMAKE_CURRENT_BINARY_DIR}/piggy/piggy.dll\n")
 endif()
-
-#add_subdirectory(bootstrapper)
-#execute_process(
-#        COMMAND ${CMAKE_COMMAND} -S "${SW3_SRC_DIR}" -B "${SW3_BIN_DIR}"
-#        RESULT_VARIABLE config_result
-#)
-#
-#if(NOT config_result EQUAL 0)
-#    message(FATAL_ERROR "Configuration of subproject failed!")
-#endif()
-#execute_process(
-#        COMMAND ${CMAKE_COMMAND} --build "${SW3_BIN_DIR}"
-#        RESULT_VARIABLE build_result
-#)
-#if(NOT build_result EQUAL 0)
-#    message(FATAL_ERROR "Build of subproject failed!")
-#endif()
