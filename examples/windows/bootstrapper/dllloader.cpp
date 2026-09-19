@@ -19,9 +19,8 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <cstdint>
-#include <windows.h>
 #include <iostream>
-#include <MemoryOps.hpp>
+#include <windows.h>
 
 typedef HRESULT (*hresultProducer)();
 int main()

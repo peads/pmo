@@ -18,9 +18,13 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+
 #include <windows/MemoryOps.hpp>
+#include "syscalls.h"
+#include <fstream>
+
 #define DEFAULT_DLL_NAME "dwmapi.dll"
-#define DEFAULT_BOOTSTRAPPED_DLL_NAME "piggy.dll"
+#define DEFAULT_DLL_LIST_NAME "dlls.txt"
 
 static struct DllInfo
 {
@@ -29,9 +33,43 @@ static struct DllInfo
     std::map<WORD, std::tuple<uintptr_t, char*, bool>> exports{};
 } dllInfo;
 
+typedef void (*UnicodeBiConsumer)(UNICODE_STRING *, const wchar_t *);
+typedef long (*DllQuadFunction)(const wchar_t *, ULONG, UNICODE_STRING *, void *);
+typedef void (*UnicodeConsumer)(UNICODE_STRING *);
+
+static HMODULE loadLibrary(const char *name)
+{
+    static const HMODULE ntDll = GetModuleHandle("ntdll.dll");
+    if (!ntDll)
+        return nullptr;
+
+    static const auto RtlInitUnicodeString = reinterpret_cast<UnicodeBiConsumer>(
+        GetProcAddress(ntDll, "RtlInitUnicodeString"));
+
+    static const auto LdrLoadDll = reinterpret_cast<DllQuadFunction>(GetProcAddress(ntDll, "LdrLoadDll"));
+    if (!(RtlInitUnicodeString && LdrLoadDll))
+        return nullptr;
+
+    const std::string sName(name);
+    const std::wstring wsName(sName.begin(), sName.end());
+
+    HANDLE module = nullptr;
+    UNICODE_STRING uname;
+    RtlInitUnicodeString(&uname, wsName.c_str());
+
+    if (LdrLoadDll(nullptr, 0, &uname, &module) >= 0) // NT_SUCCESS(status)
+    {
+        // static const UnicodeConsumer RtlFreeUnicodeString = (UnicodeConsumer)GetProcAddress(ntDll, "RtlFreeUnicodeString");
+        // if (RtlFreeUnicodeString)
+            // RtlFreeUnicodeString(&uname);
+        return static_cast<HMODULE>(module);
+    }
+    return nullptr;
+}
+
 static bool populateDllInfo(const std::filesystem::path &name)
 {
-    dllInfo.module = LoadLibrary(name.string().c_str());
+    dllInfo.module = loadLibrary(name.string().c_str());
     dllInfo.ordinalBase = PMO::findExports(dllInfo.module, dllInfo.exports);
     return !!dllInfo.module;
 }
@@ -62,60 +100,74 @@ static auto generateMapping(const size_t cnt)
     return true;
 }
 
-BOOL WINAPI DllMain([[maybe_unused]] const HMODULE dll, const DWORD reason, LPVOID lpvReserved)
+static bool loadDllsFromFile(const char *const name, std::filesystem::path &parent,
+    std::unordered_map<const char*, HMODULE> &out)
 {
-    static HMODULE bsDll = nullptr;
-    switch (reason)
-    {
-        case DLL_PROCESS_DETACH:
-            if (!lpvReserved) // clean up if not proc termination
-            {
-                free(mapping);
-                mapping = nullptr;
-                FreeLibrary(dllInfo.module);
-#ifndef IS_VERBOSE
-                FreeLibrary(bsDll);
-#else
-                if (!FreeLibrary(bsDll))
-                {
-                    std::cerr << GetLastError() << std::endl;
-                }
-#endif
-            }
-            break;
-        case DLL_PROCESS_ATTACH:
-        {
-            static const char *bsName = BOOTSTRAPPED_DLL;
-            if (const auto name = generateSystemDllPath(dllName); !populateDllInfo(name))
-                return FALSE;
-            generateMapping(dllInfo.exports.size());
-            bsDll = LoadLibrary(bsName);
-#ifdef IS_VERBOSE
-            if (!bsDll)
-            {
-                std::cerr << bsName << " could not be loaded" << std::endl;
-            }
-            char dllPath[MAX_PATH];
-            GetModuleFileName(dllInfo.module, dllPath, MAX_PATH);
-            std::cout << "Bootstrapped dll: " << dllPath << std::endl;
-#endif
-        }
-        break;
-        // case DLL_THREAD_DETACH:
-        // case DLL_THREAD_ATTACH:
-        default:
-            break;
-    }
+    std::ifstream file(parent.append(name));
+    if (!file.is_open())
+        return false;
 
-    return TRUE;
+    for (std::string line; std::getline(file, line);)
+        if (const HMODULE module = loadLibrary(line.c_str()); module)
+            out.emplace(line.c_str(), module);
+
+    file.close();
+    return true;
+}
+extern "C" {
+    BOOL WINAPI DllMain(const HMODULE module, const DWORD reason, LPVOID lpvReserved)
+    {
+        static std::unordered_map<const char*, HMODULE> loadedDlls{};
+        switch (reason)
+        {
+            case DLL_PROCESS_DETACH:
+                if (!lpvReserved) // clean up if not proc termination
+                {
+                    free(mapping);
+                    mapping = nullptr;
+                    FreeLibrary(dllInfo.module);
+                    for (const auto &dll : loadedDlls | std::views::values)
+                    {
+#ifndef IS_VERBOSE
+                        FreeLibrary(dll);
+#else
+                        if (!FreeLibrary(dll))
+                        {
+                            std::cerr << GetLastError() << std::endl;
+                        }
+#endif
+                    }
+                }
+                break;
+            case DLL_PROCESS_ATTACH:
+            {
+                char spath[MAX_PATH];
+                std::filesystem::path path{};
+                if (GetModuleFileName(module, spath, MAX_PATH)) {
+                    path = std::filesystem::path(spath);
+                    path = path.parent_path();
+                }
+                if (const auto name = generateSystemDllPath(dllName); !populateDllInfo(name))
+                    return FALSE;
+                generateMapping(dllInfo.exports.size());
+                loadDllsFromFile(DEFAULT_DLL_LIST_NAME, path, loadedDlls);
+            }
+            break;
+                // case DLL_THREAD_DETACH:
+                // case DLL_THREAD_ATTACH:
+            default:
+                break;
+        }
+        return TRUE;
+    }
 }
 #else
-#include <fstream>
 int main(const int argc, char **argv)
 {
     const auto fname = argc < 2 ? DEFAULT_DLL_NAME : argv[1];
     const auto fpath = generateSystemDllPath(fname);
-    if (!populateDllInfo(fpath)) return -1;
+    if (!populateDllInfo(fpath))
+        return -1;
 
     const auto fstem = fpath.stem();
     const auto &[module, ordinalBase, exports] = dllInfo;
@@ -129,9 +181,9 @@ int main(const int argc, char **argv)
     path = path.parent_path().append(fstem.string() + ".def");
     std::ofstream defOut(path);
 
-    asmHeader  << "bits 64\nsection .text\nextern mapping\nglobal ";
+    asmHeader << "bits 64\nsection .text\nextern mapping\nglobal ";
     asmBody << "\n";
-    defOut << "LIBRARY dwmapi\nEXPORTS\n";
+    defOut << std::format("LIBRARY {}\nEXPORTS\n", fstem.string());
 
     for (const auto &[ord, tup] : exports)
     {
@@ -139,7 +191,9 @@ int main(const int argc, char **argv)
         const auto oord = ord + ordinalBase;
         const auto foord = std::format("f{}", ord);
 
-        asmBody << std::format("{}:\n\tmov rax, [rel mapping]\n\tjmp [rax + {}]\n", foord, ord << 3);
+        asmBody << std::format("{}:\n\tmov rax, [rel mapping]\n\tjmp [rax + {}]\n",
+                               foord,
+                               ord << 3);
         asmHeader << std::format("{},", foord);
 
         if (isNamed)
@@ -153,9 +207,9 @@ int main(const int argc, char **argv)
         defOut << std::format("{} @{}\n", foord, oord);
     }
 
-    asmOut << asmHeader.str() << "dllName\n" << asmBody.str() << std::format("section .rdata\n\tdllName db \"{}\", 0\n", fname);
+    asmOut << asmHeader.str() << "dllName\n" << asmBody.str() <<
+        std::format("section .rdata\n\tdllName db \"{}\", 0\n", fname);
     defOut << "\n";
-
 
     path = path.parent_path().append("bootstrap.txt");
     std::ofstream bootOut(path);

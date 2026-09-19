@@ -17,3 +17,4 @@ junk/
 *.ilk
 *.lib
 cmake_install.cmake
+*.exp
