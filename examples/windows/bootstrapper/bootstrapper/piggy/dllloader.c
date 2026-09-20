@@ -18,37 +18,33 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <cstdint>
-#include <iostream>
+#include <stdint.h>
+#include <stdio.h>
 #include <windows.h>
 
 typedef HRESULT (*hresultProducer)();
+
 int main()
 {
-    const auto module = LoadLibrary("dwmapi.dll");
+    static const char *funcs[] = {"DwmFlush", "DllCanUnloadNow"};
+    const HMODULE module = LoadLibrary(DLL_NAME);
+
     if (!module)
         return -1;
 
-    int result = 0;
-    auto addr = GetProcAddress(module, "DwmFlush");
-#ifdef IS_VERBOSE
     char dllPath[MAX_PATH];
-    GetModuleFileName(module, dllPath, MAX_PATH);
-    std::cout << "Bootstrapping dll: " << dllPath << std::endl;
-#endif
-    const auto DwmFlush = reinterpret_cast<hresultProducer>(addr);
-    if (result += DwmFlush(); result != S_OK)
-        std::cout << result << std::endl;
-    else
-        std::cout << "S_OK" << std::endl;
+    int result = !GetModuleFileName(module, dllPath, MAX_PATH);
 
-    addr = GetProcAddress(module, "DllCanUnloadNow");
-    const auto DllCanUnloadNow = reinterpret_cast<hresultProducer>(addr);
-    if (result += DllCanUnloadNow(); result != S_OK)
-        std::cout << result << std::endl;
-    else
-        std::cout << "S_OK" << std::endl;
+    printf("Bootstrapping dll: %s\n", dllPath);
 
-    result += !FreeLibrary(module);
+    for (size_t i = 0; i < 2; ++i)
+    {
+        // ReSharper disable once CppLocalVariableMayBeConst
+        FARPROC addr = GetProcAddress(module, funcs[i]);
+        const hresultProducer func = (hresultProducer) addr;
+        result |= func();
+        printf("%s\n", result != S_OK ? "FAIL" : "S_OK");
+    }
+    result |= !FreeLibrary(module);
     return result;
 }

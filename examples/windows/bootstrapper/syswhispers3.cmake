@@ -20,11 +20,24 @@ if(NOT SCRIPT_RETURN_CODE EQUAL 0)
 endif()
 
 #enable_language(ASM_MASM)
-add_library(syscalls STATIC "${CMAKE_CURRENT_SOURCE_DIR}/syscalls-asm.x64.asm" "${CMAKE_CURRENT_SOURCE_DIR}/syscalls.c" "${CMAKE_CURRENT_SOURCE_DIR}/syscalls.h")
+add_library(syscalls STATIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/syscalls-asm.x64.asm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/syscalls.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/syscalls.h")
 target_link_options(syscalls PRIVATE /NODEFAULTLIB /MACHINE:X64 /subsystem:console)
 target_compile_options(syscalls PRIVATE $<$<COMPILE_LANGUAGE:C>:-Zp8 -EHa>)
 target_compile_options(syscalls PRIVATE -nologo)
-
+target_link_options(syscalls PRIVATE "/NODEFAULTLIB /MACHINE:X64 /subsystem:console")
+string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
+if (NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
+        if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND MSVC)
+            target_compile_definitions(syscalls PRIVATE "$<$<COMPILE_LANGUAGE:C>:/clang:-m64 /clang:-O3 /clang:-march=native /WX- /Gy /clang:-flto /clang:-fomit-frame-pointer>")
+#        elseif (MSVC)
+#            target_compile_definitions(syscalls PRIVATE "$<$<COMPILE_LANGUAGE:C>:/O2 /Ox /Ob2 /Ot /Oy /Oi /WX- /GL /Gy /Gm- /MP>")
+        endif()
+        target_link_options(syscalls PRIVATE "$<$<COMPILE_LANGUAGE:C>:/OPT:REF /OPT:ICF=3 /LTCG /DEBUG:NONE /EMITPOGOPHASEINFO>")
+    target_compile_definitions(syscalls PRIVATE OPTIMIZATIONS_ON)
+endif()
 set_target_properties(syscalls PROPERTIES
         MSVC_RUNTIME_CHECKS ""
 )
