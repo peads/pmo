@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.29)
-project(bootstrapper-generator CXX)
+project(bootstrapper-generator CXX C ASM_NASM)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
 set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
@@ -12,16 +12,20 @@ else()
     add_compile_definitions(OPTIMIZATIONS_ON)
 endif()
 
-add_executable(bootstrapper-generator "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")
+add_executable(bootstrapper-generator
+        "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
+        "${SW3_SRC_DIR}/syscalls-asm.x64.asm"
+        "${SW3_SRC_DIR}/syscalls.c"
+)
 target_include_directories(bootstrapper-generator PRIVATE "${PMO_INCLUDE}" "${SW3_SRC_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../include")
-target_link_libraries(bootstrapper-generator PRIVATE syscalls)
 target_link_libraries(bootstrapper-generator PRIVATE "${LIBS}")
 target_link_options(bootstrapper-generator PRIVATE "/NODEFAULTLIB" "/MACHINE:X64" "/subsystem:console")
+#target_compile_options(bootstrapper-generator PRIVATE $<$<COMPILE_LANGUAGE:C>:-Zp8 -EHa -nologo>)
 set_target_properties(bootstrapper-generator PROPERTIES MSVC_RUNTIME_CHECKS "")
 
 if (DEFINED DLL_NAME)
     add_custom_command(TARGET bootstrapper-generator
             POST_BUILD
-            COMMAND "$<TARGET_FILE:bootstrapper-generator>" "${DLL_NAME}" "${CMAKE_CURRENT_BINARY_DIR}"
+            COMMAND "$<TARGET_FILE:bootstrapper-generator>" "${DLL_NAME}" "${OUT_PATH}"
     )
 endif()
