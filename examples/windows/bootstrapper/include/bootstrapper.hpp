@@ -60,8 +60,9 @@ static HMODULE loadLibrary(const std::filesystem::path &path)
 static bool populateDllInfo(const std::filesystem::path &name)
 {
     dllInfo.module = loadLibrary(name);
-    dllInfo.ordinalBase = PMO::findExports(dllInfo.module, dllInfo.exports);
-    return !!dllInfo.module;
+    if (!dllInfo.module)
+        return false;
+    return (dllInfo.ordinalBase = PMO::findExports(dllInfo.module, dllInfo.exports));
 }
 
 static void generateDllPath(std::filesystem::path &path)

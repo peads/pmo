@@ -41,12 +41,12 @@ if (DEFINED GENERATE_TEST AND GENERATE_TEST)
     file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/bootstrapper/piggy/dlls.txt" "${CMAKE_CURRENT_BINARY_DIR}/bootstrapper/piggy/piggy.dll\n")
 endif()
 add_compile_definitions(DLL_NAME="${DLL_NAME}")
-add_compile_definitions("$<$<COMPILE_LANGUAGE:C>:CMAKE_C_FLAGS=\"${CMAKE_C_FLAGS} -Zp8 -EHa -nologo\">")
+add_compile_options(
+        "$<$<AND:$<C_COMPILER_ID:MSVC>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-Zp8;-c;-nologo;-Gy;-Oi>"
+        "$<$<AND:$<C_COMPILER_ID:MSVC>,$<COMPILE_LANGUAGE:C>>:-O1;-Os;-GR-;-EHa;-GS>"
+)
 cmake_path(GET DLL_NAME STEM DLL_NAME_STEM)
-
-if (DEFINED DLL_NAME)
-    set(OUT_PATH "${CMAKE_CURRENT_BINARY_DIR}/bootstrapper")
-endif()
+set(OUT_PATH "${CMAKE_CURRENT_BINARY_DIR}/bootstrapper")
 
 add_subdirectory(${SW3_SRC_DIR} ${SW3_BIN_DIR})
 cmake_path(SET PMO_INCLUDE NORMALIZE "${CMAKE_CURRENT_SOURCE_DIR}/../../../include")
