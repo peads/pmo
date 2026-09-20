@@ -4,6 +4,18 @@ find_program(BASH_EXECUTABLE NAMES bash git-bash HINTS "[HKLM/SOFTWARE/Microsoft
 find_package(Git REQUIRED)
 include(FetchContent)
 
+function(populateLibs LIBS)
+    set(LIBS "libvcruntimed.lib" "libcmtd.lib" "ucrtd.lib" "kernel32.lib" "msvcprtd.lib" PARENT_SCOPE)
+    if(DEFINED CMAKE_BUILD_TYPE AND CMAKE_BUILD_TYPE)
+        string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
+        if (NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
+            unset(LIBS)
+            set(LIBS "libvcruntime.lib" "libcmt.lib" "ucrt.lib" "kernel32.lib" "msvcprt.lib" PARENT_SCOPE)
+            add_compile_definitions(OPTIMIZATIONS_ON)
+        endif()
+    endif()
+endfunction()
+
 function(executeBashCommand cmd args)
     cmake_path(GET BASH_EXECUTABLE PARENT_PATH GIT_BASH_USR_BIN)
 

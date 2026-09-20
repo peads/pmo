@@ -4,19 +4,13 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
 set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
 
-string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
-if (uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
-    set(LIBS "libvcruntimed.lib" "libcmtd.lib" "ucrtd.lib" "kernel32.lib" "msvcprtd.lib")
-else()
-    set(LIBS "libvcruntime.lib" "libcmt.lib" "ucrt.lib" "kernel32.lib" "msvcprt.lib")
-    add_compile_definitions(OPTIMIZATIONS_ON)
-endif()
-
 add_executable(bootstrapper-generator
         "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
         "${SW3_SRC_DIR}/syscalls-asm.x64.asm"
         "${SW3_SRC_DIR}/syscalls.c"
 )
+set(LIBS "")
+populateLibs(LIBS)
 target_include_directories(bootstrapper-generator PRIVATE "${PMO_INCLUDE}" "${SW3_SRC_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../include")
 target_link_libraries(bootstrapper-generator PRIVATE "${LIBS}")
 target_link_options(bootstrapper-generator PRIVATE "/NODEFAULTLIB" "/MACHINE:X64" "/subsystem:console")
