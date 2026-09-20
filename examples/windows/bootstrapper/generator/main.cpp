@@ -20,7 +20,7 @@
 
 int main(const int argc, char **argv)
 {
-    if (argc < 2)
+    if (argc < 3)
         return -1;
     std::filesystem::path fpath(argv[1]);
     generateDllPath(fpath);
@@ -30,7 +30,7 @@ int main(const int argc, char **argv)
     const auto fstem = fpath.stem();
     const auto &[module, ordinalBase, exports] = dllInfo;
 
-    std::filesystem::path path(OUT_PATH);
+    std::filesystem::path path(argv[2]);
     path.append(fstem.string() + ".asm");
     std::ofstream asmOut(path);
     if (!asmOut.is_open())

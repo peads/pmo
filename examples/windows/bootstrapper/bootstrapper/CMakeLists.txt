@@ -3,7 +3,7 @@ project(bootstrapper CXX ASM_NASM)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
 set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
-
+add_dependencies(bootstrapper-generator)
 string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
 if (uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
     set(LIBS "libvcruntimed.lib" "libcmtd.lib" "ucrtd.lib" "kernel32.lib" "msvcprtd.lib")
@@ -12,7 +12,7 @@ else()
     add_compile_definitions(OPTIMIZATIONS_ON)
 endif()
 
-if (NOT EXISTS "${OUT_PATH}/bootstrap.txt" OR NOT DEFINED DLL_NAME)
+if (NOT EXISTS "${OUT_PATH}/bootstrap.txt")
     message(WARNING "Please build and run the generator half first.")
 else ()
     file(STRINGS "${OUT_PATH}/bootstrap.txt" FILE_STEM)
@@ -30,5 +30,16 @@ else ()
     if (DEFINED GENERATE_TEST)
         add_compile_definitions(DLL_NAME="${CMAKE_CURRENT_BINARY_DIR}/${DLL_NAME}")
         add_subdirectory(piggy)
+        add_custom_command(
+                TARGET ${FILE_STEM}
+                POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy
+                    "$<TARGET_FILE:${FILE_STEM}>"
+                    "${CMAKE_CURRENT_BINARY_DIR}/piggy"
+#                COMMAND ${CMAKE_COMMAND} -E copy
+#                    "${CMAKE_CURRENT_BINARY_DIR}/dlls.txt"
+#                    "${CMAKE_CURRENT_BINARY_DIR}/piggy"
+                COMMENT "Copying build output to piggy"
+        )
     endif()
 endif()
