@@ -1,34 +1,44 @@
 cmake_minimum_required(VERSION 3.29)
-project(bootstrapper CXX ASM_NASM)
+project(bootstrapper CXX C ASM_NASM)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
 set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
-
+add_dependencies(bootstrapper-generator)
 string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
-if (uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
-    set(LIBS "libvcruntimed.lib" "libcmtd.lib" "ucrtd.lib" "kernel32.lib" "msvcprtd.lib")
-else()
-    set(LIBS "libvcruntime.lib" "libcmt.lib" "ucrt.lib" "kernel32.lib" "msvcprt.lib")
-    add_compile_definitions(OPTIMIZATIONS_ON)
-endif()
+set(LIBS "")
+populateLibs(LIBS)
 
-if (NOT EXISTS "${OUT_PATH}/bootstrap.txt" OR NOT DEFINED DLL_NAME)
+if (NOT EXISTS "${OUT_PATH}/bootstrap.txt")
     message(WARNING "Please build and run the generator half first.")
 else ()
     file(STRINGS "${OUT_PATH}/bootstrap.txt" FILE_STEM)
     list(GET FILE_STEM 0 FILE_STEM)
 
-    add_library(${FILE_STEM} SHARED "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp" "${OUT_PATH}/${FILE_STEM}.asm")
+    add_library(${FILE_STEM} SHARED
+            "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
+            "${OUT_PATH}/${FILE_STEM}.asm"
+            "${SW3_SRC_DIR}/syscalls-asm.x64.asm"
+            "${SW3_SRC_DIR}/syscalls.c"
+    )
+    add_dependencies(${FILE_STEM} bootstrapper-generator)
     target_include_directories(${FILE_STEM} PRIVATE "${PMO_INCLUDE}" "${SW3_SRC_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../include")
     set_target_properties(${FILE_STEM} PROPERTIES LINK_FLAGS "/DEF:\"${OUT_PATH}/${FILE_STEM}.def\"")
     target_compile_definitions(${FILE_STEM} PRIVATE OUT_PATH="${OUT_PATH}")
+#    target_compile_options(${FILE_STEM} PRIVATE $<$<COMPILE_LANGUAGE:C>:-Zp8 -EHa -nologo>)
     target_link_options(${FILE_STEM} PRIVATE "/NODEFAULTLIB" "/MACHINE:X64" "/subsystem:console")
-    target_link_libraries(${FILE_STEM} PRIVATE "${SW3_BIN_DIR}/syscalls.lib")
     target_link_libraries(${FILE_STEM} PRIVATE "${LIBS}")
     set_target_properties(${FILE_STEM} PROPERTIES MSVC_RUNTIME_CHECKS "")
 
     if (DEFINED GENERATE_TEST)
         add_compile_definitions(DLL_NAME="${CMAKE_CURRENT_BINARY_DIR}/${DLL_NAME}")
         add_subdirectory(piggy)
+        add_custom_command(
+                TARGET ${FILE_STEM}
+                POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy
+                    "$<TARGET_FILE:${FILE_STEM}>"
+                    "${CMAKE_CURRENT_BINARY_DIR}/piggy"
+                COMMENT "Copying build output to piggy"
+        )
     endif()
 endif()
