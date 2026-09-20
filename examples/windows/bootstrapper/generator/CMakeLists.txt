@@ -20,9 +20,7 @@ add_executable(bootstrapper-generator
 target_include_directories(bootstrapper-generator PRIVATE "${PMO_INCLUDE}" "${SW3_SRC_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../include")
 target_link_libraries(bootstrapper-generator PRIVATE "${LIBS}")
 target_link_options(bootstrapper-generator PRIVATE "/NODEFAULTLIB" "/MACHINE:X64" "/subsystem:console")
-#target_compile_options(bootstrapper-generator PRIVATE $<$<COMPILE_LANGUAGE:C>:-Zp8 -EHa -nologo>)
 set_target_properties(bootstrapper-generator PROPERTIES MSVC_RUNTIME_CHECKS "")
-
 if (DEFINED DLL_NAME)
     add_custom_command(TARGET bootstrapper-generator
             POST_BUILD
