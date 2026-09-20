@@ -1,26 +1,24 @@
 cmake_minimum_required(VERSION 3.29)
 project(bootstrapper-generator CXX)
 set(CMAKE_CXX_STANDARD 23)
-
 set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
 set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
-string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
 
-if(uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
+string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
+if (uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
     set(LIBS "libvcruntimed.lib" "libcmtd.lib" "ucrtd.lib" "kernel32.lib" "msvcprtd.lib")
 else()
     set(LIBS "libvcruntime.lib" "libcmt.lib" "ucrt.lib" "kernel32.lib" "msvcprt.lib")
+    add_compile_definitions(OPTIMIZATIONS_ON)
 endif()
 
 add_executable(bootstrapper-generator "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")
 target_include_directories(bootstrapper-generator PRIVATE "${PMO_INCLUDE}" "${SW3_SRC_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../include")
-target_compile_definitions(bootstrapper-generator PRIVATE
-        IS_BOOTSTRAP=ON
-        OUT_PATH="${CMAKE_CURRENT_BINARY_DIR}"
-)
-target_link_options(bootstrapper-generator PRIVATE "/NODEFAULTLIB" "/MACHINE:X64" "/subsystem:console")
+target_compile_definitions(bootstrapper-generator PRIVATE IS_BOOTSTRAP=ON OUT_PATH="${CMAKE_CURRENT_BINARY_DIR}")
+
 target_link_libraries(bootstrapper-generator PRIVATE syscalls)
 target_link_libraries(bootstrapper-generator PRIVATE "${LIBS}")
+target_link_options(bootstrapper-generator PRIVATE "/NODEFAULTLIB" "/MACHINE:X64" "/subsystem:console")
 
 file(WRITE "${CMAKE_BINARY_DIR}/bootstrapper/.touch")
 if (DEFINED DLL_NAME)
@@ -51,18 +49,4 @@ if (NOT DEFINED OUT_PATH)
     set(OUT_PATH "${CMAKE_CURRENT_BINARY_DIR}")
 endif()
 
-set_target_properties(bootstrapper-generator PROPERTIES
-        MSVC_RUNTIME_CHECKS ""
-)
-
-target_link_options(bootstrapper-generator PRIVATE "/NODEFAULTLIB" "/MACHINE:X64" "/subsystem:console")
-
-if (NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
-    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND MSVC)
-        target_compile_definitions(bootstrapper-generator PRIVATE "$<$<COMPILE_LANGUAGE:C>:/clang:-m64 /clang:-O3 /clang:-march=native /WX- /Gy /clang:-flto /clang:-fomit-frame-pointer>")
-    elseif (MSVC)
-        target_compile_definitions(bootstrapper-generator PRIVATE "$<$<COMPILE_LANGUAGE:C>:/O2 /Ox /Ob2 /Ot /Oy /Oi /WX- /GL /Gy /Gm- /MP>")
-    endif()
-    target_link_options(bootstrapper-generator PRIVATE "$<$<COMPILE_LANGUAGE:C>:/OPT:REF /OPT:ICF=3 /LTCG /DEBUG:NONE /EMITPOGOPHASEINFO>")
-    target_compile_definitions(bootstrapper-generator PRIVATE OPTIMIZATIONS_ON)
-endif()
+set_target_properties(bootstrapper-generator PROPERTIES MSVC_RUNTIME_CHECKS "")
