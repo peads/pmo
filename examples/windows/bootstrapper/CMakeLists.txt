@@ -66,7 +66,9 @@ add_compile_options(
         "$<$<AND:$<C_COMPILER_ID:MSVC>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-Zp8;-c;-nologo;-Gy;-Oi>"
         "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<C_COMPILER_ID:MSVC>,$<COMPILE_LANGUAGE:C>>:-O1;-Os;-GR-;-EHa;-GS>"
 )
-cmake_path(GET DLL_NAME STEM DLL_NAME_STEM)
+if (DEFINED DLL_NAME AND DLL_NAME)
+    cmake_path(GET DLL_NAME STEM DLL_NAME_STEM)
+endif()
 set(OUT_PATH "${CMAKE_CURRENT_BINARY_DIR}/bootstrapper")
 
 add_subdirectory(${SW3_SRC_DIR} ${SW3_BIN_DIR})

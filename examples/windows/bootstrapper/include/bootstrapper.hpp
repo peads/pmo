@@ -20,9 +20,15 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-
 #include <windows/MemoryOps.hpp>
 #include "syscalls.h"
+#define NTDLL L"\x6E\x74\x64\x6C\x6C\x2E\x64\x6C\x6C"
+#ifdef _WIN64
+#define GET_PEB __readgsqword(0x60)
+#else
+#define GET_PEB __readfsdword(0x30)
+#endif
+#define GET_FROM_OFFSET_PEB(off) *reinterpret_cast<void**>(GET_PEB + off)
 
 inline struct DllInfo
 {
@@ -33,22 +39,96 @@ inline struct DllInfo
 
 typedef void (*UnicodeBiConsumer)(UNICODE_STRING *, const wchar_t *);
 typedef NTSTATUS (*DllQuadFunction)(UNICODE_STRING *, ULONG, UNICODE_STRING *, void *);
+// typedef NTSTATUS (*ModuleQuadFunction)(PCWSTR, ULONG *, UNICODE_STRING *, void *);
+
+static void generateDllPath(std::filesystem::path &path)
+{
+    if (path.is_relative())
+    {
+        char systemDir[MAX_PATH];
+        GetSystemDirectory(systemDir, MAX_PATH);
+        path = std::filesystem::path(systemDir).append(path.filename().string());
+    }
+}
+
+static HMODULE getCurrentModule()
+{
+    // void *peb = reinterpret_cast<void*>(__readgsqword(0x60));
+    // void *baseAddr = *reinterpret_cast<void**>(reinterpret_cast<uintptr_t>(peb) + 16); // peb->ImageBaseAddres
+    void *baseAddr = GET_FROM_OFFSET_PEB(16);
+    return static_cast<HMODULE>(baseAddr);
+}
+
+// template <size_t N>
+// static int toUnicodeString(const char (&str)[N], UNICODE_STRING &out)
+// {
+//     std::array<wchar_t,N> buffer{};
+//     const int size = MultiByteToWideChar(CP_ACP, 0, str, -1, buffer.data(), N);
+//
+//     out.MaximumLength = static_cast<USHORT>((N + 1) * sizeof(wchar_t));
+//     out.Length = out.MaximumLength - sizeof(wchar_t);//static_cast<USHORT>(N * sizeof(wchar_t));
+//     out.Buffer = const_cast<wchar_t*>(buffer.data());
+//
+//     return size;
+// }
+
+template <size_t N>
+static HMODULE getModule(const wchar_t (&wname)[N])
+{
+    // void *peb = reinterpret_cast<void*>(__readgsqword(0x60));
+    //void *ldr = *reinterpret_cast<void**>(reinterpret_cast<uintptr_t>(peb) + 24); // peb->ldr
+
+    void *ldr = GET_FROM_OFFSET_PEB(24);
+    const SW3_LDR_DATA_TABLE_ENTRY *pld = static_cast<SW3_LDR_DATA_TABLE_ENTRY*>(ldr);
+
+    // ReSharper disable once CppCStyleCast
+    for (void **curr = (void**) &pld->InMemoryOrderLinks,
+              **cend = curr;
+         *curr != cend;
+         curr = static_cast<void**>(*curr))
+    {
+        void *base = *reinterpret_cast<void**>(reinterpret_cast<uintptr_t>(curr) + 48); // curr->DllBase
+
+        if (const UNICODE_STRING name = *reinterpret_cast<UNICODE_STRING*>(reinterpret_cast<
+            uintptr_t>(curr) + 88); !lstrcmpW(name.Buffer, wname)) // curr->BaseDllName == wname
+        {
+            return static_cast<HMODULE>(base);
+        }
+    }
+    return nullptr;
+}
+
+// template <size_t N>
+// static HMODULE getModule(const char (&name)[N])
+// {
+//     std::array<wchar_t, N> buffer{};
+//     const int size = MultiByteToWideChar(CP_ACP, 0, name, -1, buffer.data(), N);
+//     if (size < N)
+//         return nullptr;
+//     printf("Size: %llu %d\n", N, size);
+//     return getModule(reinterpret_cast<wchar_t(&)[N]>(*buffer.data()));
+// }
 
 static HMODULE loadLibrary(const std::filesystem::path &path)
 {
-    static const auto ntDll = GetModuleHandle("ntdll.dll");
+    static const HMODULE ntDll = getModule(NTDLL);
+    if (!ntDll)
+        return nullptr;
+
     static const auto LdrLoadDll = reinterpret_cast<DllQuadFunction>(
         GetProcAddress(ntDll, "LdrLoadDll"));
-    static const auto RtlInitUnicodeString = reinterpret_cast<UnicodeBiConsumer>(
-        GetProcAddress(ntDll, "RtlInitUnicodeString"));
-
-    if (!(ntDll && LdrLoadDll && RtlInitUnicodeString))
+    if (!LdrLoadDll)
         return nullptr;
 
     HANDLE module = nullptr;
     UNICODE_STRING uname;
     const auto wname = path.wstring();
-    RtlInitUnicodeString(&uname, wname.c_str());
+    const size_t len = path.wstring().length();
+    // toUnicodeString("LdrLoadDll", foo);
+
+    uname.Length = static_cast<USHORT>(len * sizeof(wchar_t));
+    uname.MaximumLength = static_cast<USHORT>((len + 1) * sizeof(wchar_t));
+    uname.Buffer = const_cast<wchar_t*>(wname.c_str());
 
     if (LdrLoadDll(nullptr, 0, &uname, &module) >= 0L)
     {
@@ -63,16 +143,5 @@ static bool populateDllInfo(const std::filesystem::path &name)
     if (!dllInfo.module)
         return false;
     return (dllInfo.ordinalBase = PMO::findExports(dllInfo.module, dllInfo.exports));
-}
-
-static void generateDllPath(std::filesystem::path &path)
-{
-    if (path.is_relative())
-    {
-        char systemDir[MAX_PATH];
-        GetSystemDirectory(systemDir, MAX_PATH);
-        path = std::filesystem::path(systemDir).append(path.filename().string());
-    }
-    // return std::move(path);
 }
 #endif //EXAMPLE4_BOOTSTRAPPER_HPP
