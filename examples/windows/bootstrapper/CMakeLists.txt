@@ -1,41 +1,20 @@
 cmake_minimum_required(VERSION 3.29)
 project(Example4 CXX C ASM_NASM)
-find_program(BASH_EXECUTABLE NAMES bash git-bash HINTS "[HKLM/SOFTWARE/Microsoft/Windows/CurrentVersion;ProgramFilesDir]/Git/usr/bin" REQUIRED)
 find_package(Git REQUIRED)
 include(FetchContent)
-
-function(populateLibs LIBS)
-    set(LIBS "libvcruntimed.lib" "libcmtd.lib" "ucrtd.lib" "kernel32.lib" "msvcprtd.lib" PARENT_SCOPE)
-    if(DEFINED CMAKE_BUILD_TYPE AND CMAKE_BUILD_TYPE)
-        string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
-        if (NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
-            unset(LIBS)
-            set(LIBS "libvcruntime.lib" "libcmt.lib" "ucrt.lib" "kernel32.lib" "msvcprt.lib" PARENT_SCOPE)
-            add_compile_definitions(OPTIMIZATIONS_ON)
-        endif()
-    endif()
-endfunction()
-
-function(executeBashCommand cmd args)
-    cmake_path(GET BASH_EXECUTABLE PARENT_PATH GIT_BASH_USR_BIN)
-
-    #TODO: When cmake 4.4 becomes more common move this ugly garbage to the ENVIRONMENT option
-    set(OLD_PATH "$ENV{PATH}")
-    set(ENV{PATH} "${GIT_BASH_USR_BIN};$ENV{PATH}")
-    execute_process(
-            COMMAND "${BASH_EXECUTABLE}" "${cmd}" "${args}"
-            COMMAND_ECHO STDOUT
-            RESULT_VARIABLE BASH_SCRIPT_RETURN_CODE
-            OUTPUT_VARIABLE BASH_SCRIPT_OUTPUT
-            ERROR_VARIABLE  BASH_SCRIPT_ERROR
-            #TODO e.g.,
-            #ENVIRONMENT PATH="${GIT_BASH_USR_BIN};$ENV{PATH}"
-    )
-    set(ENV{PATH} "${OLD_PATH}")
-    if(NOT BASH_SCRIPT_RETURN_CODE EQUAL 0)
-        message(FATAL_ERROR "${cmd} failed with error:\n${BASH_SCRIPT_ERROR}")
-    endif()
-endfunction()
+set(CMAKE_SCRIPT_INCLUDES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../cmake")
+include("${CMAKE_SCRIPT_INCLUDES_PATH}/populatelibs.cmake")
+#function(populateLibs LIBS)
+#    set(LIBS "libvcruntimed.lib" "libcmtd.lib" "ucrtd.lib" "kernel32.lib" "msvcprtd.lib" PARENT_SCOPE)
+#    if(DEFINED CMAKE_BUILD_TYPE AND CMAKE_BUILD_TYPE)
+#        string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
+#        if (NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
+#            unset(LIBS)
+#            set(LIBS "libvcruntime.lib" "libcmt.lib" "ucrt.lib" "kernel32.lib" "msvcprt.lib" PARENT_SCOPE)
+#            add_compile_definitions(OPTIMIZATIONS_ON)
+#        endif()
+#    endif()
+#endfunction()
 
 set(SW3_SRC_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/syswhispers3-src")
 set(SW3_BIN_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/syswhispers3-build")
