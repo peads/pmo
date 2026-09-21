@@ -11,16 +11,14 @@ else ()
     include("${CMAKE_SCRIPT_INCLUDES_PATH}/populatelibs.cmake")
     set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
     set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
-    string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
-#    set(LIBS "libvcruntimed.lib" "libcmtd.lib" "ucrtd.lib" "kernel32.lib" "msvcprtd.lib")
     set(LIB "")
     populateLibs(LIBS)
     add_link_options(/NODEFAULTLIB /MACHINE:X64 /subsystem:console)
     add_compile_definitions(WIN32_LEAN_AND_MEAN)
     add_compile_options(
+            "$<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:-GR-;-GS->"
             "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:Clang>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-Zp8;/clang:-m64;/clang:-O3;/clang:-march=native;/WX-;/Gy;/clang:-flto;/clang:-fomit-frame-pointer>"
-            "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:MSVC>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-Zp8;/O2;/Ox;/Ob2;/Ot;/Oy;/Oi;/WX-;/GL;/Gy;/Gm-;/MP>"
-            "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<COMPILE_LANGUAGE:C>>:-GS>"
+            "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:MSVC>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-Zp8;/O2;/Ox;/Ob2;/Ot;/Oy;/Oi;/WX-;/GL;/Gy;/Gm-;/MP;-GS->"
     )
     add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:REF;/OPT:ICF=3;/LTCG;/DEBUG:NONE;/EMITPOGOPHASEINFO>")
     set(ARE_TESTS_GENERATED ${GENERATE_TESTS}) # cmake throws annoying warning if iT's NoT uSeD
