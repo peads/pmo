@@ -117,11 +117,11 @@ TEST_CASE("00a more raw search testing", "[PMO]")
     std::filesystem::path path{buf};
     const std::string name = path.filename().string();
     imports.insert(PMO::ImportInfo{.name = name.data()});
-    constexpr size_t expected[] = {1, 1};
 
     size_t cnt = 0;
     for (auto &pattern : debuggerPatterns)
     {
+        static constexpr size_t expected[] = {1, 1};
         bool foundAtLeastOne = false;
         for (auto it = imports.begin(); it != imports.end(); ++it)
         {
@@ -189,15 +189,6 @@ TEST_CASE("04 Test expected function name", "[PMO]")
         {
             REQUIRE(!PMO::findProcByName("IsDebuggerPresent", im.exports).empty());
             REQUIRE(!PMO::findProcByName("CheckRemoteDebuggerPresent", im.exports).empty());
-            // auto view = im.exports | std::views::elements<1> | std::views::elements<1>;
-            // REQUIRE(!(view | std::views::filter([](auto &e)
-            // {
-            //     return std::string(e) == "IsDebuggerPresent";
-            // })).empty());
-            // REQUIRE(!(view | std::views::filter([](auto &e)
-            // {
-            //     return std::string(e) == "CheckRemoteDebuggerPresent";
-            // })).empty());
             break;
         }
     }
