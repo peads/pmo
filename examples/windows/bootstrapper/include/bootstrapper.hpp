@@ -39,7 +39,6 @@ inline struct DllInfo
 
 typedef void (*UnicodeBiConsumer)(UNICODE_STRING *, const wchar_t *);
 typedef NTSTATUS (*DllQuadFunction)(UNICODE_STRING *, ULONG, UNICODE_STRING *, void *);
-// typedef NTSTATUS (*ModuleQuadFunction)(PCWSTR, ULONG *, UNICODE_STRING *, void *);
 
 static void generateDllPath(std::filesystem::path &path)
 {
@@ -53,31 +52,12 @@ static void generateDllPath(std::filesystem::path &path)
 
 static HMODULE getCurrentModule()
 {
-    // void *peb = reinterpret_cast<void*>(__readgsqword(0x60));
-    // void *baseAddr = *reinterpret_cast<void**>(reinterpret_cast<uintptr_t>(peb) + 16); // peb->ImageBaseAddres
-    void *baseAddr = GET_FROM_OFFSET_PEB(16);
-    return static_cast<HMODULE>(baseAddr);
+    return static_cast<HMODULE>(GET_FROM_OFFSET_PEB(16));
 }
-
-// template <size_t N>
-// static int toUnicodeString(const char (&str)[N], UNICODE_STRING &out)
-// {
-//     std::array<wchar_t,N> buffer{};
-//     const int size = MultiByteToWideChar(CP_ACP, 0, str, -1, buffer.data(), N);
-//
-//     out.MaximumLength = static_cast<USHORT>((N + 1) * sizeof(wchar_t));
-//     out.Length = out.MaximumLength - sizeof(wchar_t);//static_cast<USHORT>(N * sizeof(wchar_t));
-//     out.Buffer = const_cast<wchar_t*>(buffer.data());
-//
-//     return size;
-// }
 
 template <size_t N>
 static HMODULE getModule(const wchar_t (&wname)[N])
 {
-    // void *peb = reinterpret_cast<void*>(__readgsqword(0x60));
-    //void *ldr = *reinterpret_cast<void**>(reinterpret_cast<uintptr_t>(peb) + 24); // peb->ldr
-
     void *ldr = GET_FROM_OFFSET_PEB(24);
     const SW3_LDR_DATA_TABLE_ENTRY *pld = static_cast<SW3_LDR_DATA_TABLE_ENTRY*>(ldr);
 
@@ -98,33 +78,24 @@ static HMODULE getModule(const wchar_t (&wname)[N])
     return nullptr;
 }
 
-// template <size_t N>
-// static HMODULE getModule(const char (&name)[N])
-// {
-//     std::array<wchar_t, N> buffer{};
-//     const int size = MultiByteToWideChar(CP_ACP, 0, name, -1, buffer.data(), N);
-//     if (size < N)
-//         return nullptr;
-//     printf("Size: %llu %d\n", N, size);
-//     return getModule(reinterpret_cast<wchar_t(&)[N]>(*buffer.data()));
-// }
-
 static HMODULE loadLibrary(const std::filesystem::path &path)
 {
     static const HMODULE ntDll = getModule(NTDLL);
     if (!ntDll)
         return nullptr;
 
-    static const auto LdrLoadDll = reinterpret_cast<DllQuadFunction>(
-        GetProcAddress(ntDll, "LdrLoadDll"));
-    if (!LdrLoadDll)
+    std::map<WORD, std::tuple<uintptr_t, char*, bool>> exports;
+    PMO::findExports(ntDll, exports);
+
+    auto view = PMO::findProcByName("LdrLoadDll", exports);
+    DllQuadFunction LdrLoadDll = nullptr;
+    if (view.empty() || !((LdrLoadDll = reinterpret_cast<DllQuadFunction>(view.back()))))
         return nullptr;
 
     HANDLE module = nullptr;
     UNICODE_STRING uname;
     const auto wname = path.wstring();
     const size_t len = path.wstring().length();
-    // toUnicodeString("LdrLoadDll", foo);
 
     uname.Length = static_cast<USHORT>(len * sizeof(wchar_t));
     uname.MaximumLength = static_cast<USHORT>((len + 1) * sizeof(wchar_t));

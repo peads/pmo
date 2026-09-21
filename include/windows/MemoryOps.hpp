@@ -107,6 +107,7 @@ namespace PMO
         return true;
     }
 
+    // TODO consider changing search key to a boolean function lambda
     inline DWORD findExports(
         const HMODULE &module,
         std::map<WORD, std::tuple<uintptr_t, char*, bool>> &out,
@@ -159,6 +160,16 @@ namespace PMO
                 MAKEINTRESOURCE(exportDirectory->Base + ord), false)});
         }
         return exportDirectory->Base;
+    }
+
+    template <size_t N>
+    inline auto findProcByName(const char (&inName)[N], const std::map<WORD, std::tuple<uintptr_t, char*, bool>> &exports)
+    {
+        return std::move(exports | std::views::values | std::views::filter([&inName](auto &e)
+        {
+            auto &[fn, name, isNamed] = e;
+            return isNamed ? std::string(name) == inName : false;
+        }) | std::views::keys);
     }
 
     inline DWORD findThunks(

@@ -187,15 +187,17 @@ TEST_CASE("04 Test expected function name", "[PMO]")
     {
         if (!strcmp("KERNEL32.dll", im.name))
         {
-            auto view = im.exports | std::views::elements<1> | std::views::elements<1>;
-            REQUIRE(!(view | std::views::filter([](auto &e)
-            {
-                return std::string(e) == "IsDebuggerPresent";
-            })).empty());
-            REQUIRE(!(view | std::views::filter([](auto &e)
-            {
-                return std::string(e) == "CheckRemoteDebuggerPresent";
-            })).empty());
+            REQUIRE(!PMO::findProcByName("IsDebuggerPresent", im.exports).empty());
+            REQUIRE(!PMO::findProcByName("CheckRemoteDebuggerPresent", im.exports).empty());
+            // auto view = im.exports | std::views::elements<1> | std::views::elements<1>;
+            // REQUIRE(!(view | std::views::filter([](auto &e)
+            // {
+            //     return std::string(e) == "IsDebuggerPresent";
+            // })).empty());
+            // REQUIRE(!(view | std::views::filter([](auto &e)
+            // {
+            //     return std::string(e) == "CheckRemoteDebuggerPresent";
+            // })).empty());
             break;
         }
     }
