@@ -22,13 +22,6 @@
 #endif
 #include <windows/MemoryOps.hpp>
 #include "syscalls.h"
-#define NTDLL L"\x6E\x74\x64\x6C\x6C\x2E\x64\x6C\x6C"
-#ifdef _WIN64
-#define GET_PEB __readgsqword(0x60)
-#else
-#define GET_PEB __readfsdword(0x30)
-#endif
-#define GET_FROM_OFFSET_PEB(off) *reinterpret_cast<void**>(GET_PEB + off)
 
 inline struct DllInfo
 {
@@ -50,37 +43,9 @@ static void generateDllPath(std::filesystem::path &path)
     }
 }
 
-static HMODULE getCurrentModule()
-{
-    return static_cast<HMODULE>(GET_FROM_OFFSET_PEB(16));
-}
-
-template <size_t N>
-static HMODULE getModule(const wchar_t (&wname)[N])
-{
-    void *ldr = GET_FROM_OFFSET_PEB(24);
-    const SW3_LDR_DATA_TABLE_ENTRY *pld = static_cast<SW3_LDR_DATA_TABLE_ENTRY*>(ldr);
-
-    // ReSharper disable once CppCStyleCast
-    for (void **curr = (void**) &pld->InMemoryOrderLinks,
-              **cend = curr;
-         *curr != cend;
-         curr = static_cast<void**>(*curr))
-    {
-        void *base = *reinterpret_cast<void**>(reinterpret_cast<uintptr_t>(curr) + 48); // curr->DllBase
-
-        if (const UNICODE_STRING name = *reinterpret_cast<UNICODE_STRING*>(reinterpret_cast<
-            uintptr_t>(curr) + 88); !lstrcmpW(name.Buffer, wname)) // curr->BaseDllName == wname
-        {
-            return static_cast<HMODULE>(base);
-        }
-    }
-    return nullptr;
-}
-
 static HMODULE loadLibrary(const std::filesystem::path &path)
 {
-    static const HMODULE ntDll = getModule(NTDLL);
+    static const HMODULE ntDll = PMO::getModule(NTDLL);
     if (!ntDll)
         return nullptr;
 

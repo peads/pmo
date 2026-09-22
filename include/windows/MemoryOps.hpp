@@ -31,13 +31,83 @@
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #define FORCE_INLINE_LAMBDA __attribute__((always_inline))
 #elif defined(_MSC_VER)
-    #define FORCE_INLINE_LAMBDA [[msvc::forceinline]]
+#define FORCE_INLINE_LAMBDA [[msvc::forceinline]]
 #else
-    #define FORCE_INLINE_LAMBDA
+#define FORCE_INLINE_LAMBDA
 #endif
+#define NTDLL L"\x6E\x74\x64\x6C\x6C\x2E\x64\x6C\x6C"
+#ifdef _WIN64
+#define GET_PEB __readgsqword(0x60)
+#else
+#define GET_PEB __readfsdword(0x30)
+#endif
+#define GET_FROM_OFFSET_PEB(off) *reinterpret_cast<void**>(GET_PEB + off)
+#define getCurrentModule() static_cast<HMODULE>(GET_FROM_OFFSET_PEB(16))
 
 namespace PMO
 {
+    template <typename ModuleFunction>
+    inline void getModule(const ModuleFunction &fun)
+    {
+        void *ldr = GET_FROM_OFFSET_PEB(24);
+        const SW3_LDR_DATA_TABLE_ENTRY *pld = static_cast<SW3_LDR_DATA_TABLE_ENTRY*>(ldr);
+
+        // ReSharper disable once CppCStyleCast
+        for (void **curr = reinterpret_cast<void**>(pld->InMemoryOrderLinks.Flink),
+                  **cend = (void**) (&pld->InMemoryOrderLinks);
+             curr != cend;
+             curr = static_cast<void**>(*curr))
+        {
+            if (fun(curr))
+                break;
+        }
+    }
+
+    inline void toLower(std::wstring &text)
+    {
+        std::ranges::transform(text,
+                               text.begin(),
+                               [](const unsigned char c)FORCE_INLINE_LAMBDA
+                               {
+                                   return std::tolower(c);
+                               });
+    }
+
+    inline HMODULE getModule(const wchar_t *wname)
+    {
+        HMODULE result = nullptr;
+        std::wstring key(wname);
+        toLower(key);
+        getModule([&result, &key](void **curr)FORCE_INLINE_LAMBDA
+        {
+            const UNICODE_STRING name = *reinterpret_cast<UNICODE_STRING*>(reinterpret_cast<
+                uintptr_t>(curr) + 88);
+            std::wstring buf(name.Buffer);
+            toLower(buf);
+            auto ret = buf == key;
+            if (ret) // curr->BaseDllName == wname
+            {
+                result = *reinterpret_cast<HMODULE*>(reinterpret_cast<uintptr_t>(curr) +
+                    48); // curr->DllBase
+                return true;
+            }
+            return false;
+        });
+        return result;
+    }
+
+    template <typename U = HMODULE, PseudoContainer T = std::vector<U>>
+    inline auto getModules()
+    {
+        T result{};
+        getModule([&result](void **curr)FORCE_INLINE_LAMBDA
+        {
+            result.push_back(*reinterpret_cast<HMODULE*>(reinterpret_cast<uintptr_t>(curr) + 48));
+            return false;
+        });
+        return std::move(result);
+    }
+
     /**
      * @brief Searches for and returns first instance with given name if found in memory.
      * @details For each given name searches memory for first instance to return as a handle to the
@@ -52,7 +122,6 @@ namespace PMO
         for (auto name : names)
             if (const HMODULE outModule = GetModuleHandle(name); outModule)
                 return outModule;
-
         return nullptr;
     }
 

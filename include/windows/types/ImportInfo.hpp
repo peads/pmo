@@ -48,7 +48,9 @@ template <>
 struct std::hash<PMO::ImportInfo> {
     size_t operator()(const PMO::ImportInfo &a) const noexcept
     {
-        return std::hash<std::string>{}(a.name);
+        const std::size_t h1 = std::hash<std::string>{}(a.name);
+        const std::size_t h2 = std::hash<HMODULE>{}(a.mod);
+        return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
     }
 };
 #endif //IMPORTINFO_HPP

@@ -107,14 +107,28 @@ TEST_CASE("05 line coverage++", "[PMO]")
     REQUIRE(a == b);
 }
 
+TEST_CASE("000","[PMO]")
+{
+    PMO::SetWrapper<PMO::ImportInfo> imports{};
+    const auto modules = PMO::getModules<HMODULE, PMO::SetWrapper<HMODULE>>();
+    imports.insert(PMO::ImportInfo{.mod = getCurrentModule(), .name = "pmo.exe"});
+    auto module = PMO::getModule(L"KERNEL32.dll");
+    REQUIRE(module);
+    for (auto it = imports.begin(); it != imports.end(); ++it)
+    {
+        PMO::findImports(it->mod, imports);
+        REQUIRE(modules.contains(it->mod));
+    }
+}
+
 TEST_CASE("00a more raw search testing", "[PMO]")
 {
     reset();
     PMO::SetWrapper<PMO::ImportInfo> imports{};
-    // findImports(GetModuleHandle(nullptr), imports);
-    char buf[260];
+
+    char buf[MAX_PATH];
     GetModuleFileName(nullptr, buf, MAX_PATH);
-    std::filesystem::path path{buf};
+    const std::filesystem::path path{buf};
     const std::string name = path.filename().string();
     imports.insert(PMO::ImportInfo{.name = name.data()});
 
@@ -228,7 +242,7 @@ TEST_CASE("02 Test find by traversing thunks", "[PMO]")
     int (*fn)() = nullptr;
     PMO::findNamedFunction(addr, &fn);
     REQUIRE(fn() == IsDebuggerPresent());
-    HMODULE module = GetModuleHandle(nullptr);
+    auto module = getCurrentModule();
     REQUIRE(module);
 
     std::deque<PMO::ImportInfo> imports;
@@ -238,7 +252,7 @@ TEST_CASE("02 Test find by traversing thunks", "[PMO]")
 
     for (auto &im : imports)
     {
-        for (auto &gn : im.thunks | std::views::values)
+        for (const auto &gn : im.thunks | std::views::values)
         {
             if (gn == addr)
             {
