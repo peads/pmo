@@ -34,14 +34,22 @@
 #endif
 #define NTDLL L"\x6E\x74\x64\x6C\x6C\x2E\x64\x6C\x6C"
 #ifdef _WIN64
-    #define GET_PEB __readgsqword(0x60)
+    #if defined(_M_ARM64) || defined(__aarch64__)
+        #define CURRENT_PEB __readx18qword(0x60)
+    #else
+        #define CURRENT_PEB __readgsqword(0x60)
+    #endif
 #else
-    #define GET_PEB __readfsdword(0x30)
+    #if defined(_M_ARM) || defined(__arm__)
+        #define CURRENT_PEB __readx18dword(0x30)
+    #else
+        #define CURRENT_PEB __readfsdword(0x30)
+    #endif
 #endif
 #define PEB_THIS_MODULE_OFFSET 0x10
 #define PEB_LDR_OFFSET 0x18
-#define GET_FROM_OFFSET_PEB(off) *reinterpret_cast<void**>(GET_PEB + off)
-#define getCurrentModule() static_cast<HMODULE>(GET_FROM_OFFSET_PEB(PEB_THIS_MODULE_OFFSET))
+#define GET_FROM_OFFSET_PEB(off) *reinterpret_cast<void**>(CURRENT_PEB + off)
+#define CURRENT_MODULE static_cast<HMODULE>(GET_FROM_OFFSET_PEB(PEB_THIS_MODULE_OFFSET))
 #define LDR_LIST_OFFSET 0x2
 #define LDR_DLL_BASE_OFFSET 0x6
 #define LDR_DLL_FULL_PATH_OFFSET 0x9

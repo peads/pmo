@@ -107,76 +107,11 @@ TEST_CASE("05 line coverage++", "[PMO]")
     REQUIRE(a == b);
 }
 
-// #define pipe0(x) std::views::transform(x, \
-//     [](const auto &im) \
-//     { \
-//         return im.thunks | std::views::values; \
-//     }) | std::views::join
-// #define pipe1(x) std::views::transform(x, \
-//     [](const auto &im) \
-//     { \
-//         return im.exports | std::views::values | std::views::keys; \
-//     }) | std::views::join
-// TEST_CASE("000", "[PMO]")
-// {
-//     PMO::SetWrapper<PMO::ImportInfo> imports{};
-//     const auto modules = PMO::getModules<PMO::SetWrapper<HMODULE>>();
-//     PMO::findImports(getCurrentModule(), imports);
-//     auto imports1 = PMO::getImports<PMO::SetWrapper<PMO::ImportInfo>>();
-//
-//     PMO::SetWrapper<HMODULE> found;
-//     std::ranges::copy(std::views::transform(imports1,
-//     [](auto &e)
-//     {
-//         return PMO::getModule(e.name.c_str());
-//     }), std::back_inserter(found));
-//
-//     for (auto &im : imports)
-//     {
-//         // std::cout << im.name << std::endl;
-//         auto isFound = found.contains(PMO::getModule(im.name.c_str()));
-//         if (!isFound)
-//             std::cerr << im.name << std::endl;
-//         // REQUIRE(isFound);
-//     }
-//
-//     auto pipe0 = std::views::transform(
-//     [](const auto &im)FORCE_INLINE_LAMBDA
-//     {
-//        return im.thunks | std::views::values;
-//     }) | std::views::join;
-//
-//     auto pipe1 = std::views::transform(
-//     [](const auto &im)FORCE_INLINE_LAMBDA
-//     {
-//        return im.exports | std::views::values |
-//            std::views::keys;
-//     }) | std::views::join;
-//
-//     REQUIRE(std::ranges::all_of(pipe0(imports),
-//     [&imports1, &pipe0](const auto &e)FORCE_INLINE_LAMBDA
-//     {
-//         return std::ranges::any_of(pipe0(imports1), [&e](const auto &f)FORCE_INLINE_LAMBDA
-//         {
-//             return f == e;
-//         });
-//     }));
-//
-//     REQUIRE(std::ranges::all_of(pipe1(imports),
-//     [&imports1, &pipe1](const auto &e)FORCE_INLINE_LAMBDA
-//     {
-//         return std::ranges::any_of(pipe1(imports1), [&e](const auto &f)FORCE_INLINE_LAMBDA
-//         {
-//             return f == e;
-//         });
-//     }));
-// }
-
 TEST_CASE("00a more raw search testing", "[PMO]")
 {
     reset();
 
-    const std::wstring buf = PMO::getModuleFileName(getCurrentModule());
+    const std::wstring buf = PMO::getModuleFileName(CURRENT_MODULE);
     const std::filesystem::path path{buf};
     const std::string name = path.filename().string();
     const auto imports = PMO::getImports();
@@ -284,7 +219,7 @@ TEST_CASE("02 Test find by traversing thunks", "[PMO]")
     int (*fn)() = nullptr;
     PMO::findNamedFunction(addr, &fn);
     REQUIRE(fn() == IsDebuggerPresent());
-    auto module = getCurrentModule();
+    auto module = CURRENT_MODULE;
     REQUIRE(module);
 
     for (auto imports = PMO::getImports(); auto &im : imports)
@@ -338,7 +273,7 @@ TEST_CASE("03 Test findProcessByName", "[PMO]")
     std::vector<DWORD> handles{};
     // char buffer[MAX_PATH];
     // GetModuleFileName(nullptr, buffer, MAX_PATH);
-    const std::wstring buffer = PMO::getModuleFileName(getCurrentModule());
+    const std::wstring buffer = PMO::getModuleFileName(CURRENT_MODULE);
     const std::filesystem::path path(buffer);
     REQUIRE((path.has_filename() && "pmo.exe" == path.filename().string()));
     PMO::getProcessesByName(path.filename().string(), handles);
@@ -432,8 +367,8 @@ TEST_CASE("08 Test findExports", "[PMO]")
 TEST_CASE("00b Test getModuleInfo", "[PMO]")
 {
     MODULEINFO info{};
-    GetModuleInformation(GetCurrentProcess(), getCurrentModule(), &info, sizeof(MODULEINFO));
-    auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getModuleInfo(getCurrentModule());
+    GetModuleInformation(GetCurrentProcess(), CURRENT_MODULE, &info, sizeof(MODULEINFO));
+    auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getModuleInfo(CURRENT_MODULE);
 
     REQUIRE(info.EntryPoint == EntryPoint);
     REQUIRE(info.lpBaseOfDll == lpBaseOfDll);
