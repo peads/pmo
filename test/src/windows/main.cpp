@@ -219,8 +219,9 @@ TEST_CASE("00 raw search testing", "[PMO]")
                 SizeOfImage, debuggerPatterns[0]));
     REQUIRE(reinterpret_cast<int(*)()>(debuggerPatterns[0].back().address)() == IsDebuggerPresent(
             ));
-    PMO::SetWrapper<PMO::ImportInfo> imports{};
-    findImports(getCurrentModule(), imports);
+    // PMO::SetWrapper<PMO::ImportInfo> imports{};
+    // findImports(getCurrentModule(), imports);
+    auto imports = PMO::getImports();
     bool foundAtLeastOne = false;
     for (auto it = imports.begin(); it != imports.end(); ++it)
     {

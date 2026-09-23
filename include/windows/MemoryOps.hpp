@@ -23,23 +23,20 @@
 #include "../MemoryOps.hpp"
 #include "types/ImportInfo.hpp"
 #include "windows/ImageDirectoryEntryToData.hpp"
-// #if __has_include("syscalls.h")
-// #include "syscalls.h"
-// #endif
 
 #define PID_NAME_LEN 8192
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
-#define FORCE_INLINE_LAMBDA __attribute__((always_inline))
+    #define FORCE_INLINE_LAMBDA __attribute__((always_inline))
 #elif defined(_MSC_VER)
-#define FORCE_INLINE_LAMBDA [[msvc::forceinline]]
+    #define FORCE_INLINE_LAMBDA [[msvc::forceinline]]
 #else
-#define FORCE_INLINE_LAMBDA
+    #define FORCE_INLINE_LAMBDA
 #endif
 #define NTDLL L"\x6E\x74\x64\x6C\x6C\x2E\x64\x6C\x6C"
 #ifdef _WIN64
-#define GET_PEB __readgsqword(0x60)
+    #define GET_PEB __readgsqword(0x60)
 #else
-#define GET_PEB __readfsdword(0x30)
+    #define GET_PEB __readfsdword(0x30)
 #endif
 #define PEB_THIS_MODULE_OFFSET 0x10
 #define PEB_LDR_OFFSET 0x18
@@ -49,6 +46,29 @@
 #define LDR_DLL_BASE_OFFSET 0x6
 #define LDR_DLL_FULL_PATH_OFFSET 0x9
 #define LDR_DLL_BASE_NAME_OFFSET 0xB
+
+#ifndef PSAPI_VERSION
+    typedef struct $MODULEINFO {
+        LPVOID lpBaseOfDll;
+        DWORD SizeOfImage;
+        LPVOID EntryPoint;
+    } MODULEINFO, *LPMODULEINFO;
+    extern "C" BOOL K32EnumProcesses(DWORD *lpidProcess, DWORD cb, LPDWORD lpcbNeeded);
+    extern "C" BOOL K32EnumProcessModules(HANDLE hProcess, HMODULE *lphModule, DWORD cb, LPDWORD lpcbNeeded);
+    extern "C" DWORD K32GetProcessImageFileNameA(HANDLE hProcess, LPSTR lpImageFileName, DWORD nSize);
+    extern "C" DWORD K32GetProcessImageFileNameW(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize);
+    extern "C" BOOL K32GetModuleInformation(HANDLE hProcess, HMODULE hModule, LPMODULEINFO lpmodinfo, DWORD cb);
+    #define EnumProcessModules K32EnumProcessModules
+    #define EnumProcesses K32EnumProcesses
+    // #define GetProcessImageFileNameA K32GetProcessImageFileNameA
+    // #define GetProcessImageFileNameW K32GetProcessImageFileNameW
+    #ifdef UNICODE
+        #define GetProcessImageFileName K32GetProcessImageFileNameW
+    #else
+        #define GetProcessImageFileName K32GetProcessImageFileNameA
+    #endif
+    #define GetModuleInformation K32GetModuleInformation
+#endif
 
 namespace PMO
 {
@@ -68,7 +88,7 @@ namespace PMO
     }
 
     template <typename T>
-    static inline void toLower(std::basic_string<T> &text) noexcept
+    inline void toLower(std::basic_string<T> &text) noexcept
     {
         std::ranges::transform(text, text.begin(),
         [](const unsigned char c)FORCE_INLINE_LAMBDA
@@ -120,7 +140,7 @@ namespace PMO
         return std::move(result);
     }
 
-    static inline auto getModuleName(const HMODULE module, const uint64_t offset) noexcept
+    inline auto getModuleName(const HMODULE module, const uint64_t offset) noexcept
     {
         wchar_t *result = nullptr;
         getModule([&result, &module, &offset](void **curr)
@@ -160,13 +180,6 @@ namespace PMO
             if (const HMODULE outModule = GetModuleHandle(name); outModule)
                 return outModule;
         return nullptr;
-    }
-
-    [[deprecated]] inline bool getModuleInfo(const HMODULE &module, MODULEINFO &info) noexcept
-    {
-        if (!module)
-            return false;
-        return GetModuleInformation(GetCurrentProcess(), module, &info, sizeof(MODULEINFO));
     }
 
     inline MODULEINFO getModuleInfo(const HMODULE &module) noexcept
@@ -315,6 +328,7 @@ namespace PMO
         return result;
     }
 
+    // TODO replace with... something?
     template <PseudoContainer T>
     [[deprecated]] inline void findImports(const HMODULE &module, T &out) noexcept requires std::is_same_v<typename T::value_type, ImportInfo>
     {
@@ -495,7 +509,7 @@ finished:
     }
 
     // ReSharper disable once CppParameterMayBeConst
-    static inline bool replaceCodeExternal(HANDLE proc, void *address, const Pattern &pattern) noexcept
+    inline bool replaceCodeExternal(HANDLE proc, void *address, const Pattern &pattern) noexcept
     {
         return WriteProcessMemory(proc, address, pattern.code.ptr, pattern.codeLen, nullptr);
     }
