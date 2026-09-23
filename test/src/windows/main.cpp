@@ -177,8 +177,9 @@ TEST_CASE("00a more raw search testing", "[PMO]")
     reset();
     PMO::SetWrapper<PMO::ImportInfo> imports{};
 
-    char buf[MAX_PATH];
-    GetModuleFileName(nullptr, buf, MAX_PATH);
+    // char buf[MAX_PATH];
+    // GetModuleFileName(nullptr, buf, MAX_PATH);
+    const std::wstring buf = PMO::getModuleFileName(getCurrentModule());
     const std::filesystem::path path{buf};
     const std::string name = path.filename().string();
     imports.insert(PMO::ImportInfo{.name = name});
@@ -350,8 +351,9 @@ TEST_CASE("01 Test parse far jmp", "[PMO]")
 TEST_CASE("03 Test findProcessByName", "[PMO]")
 {
     std::vector<DWORD> handles{};
-    char buffer[MAX_PATH];
-    GetModuleFileName(nullptr, buffer, MAX_PATH);
+    // char buffer[MAX_PATH];
+    // GetModuleFileName(nullptr, buffer, MAX_PATH);
+    const std::wstring buffer = PMO::getModuleFileName(getCurrentModule());
     const std::filesystem::path path(buffer);
     REQUIRE((path.has_filename() && "pmo.exe" == path.filename().string()));
     PMO::getProcessesByName(path.filename().string(), handles);

@@ -23,9 +23,9 @@
 #include "../MemoryOps.hpp"
 #include "types/ImportInfo.hpp"
 #include "windows/ImageDirectoryEntryToData.hpp"
-#if __has_include("syscalls.h")
-#include "syscalls.h"
-#endif
+// #if __has_include("syscalls.h")
+// #include "syscalls.h"
+// #endif
 
 #define PID_NAME_LEN 8192
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
@@ -46,6 +46,9 @@
 #define GET_FROM_OFFSET_PEB(off) *reinterpret_cast<void**>(GET_PEB + off)
 #define getCurrentModule() static_cast<HMODULE>(GET_FROM_OFFSET_PEB(PEB_THIS_MODULE_OFFSET))
 #define LDR_LIST_OFFSET 0x2
+#define LDR_DLL_BASE_OFFSET 0x6
+#define LDR_DLL_FULL_PATH_OFFSET 0x9
+#define LDR_DLL_BASE_NAME_OFFSET 0xB
 
 namespace PMO
 {
@@ -53,7 +56,6 @@ namespace PMO
     inline void getModule(const ModuleFunction &fun) noexcept requires std::is_invocable_v<ModuleFunction, void**>
     {
         void *ldr = GET_FROM_OFFSET_PEB(PEB_LDR_OFFSET);
-        // const SW3_LDR_DATA_TABLE_ENTRY *pld = static_cast<SW3_LDR_DATA_TABLE_ENTRY*>(ldr);
 
         for (void   **cend = static_cast<void**>(ldr) + LDR_LIST_OFFSET,
                     **curr = static_cast<void**>(*cend);
@@ -63,26 +65,16 @@ namespace PMO
             if (fun(curr))
                 break;
         }
-        // // ReSharper disable once CppCStyleCast
-        // for (void **curr = reinterpret_cast<void**>(pld->InMemoryOrderLinks.Flink),
-        //           **cend = (void**) (&pld->InMemoryOrderLinks);
-        //      curr != cend;
-        //      curr = static_cast<void**>(*curr))
-        // {
-        //     if (fun(curr))
-        //         break;
-        // }
     }
 
     template <typename T>
     static inline void toLower(std::basic_string<T> &text) noexcept
     {
-        std::ranges::transform(text,
-                               text.begin(),
-                               [](const unsigned char c)FORCE_INLINE_LAMBDA
-                               {
-                                   return std::tolower(c);
-                               });
+        std::ranges::transform(text, text.begin(),
+        [](const unsigned char c)FORCE_INLINE_LAMBDA
+        {
+            return std::tolower(c);
+        });
     }
 
     inline HMODULE getModule(const wchar_t *wname) noexcept
@@ -92,13 +84,14 @@ namespace PMO
         toLower(key);
         getModule([&result, &key](void **curr)FORCE_INLINE_LAMBDA
         {
-            const UNICODE_STRING name = *reinterpret_cast<UNICODE_STRING*>(reinterpret_cast<
-                uintptr_t>(curr) + 88);
-            std::wstring buf(name.Buffer);
+            // const UNICODE_STRING name = *reinterpret_cast<UNICODE_STRING*>(reinterpret_cast<
+                // uintptr_t>(curr) + 88);
+            std::wstring buf(*reinterpret_cast<wchar_t**>(curr + LDR_DLL_BASE_NAME_OFFSET + 1));
             toLower(buf);
             if (buf == key) // curr->BaseDllName == wname
             {
-                result = *reinterpret_cast<HMODULE*>(reinterpret_cast<uintptr_t>(curr) + 48); // curr->DllBase
+                result = *reinterpret_cast<HMODULE*>(curr + LDR_DLL_BASE_OFFSET);
+                // result = *reinterpret_cast<HMODULE*>(reinterpret_cast<uintptr_t>(curr) + 48); // curr->DllBase
                 return true;
             }
             return false;
@@ -125,6 +118,36 @@ namespace PMO
             return false;
         });
         return std::move(result);
+    }
+
+    inline auto getModuleFileName(HMODULE module) noexcept
+    {
+        wchar_t *result = nullptr;
+        getModule([&result, &module](void **curr)
+        {
+            if (*reinterpret_cast<HMODULE*>(curr + LDR_DLL_BASE_OFFSET) == module)
+            {
+                result = *reinterpret_cast<wchar_t**>(curr + LDR_DLL_BASE_NAME_OFFSET + 1);
+                return true;
+            }
+            return false;
+        });
+        return std::move(std::wstring(result));
+    }
+    // TODO change these to wrappers passing the offset required
+    inline auto getModuleFullPath(HMODULE module) noexcept
+    {
+        wchar_t *result = nullptr;
+        getModule([&result, &module](void **curr)
+        {
+            if (*reinterpret_cast<HMODULE*>(curr + LDR_DLL_BASE_OFFSET) == module)
+            {
+                result = *reinterpret_cast<wchar_t**>(curr + LDR_DLL_FULL_PATH_OFFSET + 1);
+                return true;
+            }
+            return false;
+        });
+        return std::move(std::wstring(result));
     }
 
     /**
@@ -318,12 +341,12 @@ namespace PMO
 
         getModule([&result, &buffer](void **curr)FORCE_INLINE_LAMBDA
         {
-            const auto aCurr = reinterpret_cast<uintptr_t>(curr);
-            const auto module = *reinterpret_cast<HMODULE*>(aCurr + 48); // curr->DllBase
-            const UNICODE_STRING wname = *reinterpret_cast<UNICODE_STRING*>(aCurr + 88);
+            // const auto aCurr = reinterpret_cast<uintptr_t>(curr);
+            const auto module = *reinterpret_cast<HMODULE*>(curr + LDR_DLL_BASE_OFFSET); // curr->DllBase
+            // const UNICODE_STRING wname = *reinterpret_cast<UNICODE_STRING*>(aCurr + 88);
 
             size_t len = 0;
-            wcstombs_s(&len, buffer, wname.Buffer, MAX_PATH);
+            wcstombs_s(&len, buffer, *reinterpret_cast<wchar_t**>(curr + LDR_DLL_BASE_NAME_OFFSET + 1), MAX_PATH);
             buffer[len] = '\0';
 
             ULONG size;
