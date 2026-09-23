@@ -20,7 +20,6 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-
 #include <windows/MemoryOps.hpp>
 #include "syscalls.h"
 
@@ -34,21 +33,38 @@ inline struct DllInfo
 typedef void (*UnicodeBiConsumer)(UNICODE_STRING *, const wchar_t *);
 typedef NTSTATUS (*DllQuadFunction)(UNICODE_STRING *, ULONG, UNICODE_STRING *, void *);
 
+static void generateDllPath(std::filesystem::path &path)
+{
+    if (path.is_relative())
+    {
+        char systemDir[MAX_PATH];
+        GetSystemDirectory(systemDir, MAX_PATH);
+        path = std::filesystem::path(systemDir).append(path.filename().string());
+    }
+}
+
 static HMODULE loadLibrary(const std::filesystem::path &path)
 {
-    static const auto ntDll = GetModuleHandle("ntdll.dll");
-    static const auto LdrLoadDll = reinterpret_cast<DllQuadFunction>(
-        GetProcAddress(ntDll, "LdrLoadDll"));
-    static const auto RtlInitUnicodeString = reinterpret_cast<UnicodeBiConsumer>(
-        GetProcAddress(ntDll, "RtlInitUnicodeString"));
+    static const HMODULE ntDll = PMO::getModule(NTDLL);
+    if (!ntDll)
+        return nullptr;
 
-    if (!(ntDll && LdrLoadDll && RtlInitUnicodeString))
+    std::map<WORD, std::tuple<uintptr_t, char*, bool>> exports;
+    PMO::findExports(ntDll, exports);
+
+    auto view = PMO::findProcByName("LdrLoadDll", exports);
+    DllQuadFunction LdrLoadDll = nullptr;
+    if (view.empty() || !((LdrLoadDll = reinterpret_cast<DllQuadFunction>(view.back()))))
         return nullptr;
 
     HANDLE module = nullptr;
     UNICODE_STRING uname;
     const auto wname = path.wstring();
-    RtlInitUnicodeString(&uname, wname.c_str());
+    const size_t len = path.wstring().length();
+
+    uname.Length = static_cast<USHORT>(len * sizeof(wchar_t));
+    uname.MaximumLength = static_cast<USHORT>((len + 1) * sizeof(wchar_t));
+    uname.Buffer = const_cast<wchar_t*>(wname.c_str());
 
     if (LdrLoadDll(nullptr, 0, &uname, &module) >= 0L)
     {
@@ -63,16 +79,5 @@ static bool populateDllInfo(const std::filesystem::path &name)
     if (!dllInfo.module)
         return false;
     return (dllInfo.ordinalBase = PMO::findExports(dllInfo.module, dllInfo.exports));
-}
-
-static void generateDllPath(std::filesystem::path &path)
-{
-    if (path.is_relative())
-    {
-        char systemDir[MAX_PATH];
-        GetSystemDirectory(systemDir, MAX_PATH);
-        path = std::filesystem::path(systemDir).append(path.filename().string());
-    }
-    // return std::move(path);
 }
 #endif //EXAMPLE4_BOOTSTRAPPER_HPP

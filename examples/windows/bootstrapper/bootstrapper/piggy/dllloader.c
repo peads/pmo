@@ -18,23 +18,21 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <stdint.h>
 #include <stdio.h>
-#include <windows.h>
 #include <dwmapi.h>
 #pragma comment(lib, "dwmapi.lib")
 
 int main()
 {
     typedef HRESULT (*hresultProducer)();
-    typedef struct _ProducerInfo // NOLINT(*-reserved-identifier)
+    typedef struct $ProducerInfo
     {
         hresultProducer producer;
         const char *name;
     } ProducerInfo;
 
     const HMODULE module = GetModuleHandle("dwmapi.dll");
-    hresultProducer DllCanUnloadNow = NULL;
+    hresultProducer DllCanUnloadNow = NULL; // NOLINT(*nullptr)
 
     if (module)
     {
@@ -47,6 +45,7 @@ int main()
                systemDir,
                "dwmapi.dll");
 
+        // ReSharper disable once CppLocalVariableMayBeConst
         FARPROC addr = GetProcAddress(module, "DllCanUnloadNow");
         DllCanUnloadNow = (hresultProducer) addr;
     }

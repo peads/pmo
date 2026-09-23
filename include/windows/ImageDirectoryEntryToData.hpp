@@ -19,7 +19,6 @@
 #define IMAGEDIRECTORYENTRYTODATA_HPP
 
 #include <windows.h>
-#include <psapi.h>
 
 inline PIMAGE_SECTION_HEADER GetSectionHeaderByRva(PIMAGE_NT_HEADERS headers, const ULONG addr) noexcept
 {

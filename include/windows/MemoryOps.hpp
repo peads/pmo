@@ -26,15 +26,145 @@
 
 #define PID_NAME_LEN 8192
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
-#define FORCE_INLINE_LAMBDA __attribute__((always_inline))
+    #define FORCE_INLINE_LAMBDA __attribute__((always_inline))
 #elif defined(_MSC_VER)
     #define FORCE_INLINE_LAMBDA [[msvc::forceinline]]
 #else
     #define FORCE_INLINE_LAMBDA
 #endif
+#define NTDLL L"\x6E\x74\x64\x6C\x6C\x2E\x64\x6C\x6C"
+#ifdef _WIN64
+    #define GET_PEB __readgsqword(0x60)
+#else
+    #define GET_PEB __readfsdword(0x30)
+#endif
+#define PEB_THIS_MODULE_OFFSET 0x10
+#define PEB_LDR_OFFSET 0x18
+#define GET_FROM_OFFSET_PEB(off) *reinterpret_cast<void**>(GET_PEB + off)
+#define getCurrentModule() static_cast<HMODULE>(GET_FROM_OFFSET_PEB(PEB_THIS_MODULE_OFFSET))
+#define LDR_LIST_OFFSET 0x2
+#define LDR_DLL_BASE_OFFSET 0x6
+#define LDR_DLL_FULL_PATH_OFFSET 0x9
+#define LDR_DLL_BASE_NAME_OFFSET 0xB
+
+#ifndef PSAPI_VERSION
+    typedef struct $MODULEINFO {
+        LPVOID lpBaseOfDll;
+        DWORD SizeOfImage;
+        LPVOID EntryPoint;
+    } MODULEINFO, *LPMODULEINFO;
+    extern "C" BOOL K32EnumProcesses(DWORD *lpidProcess, DWORD cb, LPDWORD lpcbNeeded);
+    extern "C" BOOL K32EnumProcessModules(HANDLE hProcess, HMODULE *lphModule, DWORD cb, LPDWORD lpcbNeeded);
+    extern "C" DWORD K32GetProcessImageFileNameA(HANDLE hProcess, LPSTR lpImageFileName, DWORD nSize);
+    extern "C" DWORD K32GetProcessImageFileNameW(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize);
+    extern "C" BOOL K32GetModuleInformation(HANDLE hProcess, HMODULE hModule, LPMODULEINFO lpmodinfo, DWORD cb);
+    #define EnumProcessModules K32EnumProcessModules
+    #define EnumProcesses K32EnumProcesses
+    // #define GetProcessImageFileNameA K32GetProcessImageFileNameA
+    // #define GetProcessImageFileNameW K32GetProcessImageFileNameW
+    #ifdef UNICODE
+        #define GetProcessImageFileName K32GetProcessImageFileNameW
+    #else
+        #define GetProcessImageFileName K32GetProcessImageFileNameA
+    #endif
+    #define GetModuleInformation K32GetModuleInformation
+#endif
 
 namespace PMO
 {
+    template <typename ModuleFunction>
+    inline void getModule(const ModuleFunction &fun) noexcept requires std::is_invocable_v<ModuleFunction, void**>
+    {
+        void *ldr = GET_FROM_OFFSET_PEB(PEB_LDR_OFFSET);
+
+        for (void   **cend = static_cast<void**>(ldr) + LDR_LIST_OFFSET,
+                    **curr = static_cast<void**>(*cend);
+             curr != cend;
+             curr = static_cast<void**>(*curr))
+        {
+            if (fun(curr))
+                break;
+        }
+    }
+
+    template <typename T>
+    inline void toLower(std::basic_string<T> &text) noexcept
+    {
+        std::ranges::transform(text, text.begin(),
+        [](const unsigned char c)FORCE_INLINE_LAMBDA
+        {
+            return std::tolower(c);
+        });
+    }
+
+    inline HMODULE getModule(const wchar_t *wname) noexcept
+    {
+        HMODULE result = nullptr;
+        std::wstring key(wname);
+        toLower(key);
+        getModule([&result, &key](void **curr)FORCE_INLINE_LAMBDA
+        {
+            // const UNICODE_STRING name = *reinterpret_cast<UNICODE_STRING*>(reinterpret_cast<
+                // uintptr_t>(curr) + 88);
+            std::wstring buf(*reinterpret_cast<wchar_t**>(curr + LDR_DLL_BASE_NAME_OFFSET + 1));
+            toLower(buf);
+            if (buf == key) // curr->BaseDllName == wname
+            {
+                result = *reinterpret_cast<HMODULE*>(curr + LDR_DLL_BASE_OFFSET);
+                // result = *reinterpret_cast<HMODULE*>(reinterpret_cast<uintptr_t>(curr) + 48); // curr->DllBase
+                return true;
+            }
+            return false;
+        });
+        return result;
+    }
+
+    inline HMODULE getModule(const char *name) noexcept
+    {
+        size_t len = 0;
+        wchar_t buffer[MAX_PATH];
+        mbstowcs_s(&len, buffer, MAX_PATH, name, MAX_PATH);
+        buffer[len] = L'\0';
+        return getModule(buffer);
+    }
+
+    template <PseudoContainer T = std::vector<HMODULE>>
+    inline auto getModules() noexcept requires std::is_same_v<typename T::value_type, HMODULE>
+    {
+        T result{};
+        getModule([&result](void **curr)FORCE_INLINE_LAMBDA
+        {
+            result.push_back(*reinterpret_cast<HMODULE*>(reinterpret_cast<uintptr_t>(curr) + 48));
+            return false;
+        });
+        return std::move(result);
+    }
+
+    inline auto getModuleName(const HMODULE module, const uint64_t offset) noexcept
+    {
+        wchar_t *result = nullptr;
+        getModule([&result, &module, &offset](void **curr)
+        {
+            if (*reinterpret_cast<HMODULE*>(curr + LDR_DLL_BASE_OFFSET) == module)
+            {
+                result = *reinterpret_cast<wchar_t**>(curr + offset + 1); // ustr->Buffer
+                return true;
+            }
+            return false;
+        });
+        return std::move(std::wstring(result));
+    }
+
+    inline auto getModuleFileName(const HMODULE module) noexcept
+    {
+        return getModuleName(module, LDR_DLL_BASE_NAME_OFFSET);
+    }
+
+    inline auto getModuleFullPath(const HMODULE module) noexcept
+    {
+        return getModuleName(module, LDR_DLL_FULL_PATH_OFFSET);
+    }
+
     /**
      * @brief Searches for and returns first instance with given name if found in memory.
      * @details For each given name searches memory for first instance to return as a handle to the
@@ -49,22 +179,26 @@ namespace PMO
         for (auto name : names)
             if (const HMODULE outModule = GetModuleHandle(name); outModule)
                 return outModule;
-
         return nullptr;
     }
 
-    inline bool getImportInfo(const HMODULE &module, MODULEINFO &info) noexcept
-    {
-        if (!module)
-            return false;
-
-        return GetModuleInformation(GetCurrentProcess(), module, &info, sizeof(MODULEINFO));
-    }
-
-    inline MODULEINFO getImportInfo(const HMODULE &module) noexcept
+    inline MODULEINFO getModuleInfo(const HMODULE &module) noexcept
     {
         MODULEINFO info{};
-        getImportInfo(module, info);
+        getModule([&info, &module](void **curr)
+        {
+            if (const HMODULE baseAddress = *reinterpret_cast<HMODULE*>(curr + LDR_DLL_BASE_OFFSET);
+                baseAddress == module)
+            {
+                info = {
+                    .lpBaseOfDll = *(curr + LDR_DLL_BASE_OFFSET),
+                    .SizeOfImage = *reinterpret_cast<uint32_t*>(curr + LDR_DLL_BASE_OFFSET + 2),
+                    .EntryPoint = *(curr + LDR_DLL_BASE_OFFSET + 1)
+                };
+                return true;
+            }
+            return false;
+        });
         return info;
     }
 
@@ -107,6 +241,7 @@ namespace PMO
         return true;
     }
 
+    // TODO consider changing search key to a boolean function lambda
     inline DWORD findExports(
         const HMODULE &module,
         std::map<WORD, std::tuple<uintptr_t, char*, bool>> &out,
@@ -161,51 +296,76 @@ namespace PMO
         return exportDirectory->Base;
     }
 
+    template <size_t N>
+    inline auto findProcByName(const char (&inName)[N], const std::map<WORD, std::tuple<uintptr_t, char*, bool>> &exports) noexcept
+    {
+        return std::move(exports | std::views::values | std::views::filter([&inName](auto &e)
+        {
+            auto &[fn, name, isNamed] = e;
+            return isNamed ? std::string(name) == inName : false;
+        }) | std::views::keys);
+    }
+
     inline DWORD findThunks(
         const HMODULE &module,
-        const IMAGE_IMPORT_DESCRIPTOR &desc,
+        const IMAGE_THUNK_DATA *thunk,
         ImportInfo &out
     ) noexcept
     {
         DWORD result = 0;
-        auto thunk = reinterpret_cast<PIMAGE_THUNK_DATA>(
-            reinterpret_cast<PBYTE>(module) + desc.FirstThunk);
         for (; thunk->u1.AddressOfData; ++thunk)
         {
-            if (const auto thisModule = GetModuleHandle(out.name); thisModule)
-            {
-                uintptr_t fn = thunk->u1.Function;
-                uintptr_t gn = 0;
-                result = findExports(thisModule, out.exports, &fn);
-                findNamedFunction(fn, &gn);
-                out.thunks.emplace(fn, gn);
-            }
+            uintptr_t fn = thunk->u1.Function;
+            uintptr_t gn = 0;
+            result = findExports(module, out.exports, &fn);
+            findNamedFunction(fn, &gn);
+            out.thunks.emplace(fn, gn);
         }
         return result;
     }
 
-    template <PseudoContainer T>
-    inline void findImports(const HMODULE &module, T &out) noexcept
+    template <SetConcept T = SetWrapper<ImportInfo>>
+    inline T getImports() noexcept requires std::is_same_v<typename T::value_type, ImportInfo>
     {
-        ULONG size;
-        auto desc = static_cast<PIMAGE_IMPORT_DESCRIPTOR>(
-            ImageDirectoryEntryToDataEx(module,
-                                        TRUE,
-                                        IMAGE_DIRECTORY_ENTRY_IMPORT,
-                                        &size,
-                                        nullptr));
+        T result{};
+        char buffer[MAX_PATH];
 
-        ImportInfo info{};
-        for (; desc && desc->Characteristics && desc->Name; ++desc)
+        getModule([&result, &buffer](void **curr)FORCE_INLINE_LAMBDA
         {
-            info.name = reinterpret_cast<PSTR>(reinterpret_cast<PBYTE>(module) + desc->Name);
-            GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                              GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                              info.name,
-                              &info.mod);
-            info.ordinalBase = findThunks(info.mod, *desc, info);
-            out.push_back(std::move(info));
-        }
+            const auto module = *reinterpret_cast<HMODULE*>(curr + LDR_DLL_BASE_OFFSET); // curr->DllBase
+            size_t len = 0;
+            wcstombs_s(&len, buffer, *reinterpret_cast<wchar_t**>(curr + LDR_DLL_BASE_NAME_OFFSET + 1), MAX_PATH);
+            buffer[len] = '\0';
+
+            ULONG size;
+            auto desc = static_cast<PIMAGE_IMPORT_DESCRIPTOR>(
+                ImageDirectoryEntryToDataEx(module,
+                                            TRUE,
+                                            IMAGE_DIRECTORY_ENTRY_IMPORT,
+                                            &size,
+                                            nullptr));
+
+            for (; desc && desc->Characteristics && desc->Name; ++desc)
+            {
+                const auto name = reinterpret_cast<PSTR>(reinterpret_cast<PBYTE>(module) + desc->Name);
+                auto mod = getModule(name);
+                ImportInfo info{.mod = mod ? mod : module, .name = std::string(name)};
+                const auto thunk = reinterpret_cast<PIMAGE_THUNK_DATA>(reinterpret_cast<PBYTE>(module) + desc->FirstThunk);
+                info.ordinalBase = findThunks(mod, thunk, info);
+                if (!result.contains(info))
+                    result.push_back(std::move(info));
+                else
+                {
+                    ImportInfo val = *result.find(info);
+                    val.exports.merge(info.exports);
+                    val.thunks.merge(info.thunks);
+                }
+            }
+
+            return false;
+        });
+
+        return std::move(result);
     }
 
     // no it doesn't. ReSharper can't even reference types in structs
@@ -315,7 +475,7 @@ finished:
     }
 
     // ReSharper disable once CppParameterMayBeConst
-    static inline bool replaceCodeExternal(HANDLE proc, void *address, const Pattern &pattern) noexcept
+    inline bool replaceCodeExternal(HANDLE proc, void *address, const Pattern &pattern) noexcept
     {
         return WriteProcessMemory(proc, address, pattern.code.ptr, pattern.codeLen, nullptr);
     }
