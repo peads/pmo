@@ -21,7 +21,7 @@ else ()
     add_compile_definitions(WIN32_LEAN_AND_MEAN)
     add_compile_options(
             "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:Clang>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-Zp8;/clang:-m64;/clang:-O3;/clang:-march=native;/WX-;/Gy;/clang:-flto;/clang:-fomit-frame-pointer>"
-            "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:MSVC>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-Zp8;/O2;/Ox;/Ob2;/Ot;/Oy;/Oi;/WX-;/GL;/Gy;/Gm-;/MP;-GS->"
+            "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:MSVC>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-Zp8;/O2;/Ob2;/Ot;/Oy;/Oi;/WX-;/GL;/Gy;/Gm-;/MP;-GS->"
     )
     add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:REF;/OPT:ICF=3;/LTCG;/DEBUG:NONE;/EMITPOGOPHASEINFO>")
     set(ARE_TESTS_GENERATED ${GENERATE_TESTS}) # cmake throws annoying warning if iT's NoT uSeD
