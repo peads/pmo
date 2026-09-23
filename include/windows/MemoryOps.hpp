@@ -324,32 +324,6 @@ namespace PMO
         return result;
     }
 
-    // template <PseudoContainer T>
-    // [[deprecated]] inline void findImports(const HMODULE &module, T &out) noexcept requires std::is_same_v<typename T::value_type, ImportInfo>
-    // {
-    //     ULONG size;
-    //     auto desc = static_cast<PIMAGE_IMPORT_DESCRIPTOR>(
-    //         ImageDirectoryEntryToDataEx(module,
-    //                                     TRUE,
-    //                                     IMAGE_DIRECTORY_ENTRY_IMPORT,
-    //                                     &size,
-    //                                     nullptr));
-    //
-    //     ImportInfo info{};
-    //     for (; desc && desc->Characteristics && desc->Name; ++desc)
-    //     {
-    //         const auto name = reinterpret_cast<PSTR>(reinterpret_cast<PBYTE>(module) + desc->Name);
-    //         GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-    //                           GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-    //                           name,
-    //                           &info.mod);
-    //         info.name = std::string(name);
-    //         const auto thunk = reinterpret_cast<PIMAGE_THUNK_DATA>(reinterpret_cast<PBYTE>(module) + desc->FirstThunk);
-    //         info.ordinalBase = findThunks(GetModuleHandle(name), thunk, info);
-    //         out.push_back(std::move(info));
-    //     }
-    // }
-
     template <SetConcept T = SetWrapper<ImportInfo>>
     inline T getImports() noexcept requires std::is_same_v<typename T::value_type, ImportInfo>
     {
