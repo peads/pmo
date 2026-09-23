@@ -23,6 +23,7 @@
 #include <locale.h>
 #include <stdio.h>
 
+// ReSharper disable once CppUseInternalLinkage
 __declspec(dllexport) int DllMain()
 {
     setlocale(LC_ALL, "");

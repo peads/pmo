@@ -308,7 +308,6 @@ namespace PMO
 
     inline DWORD findThunks(
         const HMODULE &module,
-        // const IMAGE_IMPORT_DESCRIPTOR &desc,
         const IMAGE_THUNK_DATA *thunk,
         ImportInfo &out
     ) noexcept
@@ -316,44 +315,40 @@ namespace PMO
         DWORD result = 0;
         for (; thunk->u1.AddressOfData; ++thunk)
         {
-            // if (const auto thisModule = GetModuleHandle(out.name.c_str()); thisModule)
-            // {
-                uintptr_t fn = thunk->u1.Function;
-                uintptr_t gn = 0;
-                result = findExports(module, out.exports, &fn);
-                findNamedFunction(fn, &gn);
-                out.thunks.emplace(fn, gn);
-            // }
+            uintptr_t fn = thunk->u1.Function;
+            uintptr_t gn = 0;
+            result = findExports(module, out.exports, &fn);
+            findNamedFunction(fn, &gn);
+            out.thunks.emplace(fn, gn);
         }
         return result;
     }
 
-    // TODO replace with... something?
-    template <PseudoContainer T>
-    [[deprecated]] inline void findImports(const HMODULE &module, T &out) noexcept requires std::is_same_v<typename T::value_type, ImportInfo>
-    {
-        ULONG size;
-        auto desc = static_cast<PIMAGE_IMPORT_DESCRIPTOR>(
-            ImageDirectoryEntryToDataEx(module,
-                                        TRUE,
-                                        IMAGE_DIRECTORY_ENTRY_IMPORT,
-                                        &size,
-                                        nullptr));
-
-        ImportInfo info{};
-        for (; desc && desc->Characteristics && desc->Name; ++desc)
-        {
-            const auto name = reinterpret_cast<PSTR>(reinterpret_cast<PBYTE>(module) + desc->Name);
-            GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                              GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                              name,
-                              &info.mod);
-            info.name = std::string(name);
-            const auto thunk = reinterpret_cast<PIMAGE_THUNK_DATA>(reinterpret_cast<PBYTE>(module) + desc->FirstThunk);
-            info.ordinalBase = findThunks(GetModuleHandle(name), thunk, info);
-            out.push_back(std::move(info));
-        }
-    }
+    // template <PseudoContainer T>
+    // [[deprecated]] inline void findImports(const HMODULE &module, T &out) noexcept requires std::is_same_v<typename T::value_type, ImportInfo>
+    // {
+    //     ULONG size;
+    //     auto desc = static_cast<PIMAGE_IMPORT_DESCRIPTOR>(
+    //         ImageDirectoryEntryToDataEx(module,
+    //                                     TRUE,
+    //                                     IMAGE_DIRECTORY_ENTRY_IMPORT,
+    //                                     &size,
+    //                                     nullptr));
+    //
+    //     ImportInfo info{};
+    //     for (; desc && desc->Characteristics && desc->Name; ++desc)
+    //     {
+    //         const auto name = reinterpret_cast<PSTR>(reinterpret_cast<PBYTE>(module) + desc->Name);
+    //         GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+    //                           GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+    //                           name,
+    //                           &info.mod);
+    //         info.name = std::string(name);
+    //         const auto thunk = reinterpret_cast<PIMAGE_THUNK_DATA>(reinterpret_cast<PBYTE>(module) + desc->FirstThunk);
+    //         info.ordinalBase = findThunks(GetModuleHandle(name), thunk, info);
+    //         out.push_back(std::move(info));
+    //     }
+    // }
 
     template <SetConcept T = SetWrapper<ImportInfo>>
     inline T getImports() noexcept requires std::is_same_v<typename T::value_type, ImportInfo>
@@ -363,10 +358,7 @@ namespace PMO
 
         getModule([&result, &buffer](void **curr)FORCE_INLINE_LAMBDA
         {
-            // const auto aCurr = reinterpret_cast<uintptr_t>(curr);
             const auto module = *reinterpret_cast<HMODULE*>(curr + LDR_DLL_BASE_OFFSET); // curr->DllBase
-            // const UNICODE_STRING wname = *reinterpret_cast<UNICODE_STRING*>(aCurr + 88);
-
             size_t len = 0;
             wcstombs_s(&len, buffer, *reinterpret_cast<wchar_t**>(curr + LDR_DLL_BASE_NAME_OFFSET + 1), MAX_PATH);
             buffer[len] = '\0';

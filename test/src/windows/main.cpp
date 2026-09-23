@@ -175,24 +175,20 @@ TEST_CASE("05 line coverage++", "[PMO]")
 TEST_CASE("00a more raw search testing", "[PMO]")
 {
     reset();
-    PMO::SetWrapper<PMO::ImportInfo> imports{};
 
-    // char buf[MAX_PATH];
-    // GetModuleFileName(nullptr, buf, MAX_PATH);
     const std::wstring buf = PMO::getModuleFileName(getCurrentModule());
     const std::filesystem::path path{buf};
     const std::string name = path.filename().string();
-    imports.insert(PMO::ImportInfo{.name = name});
+    const auto imports = PMO::getImports();
 
     size_t cnt = 0;
     for (auto &pattern : debuggerPatterns)
     {
         static constexpr size_t expected[] = {1, 1};
         bool foundAtLeastOne = false;
-        for (auto it = imports.begin(); it != imports.end(); ++it)
+        for (const auto &it : imports)
         {
-            auto module = PMO::getModule(it->name.c_str());
-            findImports(module, imports);
+            auto module = PMO::getModule(it.name.c_str());
             MODULEINFO info = PMO::getModuleInfo(module);
             foundAtLeastOne |= findPatterns(reinterpret_cast<uintptr_t>(info.
                                                 lpBaseOfDll),
@@ -219,14 +215,11 @@ TEST_CASE("00 raw search testing", "[PMO]")
                 SizeOfImage, debuggerPatterns[0]));
     REQUIRE(reinterpret_cast<int(*)()>(debuggerPatterns[0].back().address)() == IsDebuggerPresent(
             ));
-    // PMO::SetWrapper<PMO::ImportInfo> imports{};
-    // findImports(getCurrentModule(), imports);
     auto imports = PMO::getImports();
     bool foundAtLeastOne = false;
-    for (auto it = imports.begin(); it != imports.end(); ++it)
+    for (const auto &it : imports)
     {
-        module = PMO::getModule(it->name.c_str());
-        findImports(module, imports);
+        module = PMO::getModule(it.name.c_str());
         info = PMO::getModuleInfo(module);
         foundAtLeastOne |= findPatterns(reinterpret_cast<uintptr_t>(info.
                                             lpBaseOfDll),
