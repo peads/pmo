@@ -81,11 +81,8 @@ extern "C" {
                 break;
             case DLL_PROCESS_ATTACH:
             {
-                // char spath[MAX_PATH];
                 std::filesystem::path path{};
-                // if (GetModuleFileName(module, spath, MAX_PATH))
-                std::wstring spath = PMO::getModuleFullPath(module);
-                if (!spath.empty())
+                if (const std::wstring spath = PMO::getModuleFullPath(module); !spath.empty())
                 {
                     path = std::filesystem::path(spath);
                     path = path.parent_path();

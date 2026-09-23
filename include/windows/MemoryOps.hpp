@@ -120,34 +120,29 @@ namespace PMO
         return std::move(result);
     }
 
-    inline auto getModuleFileName(HMODULE module) noexcept
+    static inline auto getModuleName(const HMODULE module, const uint64_t offset) noexcept
     {
         wchar_t *result = nullptr;
-        getModule([&result, &module](void **curr)
+        getModule([&result, &module, &offset](void **curr)
         {
             if (*reinterpret_cast<HMODULE*>(curr + LDR_DLL_BASE_OFFSET) == module)
             {
-                result = *reinterpret_cast<wchar_t**>(curr + LDR_DLL_BASE_NAME_OFFSET + 1);
+                result = *reinterpret_cast<wchar_t**>(curr + offset + 1); // ustr->Buffer
                 return true;
             }
             return false;
         });
         return std::move(std::wstring(result));
     }
-    // TODO change these to wrappers passing the offset required
-    inline auto getModuleFullPath(HMODULE module) noexcept
+
+    inline auto getModuleFileName(const HMODULE module) noexcept
     {
-        wchar_t *result = nullptr;
-        getModule([&result, &module](void **curr)
-        {
-            if (*reinterpret_cast<HMODULE*>(curr + LDR_DLL_BASE_OFFSET) == module)
-            {
-                result = *reinterpret_cast<wchar_t**>(curr + LDR_DLL_FULL_PATH_OFFSET + 1);
-                return true;
-            }
-            return false;
-        });
-        return std::move(std::wstring(result));
+        return getModuleName(module, LDR_DLL_BASE_NAME_OFFSET);
+    }
+
+    inline auto getModuleFullPath(const HMODULE module) noexcept
+    {
+        return getModuleName(module, LDR_DLL_FULL_PATH_OFFSET);
     }
 
     /**
@@ -167,17 +162,30 @@ namespace PMO
         return nullptr;
     }
 
-    inline bool getImportInfo(const HMODULE &module, MODULEINFO &info) noexcept
+    [[deprecated]] inline bool getModuleInfo(const HMODULE &module, MODULEINFO &info) noexcept
     {
         if (!module)
             return false;
         return GetModuleInformation(GetCurrentProcess(), module, &info, sizeof(MODULEINFO));
     }
 
-    inline MODULEINFO getImportInfo(const HMODULE &module) noexcept
+    inline MODULEINFO getModuleInfo(const HMODULE &module) noexcept
     {
         MODULEINFO info{};
-        getImportInfo(module, info);
+        getModule([&info, &module](void **curr)
+        {
+            if (const HMODULE baseAddress = *reinterpret_cast<HMODULE*>(curr + LDR_DLL_BASE_OFFSET);
+                baseAddress == module)
+            {
+                info = {
+                    .lpBaseOfDll = *(curr + LDR_DLL_BASE_OFFSET),
+                    .SizeOfImage = *reinterpret_cast<uint32_t*>(curr + LDR_DLL_BASE_OFFSET + 2),
+                    .EntryPoint = *(curr + LDR_DLL_BASE_OFFSET + 1)
+                };
+                return true;
+            }
+            return false;
+        });
         return info;
     }
 
@@ -308,7 +316,7 @@ namespace PMO
     }
 
     template <PseudoContainer T>
-    inline void findImports(const HMODULE &module, T &out) noexcept requires std::is_same_v<typename T::value_type, ImportInfo>
+    [[deprecated]] inline void findImports(const HMODULE &module, T &out) noexcept requires std::is_same_v<typename T::value_type, ImportInfo>
     {
         ULONG size;
         auto desc = static_cast<PIMAGE_IMPORT_DESCRIPTOR>(
@@ -361,8 +369,7 @@ namespace PMO
             {
                 const auto name = reinterpret_cast<PSTR>(reinterpret_cast<PBYTE>(module) + desc->Name);
                 auto mod = getModule(name);
-                // ImportInfo info{.mod = mod ? mod : module, .name = std::string(buffer)};
-                ImportInfo info{.mod = mod ? mod : module, .name = name};
+                ImportInfo info{.mod = mod ? mod : module, .name = std::string(name)};
                 const auto thunk = reinterpret_cast<PIMAGE_THUNK_DATA>(reinterpret_cast<PBYTE>(module) + desc->FirstThunk);
                 info.ordinalBase = findThunks(mod, thunk, info);
                 if (!result.contains(info))
@@ -372,8 +379,6 @@ namespace PMO
                     ImportInfo val = *result.find(info);
                     val.exports.merge(info.exports);
                     val.thunks.merge(info.thunks);
-                    // if (!val.mod)
-                        // val.mod = mod ? mod : module;
                 }
             }
 
