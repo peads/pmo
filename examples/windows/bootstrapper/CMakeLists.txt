@@ -28,7 +28,7 @@ if (DEFINED GENERATE_TEST AND GENERATE_TEST)
     set(DLL_NAME "dwmapi.dll")
     file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/bootstrapper/piggy/dlls.txt" "${CMAKE_CURRENT_BINARY_DIR}/bootstrapper/piggy/piggy.dll\n")
 endif()
-add_compile_definitions(DLL_NAME="${DLL_NAME}")
+#add_compile_definitions(DLL_NAME="${DLL_NAME}")
 
 add_compile_options(
         "$<$<AND:$<C_COMPILER_ID:MSVC>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-Zp8;-c;-nologo;-Gy;-Oi>"
