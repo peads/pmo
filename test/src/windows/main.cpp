@@ -89,7 +89,7 @@ TEST_CASE("05 line coverage++", "[PMO]")
         auto val = 0x12345678 + i;
         auto pu = PMO::PointerUnion{.address = val};
         auto str = std::format("{:016X}", val);
-        auto im = PMO::ImportInfo{.name = str.c_str()};
+        auto im = PMO::ImportInfo{.name = str};
         puSet.insert(pu);
         puMap.insert_or_assign(pu, str);
         puTree.insert_or_assign(pu, str);
@@ -107,19 +107,70 @@ TEST_CASE("05 line coverage++", "[PMO]")
     REQUIRE(a == b);
 }
 
-TEST_CASE("000","[PMO]")
-{
-    PMO::SetWrapper<PMO::ImportInfo> imports{};
-    const auto modules = PMO::getModules<HMODULE, PMO::SetWrapper<HMODULE>>();
-    imports.insert(PMO::ImportInfo{.mod = getCurrentModule(), .name = "pmo.exe"});
-    auto module = PMO::getModule(L"KERNEL32.dll");
-    REQUIRE(module);
-    for (auto it = imports.begin(); it != imports.end(); ++it)
-    {
-        PMO::findImports(it->mod, imports);
-        REQUIRE(modules.contains(it->mod));
-    }
-}
+// #define pipe0(x) std::views::transform(x, \
+//     [](const auto &im) \
+//     { \
+//         return im.thunks | std::views::values; \
+//     }) | std::views::join
+// #define pipe1(x) std::views::transform(x, \
+//     [](const auto &im) \
+//     { \
+//         return im.exports | std::views::values | std::views::keys; \
+//     }) | std::views::join
+// TEST_CASE("000", "[PMO]")
+// {
+//     PMO::SetWrapper<PMO::ImportInfo> imports{};
+//     const auto modules = PMO::getModules<PMO::SetWrapper<HMODULE>>();
+//     PMO::findImports(getCurrentModule(), imports);
+//     auto imports1 = PMO::getImports<PMO::SetWrapper<PMO::ImportInfo>>();
+//
+//     PMO::SetWrapper<HMODULE> found;
+//     std::ranges::copy(std::views::transform(imports1,
+//     [](auto &e)
+//     {
+//         return PMO::getModule(e.name.c_str());
+//     }), std::back_inserter(found));
+//
+//     for (auto &im : imports)
+//     {
+//         // std::cout << im.name << std::endl;
+//         auto isFound = found.contains(PMO::getModule(im.name.c_str()));
+//         if (!isFound)
+//             std::cerr << im.name << std::endl;
+//         // REQUIRE(isFound);
+//     }
+//
+//     auto pipe0 = std::views::transform(
+//     [](const auto &im)FORCE_INLINE_LAMBDA
+//     {
+//        return im.thunks | std::views::values;
+//     }) | std::views::join;
+//
+//     auto pipe1 = std::views::transform(
+//     [](const auto &im)FORCE_INLINE_LAMBDA
+//     {
+//        return im.exports | std::views::values |
+//            std::views::keys;
+//     }) | std::views::join;
+//
+//     REQUIRE(std::ranges::all_of(pipe0(imports),
+//     [&imports1, &pipe0](const auto &e)FORCE_INLINE_LAMBDA
+//     {
+//         return std::ranges::any_of(pipe0(imports1), [&e](const auto &f)FORCE_INLINE_LAMBDA
+//         {
+//             return f == e;
+//         });
+//     }));
+//
+//     REQUIRE(std::ranges::all_of(pipe1(imports),
+//     [&imports1, &pipe1](const auto &e)FORCE_INLINE_LAMBDA
+//     {
+//         return std::ranges::any_of(pipe1(imports1), [&e](const auto &f)FORCE_INLINE_LAMBDA
+//         {
+//             return f == e;
+//         });
+//     }));
+// }
 
 TEST_CASE("00a more raw search testing", "[PMO]")
 {
@@ -130,7 +181,7 @@ TEST_CASE("00a more raw search testing", "[PMO]")
     GetModuleFileName(nullptr, buf, MAX_PATH);
     const std::filesystem::path path{buf};
     const std::string name = path.filename().string();
-    imports.insert(PMO::ImportInfo{.name = name.data()});
+    imports.insert(PMO::ImportInfo{.name = name});
 
     size_t cnt = 0;
     for (auto &pattern : debuggerPatterns)
@@ -139,7 +190,7 @@ TEST_CASE("00a more raw search testing", "[PMO]")
         bool foundAtLeastOne = false;
         for (auto it = imports.begin(); it != imports.end(); ++it)
         {
-            auto module = GetModuleHandle(it->name);
+            auto module = PMO::getModule(it->name.c_str());
             findImports(module, imports);
             MODULEINFO info{};
             PMO::getImportInfo(module, info);
@@ -162,7 +213,7 @@ TEST_CASE("00 raw search testing", "[PMO]")
     REQUIRE(PMO::findPatterns(*reinterpret_cast<uintptr_t*>(idp),
                 debuggerPatterns[0].patternLen, debuggerPatterns[0]));
 
-    auto module = GetModuleHandle("KERNELBASE.dll");
+    auto module = PMO::getModule("KERNELBASE.dll");
     MODULEINFO info{};
     PMO::getImportInfo(module, info);
     REQUIRE(PMO::findPatterns(reinterpret_cast<uintptr_t>(info.lpBaseOfDll), info.
@@ -170,11 +221,11 @@ TEST_CASE("00 raw search testing", "[PMO]")
     REQUIRE(reinterpret_cast<int(*)()>(debuggerPatterns[0].back().address)() == IsDebuggerPresent(
             ));
     PMO::SetWrapper<PMO::ImportInfo> imports{};
-    findImports(GetModuleHandle(nullptr), imports);
+    findImports(getCurrentModule(), imports);
     bool foundAtLeastOne = false;
     for (auto it = imports.begin(); it != imports.end(); ++it)
     {
-        module = GetModuleHandle(it->name);
+        module = PMO::getModule(it->name.c_str());
         findImports(module, imports);
         PMO::getImportInfo(module, info);
         foundAtLeastOne |= findPatterns(reinterpret_cast<uintptr_t>(info.
@@ -195,11 +246,11 @@ TEST_CASE("04 Test expected function name", "[PMO]")
 {
     reset();
     std::deque<PMO::ImportInfo> imports;
-    findImports(GetModuleHandle(nullptr), imports);
+    findImports(getCurrentModule(), imports);
 
     for (const auto &im : imports)
     {
-        if (!strcmp("KERNEL32.dll", im.name))
+        if (!strcmp("KERNEL32.dll", im.name.c_str()))
         {
             REQUIRE(!PMO::findProcByName("IsDebuggerPresent", im.exports).empty());
             REQUIRE(!PMO::findProcByName("CheckRemoteDebuggerPresent", im.exports).empty());
@@ -227,7 +278,7 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
     PMO::Pattern b{CRDP_CODE, CRDP_MASK, CRDP_CODE};
 
     auto [lpBaseOfDll, SizeOfImage, EntryPoint] =
-        PMO::getImportInfo(GetModuleHandle("KERNELBASE.dll"));
+        PMO::getImportInfo(PMO::getModule("KERNELBASE.dll"));
     findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, a);
     REQUIRE(!a.empty());
     findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, b);
@@ -356,7 +407,7 @@ TEST_CASE("07 autogen mask", "[PMO]")
     REQUIRE(PMO::Pattern::autoGenerateMask(REX_JUMPS_PATTERN) == REX_JUMPS_ANSWER);
     REQUIRE(PMO::Pattern::autoGenerateMask(OTHER_JUMPS) == OTHER_JUMPS_ANSWER);
 
-    const HMODULE module = GetModuleHandle("KERNELBASE.dll");
+    const HMODULE module = PMO::getModule("KERNELBASE.dll");
     auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getImportInfo(module);
     PMO::Pattern a{
         CRDP_PATTERN,

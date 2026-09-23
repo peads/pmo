@@ -41,29 +41,41 @@
 #else
 #define GET_PEB __readfsdword(0x30)
 #endif
+#define PEB_THIS_MODULE_OFFSET 0x10
+#define PEB_LDR_OFFSET 0x18
 #define GET_FROM_OFFSET_PEB(off) *reinterpret_cast<void**>(GET_PEB + off)
-#define getCurrentModule() static_cast<HMODULE>(GET_FROM_OFFSET_PEB(16))
+#define getCurrentModule() static_cast<HMODULE>(GET_FROM_OFFSET_PEB(PEB_THIS_MODULE_OFFSET))
+#define LDR_LIST_OFFSET 0x2
 
 namespace PMO
 {
     template <typename ModuleFunction>
-    inline void getModule(const ModuleFunction &fun)
+    inline void getModule(const ModuleFunction &fun) noexcept requires std::is_invocable_v<ModuleFunction, void**>
     {
-        void *ldr = GET_FROM_OFFSET_PEB(24);
-        const SW3_LDR_DATA_TABLE_ENTRY *pld = static_cast<SW3_LDR_DATA_TABLE_ENTRY*>(ldr);
+        void *ldr = GET_FROM_OFFSET_PEB(PEB_LDR_OFFSET);
+        // const SW3_LDR_DATA_TABLE_ENTRY *pld = static_cast<SW3_LDR_DATA_TABLE_ENTRY*>(ldr);
 
-        // ReSharper disable once CppCStyleCast
-        for (void **curr = reinterpret_cast<void**>(pld->InMemoryOrderLinks.Flink),
-                  **cend = (void**) (&pld->InMemoryOrderLinks);
+        for (void   **cend = static_cast<void**>(ldr) + LDR_LIST_OFFSET,
+                    **curr = static_cast<void**>(*cend);
              curr != cend;
              curr = static_cast<void**>(*curr))
         {
             if (fun(curr))
                 break;
         }
+        // // ReSharper disable once CppCStyleCast
+        // for (void **curr = reinterpret_cast<void**>(pld->InMemoryOrderLinks.Flink),
+        //           **cend = (void**) (&pld->InMemoryOrderLinks);
+        //      curr != cend;
+        //      curr = static_cast<void**>(*curr))
+        // {
+        //     if (fun(curr))
+        //         break;
+        // }
     }
 
-    inline void toLower(std::wstring &text)
+    template <typename T>
+    static inline void toLower(std::basic_string<T> &text) noexcept
     {
         std::ranges::transform(text,
                                text.begin(),
@@ -73,7 +85,7 @@ namespace PMO
                                });
     }
 
-    inline HMODULE getModule(const wchar_t *wname)
+    inline HMODULE getModule(const wchar_t *wname) noexcept
     {
         HMODULE result = nullptr;
         std::wstring key(wname);
@@ -84,11 +96,9 @@ namespace PMO
                 uintptr_t>(curr) + 88);
             std::wstring buf(name.Buffer);
             toLower(buf);
-            auto ret = buf == key;
-            if (ret) // curr->BaseDllName == wname
+            if (buf == key) // curr->BaseDllName == wname
             {
-                result = *reinterpret_cast<HMODULE*>(reinterpret_cast<uintptr_t>(curr) +
-                    48); // curr->DllBase
+                result = *reinterpret_cast<HMODULE*>(reinterpret_cast<uintptr_t>(curr) + 48); // curr->DllBase
                 return true;
             }
             return false;
@@ -96,8 +106,17 @@ namespace PMO
         return result;
     }
 
-    template <typename U = HMODULE, PseudoContainer T = std::vector<U>>
-    inline auto getModules()
+    inline HMODULE getModule(const char *name) noexcept
+    {
+        size_t len = 0;
+        wchar_t buffer[MAX_PATH];
+        mbstowcs_s(&len, buffer, MAX_PATH, name, MAX_PATH);
+        buffer[len] = L'\0';
+        return getModule(buffer);
+    }
+
+    template <PseudoContainer T = std::vector<HMODULE>>
+    inline auto getModules() noexcept requires std::is_same_v<typename T::value_type, HMODULE>
     {
         T result{};
         getModule([&result](void **curr)FORCE_INLINE_LAMBDA
@@ -129,7 +148,6 @@ namespace PMO
     {
         if (!module)
             return false;
-
         return GetModuleInformation(GetCurrentProcess(), module, &info, sizeof(MODULEINFO));
     }
 
@@ -235,7 +253,7 @@ namespace PMO
     }
 
     template <size_t N>
-    inline auto findProcByName(const char (&inName)[N], const std::map<WORD, std::tuple<uintptr_t, char*, bool>> &exports)
+    inline auto findProcByName(const char (&inName)[N], const std::map<WORD, std::tuple<uintptr_t, char*, bool>> &exports) noexcept
     {
         return std::move(exports | std::views::values | std::views::filter([&inName](auto &e)
         {
@@ -246,29 +264,28 @@ namespace PMO
 
     inline DWORD findThunks(
         const HMODULE &module,
-        const IMAGE_IMPORT_DESCRIPTOR &desc,
+        // const IMAGE_IMPORT_DESCRIPTOR &desc,
+        const IMAGE_THUNK_DATA *thunk,
         ImportInfo &out
     ) noexcept
     {
         DWORD result = 0;
-        auto thunk = reinterpret_cast<PIMAGE_THUNK_DATA>(
-            reinterpret_cast<PBYTE>(module) + desc.FirstThunk);
         for (; thunk->u1.AddressOfData; ++thunk)
         {
-            if (const auto thisModule = GetModuleHandle(out.name); thisModule)
-            {
+            // if (const auto thisModule = GetModuleHandle(out.name.c_str()); thisModule)
+            // {
                 uintptr_t fn = thunk->u1.Function;
                 uintptr_t gn = 0;
-                result = findExports(thisModule, out.exports, &fn);
+                result = findExports(module, out.exports, &fn);
                 findNamedFunction(fn, &gn);
                 out.thunks.emplace(fn, gn);
-            }
+            // }
         }
         return result;
     }
 
     template <PseudoContainer T>
-    inline void findImports(const HMODULE &module, T &out) noexcept
+    inline void findImports(const HMODULE &module, T &out) noexcept requires std::is_same_v<typename T::value_type, ImportInfo>
     {
         ULONG size;
         auto desc = static_cast<PIMAGE_IMPORT_DESCRIPTOR>(
@@ -281,14 +298,66 @@ namespace PMO
         ImportInfo info{};
         for (; desc && desc->Characteristics && desc->Name; ++desc)
         {
-            info.name = reinterpret_cast<PSTR>(reinterpret_cast<PBYTE>(module) + desc->Name);
+            const auto name = reinterpret_cast<PSTR>(reinterpret_cast<PBYTE>(module) + desc->Name);
             GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
                               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                              info.name,
+                              name,
                               &info.mod);
-            info.ordinalBase = findThunks(info.mod, *desc, info);
+            info.name = std::string(name);
+            const auto thunk = reinterpret_cast<PIMAGE_THUNK_DATA>(reinterpret_cast<PBYTE>(module) + desc->FirstThunk);
+            info.ordinalBase = findThunks(GetModuleHandle(name), thunk, info);
             out.push_back(std::move(info));
         }
+    }
+
+    template <SetConcept T = SetWrapper<ImportInfo>>
+    inline T getImports() noexcept requires std::is_same_v<typename T::value_type, ImportInfo>
+    {
+        T result{};
+        char buffer[MAX_PATH];
+
+        getModule([&result, &buffer](void **curr)FORCE_INLINE_LAMBDA
+        {
+            const auto aCurr = reinterpret_cast<uintptr_t>(curr);
+            const auto module = *reinterpret_cast<HMODULE*>(aCurr + 48); // curr->DllBase
+            const UNICODE_STRING wname = *reinterpret_cast<UNICODE_STRING*>(aCurr + 88);
+
+            size_t len = 0;
+            wcstombs_s(&len, buffer, wname.Buffer, MAX_PATH);
+            buffer[len] = '\0';
+
+            ULONG size;
+            auto desc = static_cast<PIMAGE_IMPORT_DESCRIPTOR>(
+                ImageDirectoryEntryToDataEx(module,
+                                            TRUE,
+                                            IMAGE_DIRECTORY_ENTRY_IMPORT,
+                                            &size,
+                                            nullptr));
+
+            for (; desc && desc->Characteristics && desc->Name; ++desc)
+            {
+                const auto name = reinterpret_cast<PSTR>(reinterpret_cast<PBYTE>(module) + desc->Name);
+                auto mod = getModule(name);
+                // ImportInfo info{.mod = mod ? mod : module, .name = std::string(buffer)};
+                ImportInfo info{.mod = mod ? mod : module, .name = name};
+                const auto thunk = reinterpret_cast<PIMAGE_THUNK_DATA>(reinterpret_cast<PBYTE>(module) + desc->FirstThunk);
+                info.ordinalBase = findThunks(mod, thunk, info);
+                if (!result.contains(info))
+                    result.push_back(std::move(info));
+                else
+                {
+                    ImportInfo val = *result.find(info);
+                    val.exports.merge(info.exports);
+                    val.thunks.merge(info.thunks);
+                    // if (!val.mod)
+                        // val.mod = mod ? mod : module;
+                }
+            }
+
+            return false;
+        });
+
+        return std::move(result);
     }
 
     // no it doesn't. ReSharper can't even reference types in structs
