@@ -22,44 +22,46 @@
 #include "windows/MemoryOps.hpp"
 
 #define DWMAPI_NAME "dwmapi.dll"
-static inline auto searchAddr(const char *key, std::map<WORD, std::tuple<uintptr_t, char*, bool>> &exports)
+
+static inline auto searchAddr(const char *key, std::map<WORD, std::tuple<uintptr_t, char*, bool>> &exports) noexcept
 {
-    return (exports | std::views::filter([&key](auto &e)
+    // ReSharper disable once CppLocalVariableMayBeConst
+    auto view = exports | std::views::filter([&key](auto &e)
     {
         auto &[fn, name, isNamed] = e.second;
         return isNamed && !strcmp(name, key);
-    }) | std::views::values | std::views::keys).back();
+    }) | std::views::values | std::views::keys;
+    if (!exports.empty())
+        return view.back();
+    return 0ULL;
 }
+
 typedef HRESULT (*hresultProducer)();
 
-extern "C" {
-#ifndef BUILD_SHARED_LIB
-    int main() noexcept
+int main(int argc, const char **argv) noexcept
+{
+    HMODULE module = nullptr;
+    if (argc > 1)
+        module = LoadLibrary(argv[1]);
+    else
+        module = LoadLibrary(DWMAPI_NAME);
+
+    const std::filesystem::path path{PMO::getModuleFullPath(module)};
+
+    std::map<WORD, std::tuple<uintptr_t, char*, bool>> exports{};
+    const DWORD ordBase = PMO::findExports(module, exports);
+    std::stringstream buf{};
+
+    buf << path.string() << std::endl;
+    for (const auto &[ord, tup] : exports)
     {
-#else
-    __declspec(dllexport) int DllMain() noexcept
+        const auto &[fn, name, isNamed] = tup;
+        buf << std::format("{:016X}: {:03} -> {}\n", fn, ordBase + ord, isNamed ? name : "");
+    }
+
+    if (auto addr = searchAddr("DwmFlush", exports))
     {
-#endif
-        char systemDir[MAX_PATH];
-        GetSystemDirectory(systemDir, MAX_PATH);
-        std::filesystem::path path(systemDir);
-        path.append(DWMAPI_NAME);
-        const HMODULE module = LoadLibrary(path.string().c_str());
-
-        std::map<WORD, std::tuple<uintptr_t, char*, bool>> exports{};
-        const DWORD ordBase = PMO::findExports(module, exports);
-        std::stringstream buf;
-
-        for (const auto &[ord, tup] : exports)
-        {
-            const auto &[fn, name, isNamed] = tup;
-            buf << std::format("{:016X}: {:03}:{:03} -> {}\n", fn, ord, ordBase + ord, isNamed ? name : "");
-        }
-
-        auto addr = searchAddr("DwmFlush", exports);
-
         buf << "DwmFlush result: ";
-        // HRESULT (*DwmFlush)()
         const hresultProducer DwmFlush = *reinterpret_cast<hresultProducer>(addr);
         HRESULT result = DwmFlush();
 
@@ -69,19 +71,16 @@ extern "C" {
             buf << "S_OK" << std::endl;
 
         addr = searchAddr("DwmFlush", exports);
-
         buf << "DllCanUnloadNow result: ";
-        // HRESULT (*DwmFlush)()
         const hresultProducer DllCanUnloadNow = *reinterpret_cast<hresultProducer>(addr);
         result = DllCanUnloadNow();
         if (result != S_OK)
             buf << result << std::endl;
         else
             buf << "S_OK" << std::endl;
-
-        std::cout << buf.str();
-
-        FreeLibrary(module);
-        return result;
     }
+    std::cout << buf.str();
+
+    FreeLibrary(module);
+    return 0;
 }
