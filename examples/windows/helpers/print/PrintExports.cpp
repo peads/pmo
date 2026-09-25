@@ -38,7 +38,7 @@ static inline auto searchAddr(const char *key, std::map<WORD, std::tuple<uintptr
 
 typedef HRESULT (*hresultProducer)();
 
-int main(int argc, const char **argv) noexcept
+int main(const int argc, const char **argv) noexcept
 {
     HMODULE module = nullptr;
     if (argc > 1)
@@ -59,22 +59,21 @@ int main(int argc, const char **argv) noexcept
         buf << std::format("{:016X}: {:03} -> {}\n", fn, ordBase + ord, isNamed ? name : "");
     }
 
-    if (auto addr = searchAddr("DwmFlush", exports))
+    if (const auto addr = searchAddr("DwmFlush", exports); addr)
     {
         buf << "DwmFlush result: ";
         const hresultProducer DwmFlush = *reinterpret_cast<hresultProducer>(addr);
-        HRESULT result = DwmFlush();
 
-        if (result != S_OK)
+        if (const HRESULT result = DwmFlush(); result != S_OK)
             buf << result << std::endl;
         else
             buf << "S_OK" << std::endl;
-
-        addr = searchAddr("DwmFlush", exports);
+    }
+    if (const auto addr = searchAddr("DllCanUnloadNow", exports); addr)
+    {
         buf << "DllCanUnloadNow result: ";
         const hresultProducer DllCanUnloadNow = *reinterpret_cast<hresultProducer>(addr);
-        result = DllCanUnloadNow();
-        if (result != S_OK)
+        if (const HRESULT result = DllCanUnloadNow(); result != S_OK)
             buf << result << std::endl;
         else
             buf << "S_OK" << std::endl;
