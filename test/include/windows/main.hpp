@@ -28,7 +28,7 @@ static inline PMO::Pattern debuggerPatterns[] = {
 };
 #endif
 #ifdef TEST_OBR
-#include "windows/games/mods/qswprime.hpp"
+#include "../../../examples/windows/games/mods/qswprime/qswprime.hpp"
 static inline PMO::Pattern swPattern{SLEEP_WAIT_PATTERN, SLEEP_WAIT_MASK, SLEEP_WAIT_CODE};
 #endif
 #define JUMPS_PATTERN           "\xFF\x15\xF0\xFF\x7F\x00\xFF\x25\xF1\xFF\x7F\x00\xFF\x15\xF2\xFF\x7F\x00\xFF\x25\xF3\xFF\x7F\x00\xFF\x15\xF4\xFF\x7F\x00"

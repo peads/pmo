@@ -333,11 +333,9 @@ TEST_CASE("07 autogen mask", "[PMO]")
     auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getModuleInfo(module);
     PMO::Pattern a{
         CRDP_PATTERN,
-        sizeof(CRDP_PATTERN) - 1,
         crdpMask.data(),
         crdpMask.length() + 1,
-        CRDP_CODE,
-        sizeof(CRDP_CODE) - 1
+        CRDP_CODE
     };
 
     findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, a);
