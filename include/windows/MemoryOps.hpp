@@ -382,7 +382,8 @@ namespace PMO
     inline bool findPatternsExternal(
         const DWORD &pid,
         Pattern &searchStruct,
-        const bool stopOne = false
+        const bool stopOne = false,
+        const searchFunc search = searchChunked
     ) noexcept
     {
         const auto proc = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, FALSE, pid);
@@ -423,9 +424,8 @@ namespace PMO
                         .searchStruct = searchStruct,
                         .result = result,
                     };
-                    // TODO figure out if shift is applied during this traversal
                     while (pointer.cptr < bytesRead + buffer.data())
-                        if (searchChunked(ctx) && stopOne)
+                        if (search(ctx) && stopOne)
                             goto finished;
                 }
             }

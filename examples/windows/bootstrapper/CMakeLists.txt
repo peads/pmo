@@ -31,7 +31,7 @@ endif()
 #add_compile_definitions(DLL_NAME="${DLL_NAME}")
 
 add_compile_options(
-        "$<$<AND:$<C_COMPILER_ID:MSVC>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-Zp8;-c;-nologo;-Gy;-Oi>"
+        "$<$<AND:$<C_COMPILER_ID:MSVC>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-c;-nologo;-Gy;-Oi>"
         "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<C_COMPILER_ID:MSVC>,$<COMPILE_LANGUAGE:C>>:-Os;-GR-;-EHa;-GS>"
 )
 if (DEFINED DLL_NAME AND DLL_NAME)
