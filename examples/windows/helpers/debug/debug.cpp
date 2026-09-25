@@ -25,7 +25,7 @@ static PMO::Pattern debuggerPatterns[] = {
     PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
 };
 #endif
-bool disableDebuggerChecking() noexcept
+inline bool disableDebuggerChecking() noexcept
 {
     int (*idp)() = nullptr;
     auto addr = reinterpret_cast<uintptr_t>(&IsDebuggerPresent);
@@ -41,10 +41,9 @@ bool disableDebuggerChecking() noexcept
 
     return result;
 }
-#ifdef BUILD_SHARED_LIB
+
 extern "C" {
     __declspec(dllexport) int DllMain() noexcept {
         return disableDebuggerChecking();
     }
-};
-#endif
+}

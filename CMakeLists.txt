@@ -17,13 +17,17 @@ else ()
     set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
     set(LIB "")
     populateLibs(LIBS)
-    add_link_options(/NODEFAULTLIB /MACHINE:X64 /subsystem:console)
     add_compile_definitions(WIN32_LEAN_AND_MEAN)
+    add_link_options("$<$<NOT:$<CXX_COMPILER_ID:GNU>>:/NODEFAULTLIB;/MACHINE:X64;/subsystem:console>")
     add_compile_options(
-            "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:Clang>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-Zp8;/clang:-m64;/clang:-O3;/clang:-march=native;/WX-;/Gy;/clang:-flto;/clang:-fomit-frame-pointer>"
-            "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:MSVC>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-Zp8;/O2;/Ob2;/Ot;/Oy;/Oi;/WX-;/GL;/Gy;/Gm-;/MP;-GS->"
+        "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-m64;-O3;-march=native;-flto=auto;-fomit-frame-pointer;-ffunction-sections;-fdata-sections;-fpack-struct=8>"
+        "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:Clang>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-Zp8;/clang:-m64;/clang:-O3;/clang:-march=native;/WX-;/Gw;/Gy;/clang:-flto=auto;/clang:-fomit-frame-pointer>"
+        "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:MSVC>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-Zp8;/O2;/Ob2;/Ot;/Oy;/Oi;/WX-;/GL;/Gy;/Gm-;/MP;-GS-;/Gw>"
     )
-    add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:REF;/OPT:ICF=3;/LTCG;/DEBUG:NONE;/EMITPOGOPHASEINFO>")
+    add_link_options(
+            "$<$<NOT:$<OR:$<CONFIG:Debug>,$<CXX_COMPILER_ID:GNU>>>:/OPT:REF;/OPT:ICF=3;/LTCG;/DEBUG:NONE;/EMITPOGOPHASEINFO>"
+            "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU>>:-Wl,--gc-sections>"
+    )
     set(ARE_TESTS_GENERATED ${GENERATE_TESTS}) # cmake throws annoying warning if iT's NoT uSeD
     include(${CMAKE_SOURCE_DIR}/test/tests.cmake)
 endif ()
