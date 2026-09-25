@@ -118,7 +118,7 @@ namespace PMO
             Pattern(const char (&pattern)[N], const char (&mask)[M], const char (&code)[P])
                 : patternLen(N - 1ULL),
                   codeLen(P - 1ULL),
-                  pSize((N & 1ULL ? N + 1ULL : N) >> 3),
+                  pSize(((N + 7ULL) & ~7ULL) >> 3),
                   m_pattern(pattern),
                   m_mask(mask),
                   m_code(code),
@@ -131,24 +131,21 @@ namespace PMO
                 static_assert(N == M, "Pattern size to mask size ratio must be 1:1.");
             }
 
-            template <typename T, typename V>
+            template <size_t N, size_t P>
             Pattern(
-                T pattern,
-                const size_t plen,
+                const char (&pattern)[N],
                 const char *mask,
                 const size_t mlen,
-                V code,
-                const size_t clen
-            ) requires std::is_pointer_v<T> && std::is_pointer_v<V>
-                && (!(std::is_bounded_array_v<T> || std::is_bounded_array_v<V>))
-                : patternLen(plen),
-                  codeLen(clen),
-                  pSize((plen & 1ULL ? plen + 1ULL : plen) >> 3),
+                const char (&code)[P]
+            )
+                : patternLen(N - 1ULL),
+                  codeLen(P - 1ULL),
+                  pSize(((N + 7ULL) & ~7ULL) >> 3),
                   m_pattern(pattern),
                   m_mask(mask),
                   m_code(code),
                   byteMask(generateBMI2Mask(mask, mlen, pSize)),
-                  searchMask(generatePatternMask(pattern, plen, pSize)),
+                  searchMask(generatePatternMask(pattern, N, pSize)),
                   pattern{.str = m_pattern},
                   mask{.str = m_mask},
                   code{.str = m_code}
