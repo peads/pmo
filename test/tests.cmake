@@ -44,8 +44,7 @@ include(CTest)
 include(Catch)
 
 add_executable(${TARGET} ${PMO_SOURCES})
-
-target_link_libraries(Catch2 PRIVATE "${LIBS}" "bufferoverflowU.lib")
+target_link_libraries(Catch2 PRIVATE "$<$<NOT:$<CXX_COMPILER_ID:GNU>>:${LIBS};bufferoverflowU.lib>")
 target_link_libraries(${TARGET} PRIVATE Catch2::Catch2WithMain)
 
 target_include_directories(${TARGET} PUBLIC

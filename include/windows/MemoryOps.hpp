@@ -18,6 +18,7 @@
 #ifndef WMEMORYOPS_HPP
 #define WMEMORYOPS_HPP
 
+#include <algorithm>
 #include <filesystem>
 
 #include "../MemoryOps.hpp"
