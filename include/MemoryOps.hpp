@@ -79,7 +79,6 @@ namespace PMO
     inline bool searchChunked(SearchContext &ctx)
     {
         uint64_t notHit = -1;
-        size_t shift = 1;
         auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
         auto baseAddr = pointer.u64ptr;
         auto pat = searchStruct.pattern.u64ptr;
@@ -92,56 +91,45 @@ namespace PMO
             const auto valMasked = val | *bmsk;
             const auto patMasked = *pat & *pmsk | *bmsk;
             if ((notHit = valMasked ^ patMasked))
-            {
-                shift = std::countr_zero(notHit) >> 3;
-                shift = shift < 1 ? 1 : shift;
                 break;
-            }
             ++baseAddr;
         }
 
-        if (notHit)
-        {
-            pointer.u64ptr += shift;   // xx[xxxxxxxx]x ... xx0
-            len -= shift;              // xxx[xxxxxxxx] ... xx0
-                                       // xxx[xxxxxxxx]x ... x0
-        }
-        else
+        if (!notHit)
         {
             result = true;
             searchStruct.push_back(pointer.address + offset);
-            pointer.u64ptr += 8;    // [yyyyyyyy]xxxxxxxx
-                                    // yyyyyyyy[xxxxxxxx]
+            pointer.u64ptr = baseAddr;
         }
+        ++pointer.u64ptr;
         return result;
     }
 
-    // inline bool searchBytewise(SearchContext &ctx)
-    // {
-    //     bool notHit = true;
-    //     auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
-    //     for (auto pat = searchStruct.pattern.cptr,
-    //               msk = searchStruct.mask.cptr,
-    //               val = pointer.cptr; pat < theEnd.cptr; ++pat, ++msk, ++val)
-    //         if ('?' != *msk && ((notHit = *pat ^ *val)))
-    //             break;
-    //
-    //     if (notHit)
-    //         ++pointer.cptr;
-    //     else
-    //     {
-    //         searchStruct.push_back(offset + pointer.address);
-    //         result = true;
-    //         pointer.cptr += searchStruct.patternLen;
-    //     }
-    //     return result;
-    // }
+    inline bool searchBytewise(SearchContext &ctx)
+    {
+        bool notHit = true;
+        auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
+        for (auto pat = searchStruct.pattern.cptr,
+                  msk = searchStruct.mask.cptr,
+                  val = pointer.cptr; pat < theEnd.cptr; ++pat, ++msk, ++val)
+            if ('?' != *msk && ((notHit = *pat ^ *val)))
+                break;
+
+        if (notHit)
+            ++pointer.cptr;
+        else
+        {
+            searchStruct.push_back(offset + pointer.address);
+            result = true;
+            pointer.cptr += searchStruct.patternLen;
+        }
+        return result;
+    }
 
     // no it doesn't. ReSharper can't even reference types in structs
     // ReSharper disable once CppDFAConstantFunctionResult
     inline bool findPatterns(const uintptr_t addr, size_t len,
                              Pattern &searchStruct,
-                             const uint64_t offset = 0,
                              const bool stopOne = false,
                              const searchFunc search = searchChunked) noexcept
     {
@@ -151,14 +139,14 @@ namespace PMO
 
         SearchContext ctx{
             .theEnd = theEnd,
-            .offset = offset,
+            .offset = 0,
             .pointer = pointer,
             .len = len,
             .searchStruct = searchStruct,
             .result = result,
         };
 
-        while (pointer.cptr && pointer.address < len + addr)
+        while (pointer.address < len + addr)
         {
             if (search(ctx) && stopOne)
                 break;

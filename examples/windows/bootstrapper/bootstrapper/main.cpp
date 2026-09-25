@@ -21,6 +21,7 @@
 
 extern "C" uintptr_t *mapping = nullptr;
 extern "C" const char dllName[];
+static std::ofstream logfile("piggy.log", std::ios::app);
 
 static auto generateMapping(const size_t cnt)
 {
@@ -46,8 +47,12 @@ static bool loadDllsFromFile(
         return false;
 
     for (std::string line; std::getline(file, line);)
-        if (const HMODULE module = loadLibrary(line.c_str()); module)
+    {
+        const HMODULE module = loadLibrary(line.c_str());
+        if (module)
             out.emplace(line.c_str(), module);
+        logfile << line << ": " << std::boolalpha << !!module << std::endl;
+    }
 
     file.close();
     return true;
@@ -77,6 +82,7 @@ extern "C" {
                         }
 #endif
                     }
+                    logfile.close();
                 }
                 break;
             case DLL_PROCESS_ATTACH:
