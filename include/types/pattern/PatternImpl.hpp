@@ -40,7 +40,7 @@ namespace PMO
 
         public:
             template <size_t M>
-            static inline auto autoGenerateMask(
+            static inline std::string autoGenerateMask(
                 const char (&)[M],
                 std::vector<uint64_t> * = nullptr
             ) noexcept;
@@ -50,6 +50,7 @@ namespace PMO
 
         private:
             const size_t pSize;
+            const std::string m_mask_str;
             const char *const m_pattern;
             const char *const m_mask;
             const char *const m_code;
@@ -115,7 +116,7 @@ namespace PMO
             }
 
             template <size_t N, size_t M, size_t P>
-            Pattern(const char (&pattern)[N], const char (&mask)[M], const char (&code)[P])
+            Pattern(const char (&pattern)[N], const char (&mask)[M], const char (&code)[P]) noexcept
                 : patternLen(N - 1ULL),
                   codeLen(P - 1ULL),
                   pSize(((N + 7ULL) & ~7ULL) >> 3),
@@ -137,7 +138,7 @@ namespace PMO
                 const char *mask,
                 const size_t mlen,
                 const char (&code)[P]
-            )
+            ) noexcept
                 : patternLen(N - 1ULL),
                   codeLen(P - 1ULL),
                   pSize(((N + 7ULL) & ~7ULL) >> 3),
@@ -151,11 +152,54 @@ namespace PMO
                   code{.str = m_code}
             {}
 
+            template <size_t N, size_t P>
+            Pattern(const char (&pattern)[N], const char (&code)[P]) noexcept
+                : patternLen(N - 1ULL),
+                  codeLen(P - 1ULL),
+                  pSize(((N + 7ULL) & ~7ULL) >> 3),
+                  m_mask_str(autoGenerateMask(pattern)),
+                  m_pattern(pattern),
+                  m_mask(m_mask_str.c_str()),
+                  m_code(code),
+                  byteMask(generateBMI2Mask(m_mask, N, pSize)),
+                  searchMask(generatePatternMask(pattern, N, pSize)),
+                  pattern{.str = m_pattern},
+                  mask{.str = m_mask},
+                  code{.str = m_code}
+            {}
+
             Pattern() = delete;
-            Pattern(const Pattern&) = delete;
-            Pattern& operator=(const Pattern&) = delete;
-            Pattern(const Pattern&&) = delete;
-            Pattern& operator=(const Pattern&&) = delete;
+            Pattern(const Pattern &) = delete;
+            Pattern &operator=(const Pattern &) = delete;
+            Pattern(const Pattern &&) = delete;
+            Pattern &operator=(const Pattern &&) = delete;
+
+            bool operator==(const Pattern &a) const noexcept
+            {
+                auto arr = {
+                    std::pair{
+                        std::vector(this->m_mask, this->m_mask + this->patternLen),
+                        std::vector(a.m_mask, a.m_mask + a.patternLen)
+                    },
+                    std::pair{
+                        std::vector(this->m_pattern, this->m_pattern + this->patternLen),
+                        std::vector(a.m_pattern, a.m_pattern + a.patternLen)
+                    },
+                    std::pair{
+                        std::vector(this->m_code, this->m_code + this->codeLen),
+                        std::vector(a.m_code, a.m_code + a.codeLen)
+                    }
+                };
+                return this->codeLen == a.codeLen
+                    && this->patternLen == a.patternLen
+                    && this->pSize == a.pSize
+                    && std::ranges::all_of(arr,
+                    [](auto &e)
+                    {
+                        auto &[x,y] = e;
+                        return std::ranges::equal(x, y);
+                    });
+            }
     };
 }
 #endif //PATTERN_HPP

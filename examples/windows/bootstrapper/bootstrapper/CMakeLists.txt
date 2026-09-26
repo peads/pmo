@@ -13,12 +13,16 @@ else ()
     file(STRINGS "${OUT_PATH}/bootstrap.txt" FILE_STEM)
     list(GET FILE_STEM 0 FILE_STEM)
 
-    add_library(${FILE_STEM} SHARED
-            "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
-            "${OUT_PATH}/${FILE_STEM}.asm"
-            "${SW3_SRC_DIR}/syscalls-asm.x64.asm"
-            "${SW3_SRC_DIR}/syscalls.c"
-    )
+    if (NOT (DEFINED INCLUDE_SYSWHISPERS AND INCLUDE_SYSWHISPERS))
+        add_library(${FILE_STEM} SHARED "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp" "${OUT_PATH}/${FILE_STEM}.asm")
+    else()
+        add_library(${FILE_STEM} SHARED
+                "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
+                "${OUT_PATH}/${FILE_STEM}.asm"
+                "${SW3_SRC_DIR}/syscalls-asm.x64.asm"
+                "${SW3_SRC_DIR}/syscalls.c"
+        )
+    endif()
     add_dependencies(${FILE_STEM} bootstrapper-generator)
     target_include_directories(${FILE_STEM} PRIVATE "${PMO_INCLUDE}" "${SW3_SRC_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../include")
     set_target_properties(${FILE_STEM} PROPERTIES LINK_FLAGS "/DEF:\"${OUT_PATH}/${FILE_STEM}.def\"")

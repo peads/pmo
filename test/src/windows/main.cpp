@@ -341,10 +341,13 @@ TEST_CASE("07 autogen mask", "[PMO]")
     findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, a);
     REQUIRE(!a.empty());
 
-    int b[2] = {};
+    int bl[2] = {};
     int (*fn2)(HMODULE, int *) = *reinterpret_cast<int(*)(HMODULE, int *)>(a.back().address);
-    REQUIRE(fn2(module, b + 0) == CheckRemoteDebuggerPresent(module, b + 1));
-    REQUIRE(b[0] == b[1]);
+    REQUIRE(fn2(module, bl + 0) == CheckRemoteDebuggerPresent(module, bl + 1));
+    REQUIRE(bl[0] == bl[1]);
+
+    PMO::Pattern b{CRDP_PATTERN, CRDP_CODE};
+    REQUIRE(a == b);
 }
 
 TEST_CASE("08 Test findExports", "[PMO]")
@@ -362,7 +365,7 @@ TEST_CASE("08 Test findExports", "[PMO]")
         REQUIRE(fn == reinterpret_cast<uintptr_t>(val));
     }
 }
-TEST_CASE("00b Test getModuleInfo", "[PMO]")
+TEST_CASE("09 Test getModuleInfo", "[PMO]")
 {
     MODULEINFO info{};
     GetModuleInformation(GetCurrentProcess(), CURRENT_MODULE, &info, sizeof(MODULEINFO));

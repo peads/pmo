@@ -84,7 +84,7 @@ namespace PMO
     }
 
     template <size_t M>
-    inline auto Pattern::autoGenerateMask(
+    inline std::string Pattern::autoGenerateMask(
         const char (&pattern)[M],
         std::vector<uint64_t> *offsets
     ) noexcept

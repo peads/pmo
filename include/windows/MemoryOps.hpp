@@ -100,7 +100,7 @@ namespace PMO
     inline void toLower(std::basic_string<T> &text) noexcept
     {
         std::ranges::transform(text, text.begin(),
-        [](const unsigned char c)FORCE_INLINE_LAMBDA
+        [](T c)FORCE_INLINE_LAMBDA
         {
             return std::tolower(c);
         });
