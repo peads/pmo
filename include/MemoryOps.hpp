@@ -87,10 +87,9 @@ namespace PMO
             bmsk = searchStruct.bmsk().data();
             pat < theEnd.u64ptr; ++pmsk, ++bmsk, ++pat)
         {
-            const auto val = *baseAddr & *pmsk;
-            const auto valMasked = val | *bmsk;
-            const auto patMasked = *pat & *pmsk | *bmsk;
-            if ((notHit = valMasked ^ patMasked))
+            // const auto valMasked = *baseAddr & *pmsk | *bmsk;
+            // const auto patMasked = *pat & *pmsk | *bmsk;
+            if ((notHit = (*baseAddr ^ *pat) & (~*bmsk & *pmsk)))
                 break;
             ++baseAddr;
         }
@@ -133,6 +132,9 @@ namespace PMO
                              const bool stopOne = false,
                              const searchFunc search = searchChunked) noexcept
     {
+        if (!(addr && len))
+            return false;
+
         bool result = false;
         const PointerUnion theEnd = {.address = searchStruct.pattern.address + searchStruct.patternLen};
         PointerUnion pointer = {.address = addr};
