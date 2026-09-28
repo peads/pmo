@@ -48,7 +48,7 @@ static bool loadDllsFromFile(
 
     for (std::string line; std::getline(file, line);)
     {
-        const HMODULE module = loadLibrary(line.c_str());
+        const HMODULE module = LoadLibrary(line.c_str());
         if (module)
             out.emplace(line.c_str(), module);
         logfile << line << ": " << std::boolalpha << !!module << std::endl;

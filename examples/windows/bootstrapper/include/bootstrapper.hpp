@@ -17,13 +17,56 @@
  */
 #ifndef EXAMPLE4_BOOTSTRAPPER_HPP
 #define EXAMPLE4_BOOTSTRAPPER_HPP
+
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows/MemoryOps.hpp>
-#include "syscalls.h"
 
-inline struct DllInfo
+#ifdef INCLUDE_SYSWHISPERS
+#include "syscalls.h"
+#endif
+
+#ifndef _APISETLIBLOADER_
+    extern "C" HMODULE LoadLibraryA(LPCSTR);
+    // extern "C" HMODULE LoadLibraryW(LPCWSTR);
+    // #ifdef UNICODE
+    //     #define LoadLibrary  LoadLibraryW
+    // #else
+    //     #define LoadLibrary  LoadLibraryA
+    // #endif // !UNICODE
+    template <typename T>
+    inline HMODULE LoadLibrary(std::basic_string<T> path)
+    {
+        return LoadLibraryA(path.string().c_str());
+    }
+#endif
+
+#ifndef _SYSINFOAPI_H_
+    extern "C" UINT GetSystemDirectoryA(LPSTR, UINT);
+    extern "C" UINT GetSystemDirectoryW(LPWSTR, UINT);
+    #ifdef UNICODE
+        #define GetSystemDirectory  GetSystemDirectoryW
+    #else
+        #define GetSystemDirectory  GetSystemDirectoryA
+    #endif // !UNICODE
+#endif
+
+#ifndef _MINWINDEF_
+#define MAX_PATH 260
+#endif
+
+#ifndef _NTDEF_
+typedef struct $UNICODE_STRING {
+    uint16_t Length;
+    uint16_t MaximumLength;
+    wchar_t *Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+typedef int32_t NTSTATUS, *PNTSTATUS;
+#endif
+
+static inline struct DllInfo
 {
     HMODULE module{};
     DWORD ordinalBase{};
@@ -43,39 +86,39 @@ static void generateDllPath(std::filesystem::path &path)
     }
 }
 
-static HMODULE loadLibrary(const std::filesystem::path &path)
-{
-    static const HMODULE ntDll = PMO::getModule(NTDLL);
-    if (!ntDll)
-        return nullptr;
-
-    std::map<WORD, std::tuple<uintptr_t, char*, bool>> exports;
-    PMO::findExports(ntDll, exports);
-
-    auto view = PMO::findProcByName("LdrLoadDll", exports);
-    DllQuadFunction LdrLoadDll = nullptr;
-    if (view.empty() || !((LdrLoadDll = reinterpret_cast<DllQuadFunction>(view.back()))))
-        return nullptr;
-
-    HANDLE module = nullptr;
-    UNICODE_STRING uname;
-    const auto wname = path.wstring();
-    const size_t len = path.wstring().length();
-
-    uname.Length = static_cast<USHORT>(len * sizeof(wchar_t));
-    uname.MaximumLength = static_cast<USHORT>((len + 1) * sizeof(wchar_t));
-    uname.Buffer = const_cast<wchar_t*>(wname.c_str());
-
-    if (LdrLoadDll(nullptr, 0, &uname, &module) >= 0L)
-    {
-        return static_cast<HMODULE>(module);
-    }
-    return nullptr;
-}
+// static HMODULE loadLibrary(const std::filesystem::path &path)
+// {
+//     static const HMODULE ntDll = PMO::getModule(NTDLL);
+//     if (!ntDll)
+//         return nullptr;
+//
+//     std::map<WORD, std::tuple<uintptr_t, char*, bool>> exports;
+//     PMO::findExports(ntDll, exports);
+//
+//     auto view = PMO::findProcByName("LdrLoadDll", exports);
+//     DllQuadFunction LdrLoadDll = nullptr;
+//     if (view.empty() || !((LdrLoadDll = reinterpret_cast<DllQuadFunction>(view.back()))))
+//         return nullptr;
+//
+//     HANDLE module = nullptr;
+//     UNICODE_STRING uname;
+//     const auto wname = path.wstring();
+//     const size_t len = path.wstring().length();
+//
+//     uname.Length = static_cast<USHORT>(len * sizeof(wchar_t));
+//     uname.MaximumLength = static_cast<USHORT>((len + 1) * sizeof(wchar_t));
+//     uname.Buffer = const_cast<wchar_t*>(wname.c_str());
+//
+//     if (LdrLoadDll(nullptr, 0, &uname, &module) >= 0L)
+//     {
+//         return static_cast<HMODULE>(module);
+//     }
+//     return nullptr;
+// }
 
 static bool populateDllInfo(const std::filesystem::path &name)
 {
-    dllInfo.module = loadLibrary(name);
+    dllInfo.module = LoadLibrary(name.string().c_str());
     if (!dllInfo.module)
         return false;
     return (dllInfo.ordinalBase = PMO::findExports(dllInfo.module, dllInfo.exports));

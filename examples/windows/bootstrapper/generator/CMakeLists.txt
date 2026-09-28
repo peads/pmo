@@ -4,11 +4,16 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
 set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
 
-add_executable(bootstrapper-generator
-        "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
-        "${SW3_SRC_DIR}/syscalls-asm.x64.asm"
-        "${SW3_SRC_DIR}/syscalls.c"
-)
+if (NOT (DEFINED INCLUDE_SYSWHISPERS AND INCLUDE_SYSWHISPERS))
+    add_executable(bootstrapper-generator "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")
+else()
+    add_executable(bootstrapper-generator
+            "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
+            "${SW3_SRC_DIR}/syscalls-asm.x64.asm"
+            "${SW3_SRC_DIR}/syscalls.c"
+    )
+endif()
+
 set(LIBS "")
 populateLibs(LIBS)
 target_include_directories(bootstrapper-generator PRIVATE "${PMO_INCLUDE}" "${SW3_SRC_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../include")

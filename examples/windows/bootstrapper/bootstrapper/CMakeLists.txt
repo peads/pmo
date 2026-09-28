@@ -13,17 +13,20 @@ else ()
     file(STRINGS "${OUT_PATH}/bootstrap.txt" FILE_STEM)
     list(GET FILE_STEM 0 FILE_STEM)
 
-    add_library(${FILE_STEM} SHARED
-            "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
-            "${OUT_PATH}/${FILE_STEM}.asm"
-            "${SW3_SRC_DIR}/syscalls-asm.x64.asm"
-            "${SW3_SRC_DIR}/syscalls.c"
-    )
+    if (NOT (DEFINED INCLUDE_SYSWHISPERS AND INCLUDE_SYSWHISPERS))
+        add_library(${FILE_STEM} SHARED "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp" "${OUT_PATH}/${FILE_STEM}.asm")
+    else()
+        add_library(${FILE_STEM} SHARED
+                "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
+                "${OUT_PATH}/${FILE_STEM}.asm"
+                "${SW3_SRC_DIR}/syscalls-asm.x64.asm"
+                "${SW3_SRC_DIR}/syscalls.c"
+        )
+    endif()
     add_dependencies(${FILE_STEM} bootstrapper-generator)
     target_include_directories(${FILE_STEM} PRIVATE "${PMO_INCLUDE}" "${SW3_SRC_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../include")
     set_target_properties(${FILE_STEM} PROPERTIES LINK_FLAGS "/DEF:\"${OUT_PATH}/${FILE_STEM}.def\"")
     target_compile_definitions(${FILE_STEM} PRIVATE OUT_PATH="${OUT_PATH}")
-#    target_compile_options(${FILE_STEM} PRIVATE $<$<COMPILE_LANGUAGE:C>:-Zp8 -EHa -nologo>)
     target_link_options(${FILE_STEM} PRIVATE "/NODEFAULTLIB" "/MACHINE:X64" "/subsystem:console")
     target_link_libraries(${FILE_STEM} PRIVATE "${LIBS}")
     set_target_properties(${FILE_STEM} PROPERTIES MSVC_RUNTIME_CHECKS "")
