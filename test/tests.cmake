@@ -53,7 +53,7 @@ target_include_directories(${TARGET} PUBLIC
         "${CMAKE_SOURCE_DIR}/examples"
 )
 
-catch_discover_tests(${TARGET})
+catch_discover_tests(${TARGET} DISCOVERY_MODE PRE_TEST)
 
 if (DEFINED INCLUDE_SYSWHISPERS AND INCLUDE_SYSWHISPERS)
     add_subdirectory(${SW3_SRC_DIR} ${SW3_BIN_DIR})
