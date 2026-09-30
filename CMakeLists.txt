@@ -18,10 +18,10 @@ else ()
     set(LIB "")
     populateLibs(LIBS)
     add_compile_definitions(WIN32_LEAN_AND_MEAN)
-    add_link_options("$<$<NOT:$<CXX_COMPILER_ID:GNU>>:/NODEFAULTLIB;/MACHINE:X64;/subsystem:console>")
+    add_link_options("$<$<NOT:$<CXX_COMPILER_ID:GNU>>:/NODEFAULTLIB;/subsystem:console>")
     add_compile_options(
-        "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-m64;-O3;-march=native;-flto=auto;-fomit-frame-pointer;-ffunction-sections;-fdata-sections;-mconsole>"
-        "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:Clang>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:/EHsc;/clang:-m64;/clang:-O3;/clang:-march=native;/Gw;/Gy;/clang:-flto=auto;/clang:-fomit-frame-pointer>"
+        "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-O3;-flto=auto;-fomit-frame-pointer;-ffunction-sections;-fdata-sections;-mconsole>"
+        "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:Clang>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:/EHsc;/clang:-O3;/Gw;/Gy;/clang:-flto=auto;/clang:-fomit-frame-pointer>"
         "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:MSVC>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-nologo;/EHsc;/O2;/Ob3;/Ot;/Oy;/Oi;/GL;/Gy;/Gm-;/MP;-GS-;/Gw>"
     )
     add_link_options(
