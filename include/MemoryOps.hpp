@@ -23,6 +23,70 @@
 
 namespace PMO
 {
+#if defined(__aarch64__) || defined(_M_ARM64)
+    inline uint32_t parseLdrImm(const uintptr_t addr)
+    {
+        uint32_t* ptr = (uint32_t*)addr;
+        if (((*ptr >> 27) & 7) == 7) // is ldr unsigned scaled imm?
+        {
+            return ((*ptr >> 10) & 0x3FF) << ((*ptr >> 30) & 3);
+        }
+        return 0; // it wasn't
+    }
+
+    //30 04 00 90 10 A6 43 F9 00 02 1F D6
+    inline int32_t parseAdrpImm(uintptr_t addr)
+    {
+        uint32_t* ptr = (uint32_t*)addr;
+        if ((*ptr >> 31) & 1) // ADRP?
+        {
+            const uint32_t immhi = (*ptr & 0x1FFF'FFFF) >> 5;
+            const uint32_t immlo = (*ptr & 0x6000'0000) >> 29;
+            return ((int32_t)(((immhi << 2) | immlo) << 11) >> 11) << 12;
+        }
+        return 0; // it wasn't
+    }
+
+    inline uintptr_t findNamedFunction(uintptr_t addr, uintptr_t* out) noexcept
+    {
+        if (!addr) return 0;
+        uint32_t ins = *(uint32_t*)addr;
+        uint32_t foo = ins >> 26;
+        foo &= 0b01'1111;
+        if (foo != 0b101)
+            return 0;
+        int32_t imm = (int32_t)(ins << 6) >> 6;
+        uintptr_t result = 0;
+        if (imm)
+        {
+            addr += (int64_t)imm << 2;
+            int32_t adrpImm = parseAdrpImm(addr);
+            uint32_t ldrImm = parseLdrImm(addr + 4);
+            addr &= ~0xFFF; // align to nearest 4k page boundary; side-effect: yeet 12 lowest bits
+            addr += (int64_t)adrpImm;
+            addr += (uint64_t)ldrImm;
+            result += (int64_t)adrpImm;
+            result += (uint64_t)ldrImm;
+        }
+        *out = addr;
+        return result;
+    }
+
+    template <typename T, typename =
+              std::enable_if_t<std::is_pointer_v<T> // is ptr to *non-member* fn ptr
+                  && std::is_function_v<std::remove_pointer_t<std::remove_pointer_t<T>>>>>
+        inline uintptr_t findNamedFunction(uintptr_t& addr, T out) noexcept
+    {
+        uintptr_t addr1;
+        const uintptr_t result = findNamedFunction(addr, &addr1);
+        if (result)
+        {
+            *out = *reinterpret_cast<T>(addr1);
+            addr = addr1;
+        }
+        return result;
+    }
+#else
     /**
     * @brief    Parses thunk at given address for the address values and function pointer to return.
     * @details  Takes reference to the address of a known thunk function and returns RVA, VA and
@@ -63,6 +127,7 @@ namespace PMO
         *out = addr;
         return result;
     }
+#endif
 
     struct SearchContext
     {

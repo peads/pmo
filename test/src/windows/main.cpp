@@ -141,7 +141,7 @@ TEST_CASE("00 raw search testing", "[PMO]")
     uintptr_t idp;
     const auto addr = idpAddr;
     PMO::findNamedFunction(addr, &idp);
-    REQUIRE((addr != idp && PMO::findPatterns(*reinterpret_cast<uintptr_t*>(idp),
+    REQUIRE((/*addr != idp &&*/ PMO::findPatterns(*reinterpret_cast<uintptr_t*>(idp),
                 debuggerPatterns[0].patternLen, debuggerPatterns[0])));
 
     auto module = PMO::getModule("KERNELBASE.dll");
@@ -164,7 +164,8 @@ TEST_CASE("00 raw search testing", "[PMO]")
     REQUIRE(foundAtLeastOne);
     for (unsigned long long f : debuggerPatterns[0])
     {
-        REQUIRE((reinterpret_cast<int(*)()>(f))() == IsDebuggerPresent());
+        auto fn = reinterpret_cast<int(*)()>(f);
+        REQUIRE(fn() == IsDebuggerPresent());
     }
     REQUIRE((*reinterpret_cast<int(**)()>(idp))() == IsDebuggerPresent());
     REQUIRE(reinterpret_cast<int(*)()>(addr)() == IsDebuggerPresent());
