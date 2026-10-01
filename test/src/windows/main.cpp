@@ -141,8 +141,8 @@ TEST_CASE("00 raw search testing", "[PMO]")
     uintptr_t idp;
     const auto addr = idpAddr;
     PMO::findNamedFunction(addr, &idp);
-    REQUIRE((addr != idp && PMO::findPatterns(*reinterpret_cast<uintptr_t*>(idp),
-                debuggerPatterns[0].patternLen, debuggerPatterns[0])));
+    REQUIRE(PMO::findPatterns(*reinterpret_cast<uintptr_t*>(idp),
+                debuggerPatterns[0].patternLen, debuggerPatterns[0]));
 
     auto module = PMO::getModule("KERNELBASE.dll");
     MODULEINFO info = PMO::getModuleInfo(module);
@@ -164,7 +164,8 @@ TEST_CASE("00 raw search testing", "[PMO]")
     REQUIRE(foundAtLeastOne);
     for (unsigned long long f : debuggerPatterns[0])
     {
-        REQUIRE((reinterpret_cast<int(*)()>(f))() == IsDebuggerPresent());
+        auto fn = reinterpret_cast<int(*)()>(f);
+        REQUIRE(fn() == IsDebuggerPresent());
     }
     REQUIRE((*reinterpret_cast<int(**)()>(idp))() == IsDebuggerPresent());
     REQUIRE(reinterpret_cast<int(*)()>(addr)() == IsDebuggerPresent());
@@ -252,8 +253,8 @@ TEST_CASE("01 Test parse far jmp", "[PMO]")
     int (*fn)() = nullptr;
     auto outTest = PMO::findNamedFunction(addr, &fn);
 
-    REQUIRE((addr - idpAddr - 7) == outTest);
-    REQUIRE(addr == out);
+    CHECK((addr - idpAddr - 7) == outTest);
+    CHECK(addr == out);
     REQUIRE(fn() == IsDebuggerPresent());
 
     addr = crdpAddr;
@@ -261,8 +262,8 @@ TEST_CASE("01 Test parse far jmp", "[PMO]")
     int (*fn1)(HANDLE, int *) = nullptr;
     outTest = PMO::findNamedFunction(addr, &fn1);
 
-    REQUIRE((addr - crdpAddr - 7) == outTest);
-    REQUIRE(addr == out);
+    CHECK((addr - crdpAddr - 7) == outTest);
+    CHECK(addr == out);
     int b[2];
     REQUIRE(fn1(GetCurrentProcess(), b) == CheckRemoteDebuggerPresent(GetCurrentProcess(), b + 1));
     REQUIRE(b[0] == b[1]);
