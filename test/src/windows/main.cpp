@@ -253,17 +253,17 @@ TEST_CASE("01 Test parse far jmp", "[PMO]")
     int (*fn)() = nullptr;
     auto outTest = PMO::findNamedFunction(addr, &fn);
 
-    REQUIRE((addr - idpAddr - 7) == outTest);
-    REQUIRE(addr == out);
+    CHECK(addr == out);
     REQUIRE(fn() == IsDebuggerPresent());
+    CHECK((addr - idpAddr - 7) == outTest);
 
     addr = crdpAddr;
     out = parseJmpFar(*reinterpret_cast<uint8_t(*)[8]>(&CheckRemoteDebuggerPresent), addr);
     int (*fn1)(HANDLE, int *) = nullptr;
     outTest = PMO::findNamedFunction(addr, &fn1);
 
-    REQUIRE((addr - crdpAddr - 7) == outTest);
-    REQUIRE(addr == out);
+    CHECK((addr - crdpAddr - 7) == outTest);
+    CHECK(addr == out);
     int b[2];
     REQUIRE(fn1(GetCurrentProcess(), b) == CheckRemoteDebuggerPresent(GetCurrentProcess(), b + 1));
     REQUIRE(b[0] == b[1]);
