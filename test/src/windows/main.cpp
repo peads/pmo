@@ -253,9 +253,9 @@ TEST_CASE("01 Test parse far jmp", "[PMO]")
     int (*fn)() = nullptr;
     auto outTest = PMO::findNamedFunction(addr, &fn);
 
+    CHECK((addr - idpAddr - 7) == outTest);
     CHECK(addr == out);
     REQUIRE(fn() == IsDebuggerPresent());
-    CHECK((addr - idpAddr - 7) == outTest);
 
     addr = crdpAddr;
     out = parseJmpFar(*reinterpret_cast<uint8_t(*)[8]>(&CheckRemoteDebuggerPresent), addr);
