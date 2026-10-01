@@ -24,7 +24,7 @@
 namespace PMO
 {
 #if defined(__aarch64__) || defined(_M_ARM64)
-    inline uint32_t parseLdrImm(const uintptr_t addr)
+    inline uint32_t parseLdrImm(const uintptr_t addr) noexcept
     {
         uint32_t* ptr = (uint32_t*)addr;
         if (((*ptr >> 27) & 7) == 7) // is ldr unsigned scaled imm?
@@ -35,7 +35,7 @@ namespace PMO
     }
 
     //30 04 00 90 10 A6 43 F9 00 02 1F D6
-    inline int32_t parseAdrpImm(uintptr_t addr)
+    inline int32_t parseAdrpImm(uintptr_t addr) noexcept
     {
         uint32_t* ptr = (uint32_t*)addr;
         if ((*ptr >> 31) & 1) // ADRP?
@@ -141,7 +141,7 @@ namespace PMO
 
     typedef bool (*searchFunc)(SearchContext &ctx);
 
-    inline bool searchChunked(SearchContext &ctx)
+    inline bool searchChunked(SearchContext &ctx) noexcept
     {
         uint64_t notHit = -1;
         auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
@@ -169,7 +169,7 @@ namespace PMO
         return result;
     }
 
-    inline bool searchBytewise(SearchContext &ctx)
+    inline bool searchBytewise(SearchContext &ctx) noexcept
     {
         bool notHit = true;
         auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
