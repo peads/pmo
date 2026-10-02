@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.29)
 project(bootstrapper-generator CXX C)
-if (CMAKE_SYSTEM_PROCESSOR MATCHES "(arm64|aarch64|ARM64)")
+if (IS_ARM64)
     enable_language(ASM_MARMASM)
 else()
     enable_language(ASM_NASM)
@@ -28,6 +28,6 @@ set_target_properties(bootstrapper-generator PROPERTIES MSVC_RUNTIME_CHECKS "")
 if (DEFINED DLL_NAME)
     add_custom_command(TARGET bootstrapper-generator
             POST_BUILD
-            COMMAND "$<TARGET_FILE:bootstrapper-generator>" "${DLL_NAME}" "${OUT_PATH}"
+            COMMAND "$<TARGET_FILE:bootstrapper-generator>" "${DLL_NAME}" "${OUT_PATH}" "$<$<BOOL:${IS_ARM64}>:ARM64>"
     )
 endif()
