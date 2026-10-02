@@ -109,7 +109,7 @@ namespace PMO
     {
         if (!p)
             return 0;
-        return parseJmp((*p & 0xFF ^ 0x48) ? p : ++p, width);
+        return parseJmp(((*p & 0xFF) ^ 0x48) ? p : ++p, width);
     }
 
     /**

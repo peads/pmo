@@ -146,7 +146,7 @@ namespace PMO
             result.push_back(*reinterpret_cast<HMODULE*>(reinterpret_cast<uintptr_t>(curr) + 48));
             return false;
         });
-        return std::move(result);
+        return result;
     }
 
     inline auto getModuleName(const HMODULE module, const uint64_t offset) noexcept
@@ -161,7 +161,7 @@ namespace PMO
             }
             return false;
         });
-        return std::move(std::wstring(result));
+        return std::wstring(result);
     }
 
     inline auto getModuleFileName(const HMODULE module) noexcept
@@ -362,7 +362,7 @@ namespace PMO
                 const auto thunk = reinterpret_cast<PIMAGE_THUNK_DATA>(reinterpret_cast<PBYTE>(module) + desc->FirstThunk);
                 info.ordinalBase = findThunks(mod, thunk, info);
                 if (!result.contains(info))
-                    result.push_back(std::move(info));
+                    result.push_back(info);
                 else
                 {
                     ImportInfo val = *result.find(info);
@@ -374,7 +374,7 @@ namespace PMO
             return false;
         });
 
-        return std::move(result);
+        return result;
     }
 
     // no it doesn't. ReSharper can't even reference types in structs
@@ -493,8 +493,8 @@ finished:
     inline bool replaceCodeExternal(HANDLE proc, Pattern &pattern) noexcept
     {
         DWORD exitCode = 0;
-        if (!proc || pattern.empty() || GetExitCodeProcess(proc, &exitCode) && STILL_ACTIVE !=
-            exitCode)
+        if (!proc || pattern.empty() || (GetExitCodeProcess(proc, &exitCode) && STILL_ACTIVE !=
+            exitCode))
         {
             return false;
         }

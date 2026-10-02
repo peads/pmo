@@ -56,18 +56,17 @@
 #define MAX_PATH 260
 #endif
 
-// #define ARM64_ASM_HEADER "AREA |.text|, CODE, READONLY, ALIGN=2\nextern mapping\nexport "
-// #define ARM64_ASM_LINE_1 " PROC \n\tadrp x0, mapping\n\tldr x0, [x0, #:lo12:mapping + "
-// #define ARM64_ASM_LINE_2 "]\n\tbr x0\n\tENDP\n"
-// #define ARM64_ASM_RDATA_1 "AREA |.rdata|, DATA, READONLY, ALIGN=4\n\tdllName dcb \""
-// #define ARM64_ASM_RDATA_2 "\", 0\n"
-#define ARM64_ASM_HEADER ".text\n.global "
+#define ARM64_ASM_HEADER ".section .text,\"xr\"\n.align 2\n"
+#define ARM64_ASM_GLOBAL_1 ".global "
+#define ARM64_ASM_GLOBAL_2 "\n"
 #define ARM64_ASM_LINE_1 ":\n\tadrp x0, mapping\n\tldr x0, [x0, #:lo12:mapping + "
 #define ARM64_ASM_LINE_2 "]\n\tbr x0\n"
 #define ARM64_ASM_RDATA_1 ".section .rdata,\"dr\"\n.align 4\n\tdllName:\n\t.asciz \""
 #define ARM64_ASM_RDATA_2 "\"\n"
 
 #define X64_ASM_HEADER "bits 64\nsection .text\nextern mapping\nglobal "
+#define X64_ASM_GLOBAL_1 ""
+#define X64_ASM_GLOBAL_2 ","
 #define X64_ASM_LINE_1 ":\n\tmov rax, [rel mapping]\n\tjmp [rax + "
 #define X64_ASM_LINE_2 "]\n"
 #define X64_ASM_RDATA_1 "section .rdata\n\tdllName db \""

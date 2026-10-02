@@ -1,14 +1,19 @@
 cmake_minimum_required(VERSION 3.29)
 project(bootstrapper CXX C)
-if (IS_ARM64)
+
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "(arm64|aarch64|ARM64)" OR MSVC_C_ARCHITECTURE_ID STREQUAL "ARM64")
     enable_language(ASM)
+    set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} --target=arm64-pc-windows-msvc")
 else()
     enable_language(ASM_NASM)
 endif()
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
 set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
 set(LIBS "")
+set(CMAKE_SCRIPT_INCLUDES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../../cmake")
+include("${CMAKE_SCRIPT_INCLUDES_PATH}/populatelibs.cmake")
 populateLibs(LIBS)
 
 if (NOT EXISTS "${OUT_PATH}/bootstrap.txt")
@@ -25,9 +30,12 @@ else ()
                 "${OUT_PATH}/${FILE_STEM}.asm"
                 "${SW3_SRC_DIR}/syscalls-asm.x64.asm"
                 "${SW3_SRC_DIR}/syscalls.c"
+#                "${OUT_PATH}/${FILE_STEM}.def"
         )
     endif()
-if (NOT (DEFINED STANDALONE_BOOTSTRAPPER OR STANDALONE_BOOTSTRAPPER))
+if (DEFINED STANDALONE_BOOTSTRAPPER AND STANDALONE_BOOTSTRAPPER)
+    cmake_path(SET PMO_INCLUDE NORMALIZE "${CMAKE_CURRENT_SOURCE_DIR}/../../../../include")
+else()
     add_dependencies(${FILE_STEM} bootstrapper-generator)
 endif()
     target_include_directories(${FILE_STEM} PRIVATE "${PMO_INCLUDE}" "${SW3_SRC_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../include")
