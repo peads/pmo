@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.29)
 project(Example4 CXX C)
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "(arm64|aarch64|ARM64)")
-    enable_language(ASM)
+    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        enable_language(ASM)
+    endif()
     set(IS_ARM64 1)
 else()
     enable_language(ASM_NASM)
@@ -31,6 +33,9 @@ if (DEFINED INCLUDE_SYSWHISPERS AND INCLUDE_SYSWHISPERS)
             "${SW3_SRC_DIR}/CMakeLists.txt"
             COPYONLY
     )
+    add_link_options("/NODEFAULTLIB")
+    set(LIBS "")
+    populateLibs(LIBS)
 endif()
 
 if (DEFINED GENERATE_TEST AND GENERATE_TEST)

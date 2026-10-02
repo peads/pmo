@@ -36,7 +36,6 @@ int main(const int argc, char **argv)
     if (!asmOut.is_open())
         return -3;
     std::stringstream asmHeader{};
-    std::stringstream asmHeaderTail{};
     std::stringstream asmBody{};
 
     path = path.parent_path().append(fstem.string() + ".def");
@@ -48,7 +47,6 @@ int main(const int argc, char **argv)
     const char *asm_line[2] = {};
     const char *asm_rdata[2] = {};
     const char *asm_global[2] = {};
-    bool hasTail = false;
 
     if (argc > 3)
     {
@@ -59,7 +57,6 @@ int main(const int argc, char **argv)
         asm_rdata[1] = ARM64_ASM_RDATA_2;
         asm_global[0] = ARM64_ASM_GLOBAL_1;
         asm_global[1] = ARM64_ASM_GLOBAL_2;
-        hasTail = true;
     }
     else
     {
@@ -85,8 +82,6 @@ int main(const int argc, char **argv)
         asmBody << std::format("{}", foord) << asm_line[0]
             << std::format("{}", ord << 3) << asm_line[1];
         asmHeader << asm_global[0] << std::format("{}", foord) << asm_global[1];
-        if (hasTail)
-            asmHeaderTail << std::format(".type {}, %function\n", foord);
         if (isNamed)
             defOut << std::format("{}=", name);
         else
@@ -94,7 +89,7 @@ int main(const int argc, char **argv)
         defOut << std::format("{} @{}\n", foord, oord);
     }
 
-    asmOut << asmHeader.str() << asm_global[0] << "dllName\n" << asmHeaderTail.str() << asmBody.str()
+    asmOut << asmHeader.str() << asm_global[0] << "dllName\n" << asmBody.str()
         << asm_rdata[0] << std::format("{}", fpath.filename().string()) << asm_rdata[1];
     defOut << "\n";
 
