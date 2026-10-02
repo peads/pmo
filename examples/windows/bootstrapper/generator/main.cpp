@@ -43,7 +43,7 @@ int main(const int argc, char **argv)
     if (!defOut.is_open())
         return -4;
 
-    asmHeader << "bits 64\nsection .text\nextern mapping\nglobal ";
+    asmHeader << ASM_HEADER;
     asmBody << "\n";
     defOut << std::format("LIBRARY {}\nEXPORTS\n", fstem.string());
 
@@ -53,9 +53,7 @@ int main(const int argc, char **argv)
         const auto oord = ord + ordinalBase;
         const auto foord = std::format("f{}", ord);
 
-        asmBody << std::format("{}:\n\tmov rax, [rel mapping]\n\tjmp [rax + {}]\n",
-                               foord,
-                               ord << 3);
+        asmBody << std::format(ASM_LINE, foord, ord << 3);
         asmHeader << std::format("{},", foord);
 
         if (isNamed)
@@ -69,8 +67,8 @@ int main(const int argc, char **argv)
         defOut << std::format("{} @{}\n", foord, oord);
     }
 
-    asmOut << asmHeader.str() << "dllName\n" << asmBody.str() <<
-        std::format("section .rdata\n\tdllName db \"{}\", 0\n", fpath.filename().string());
+    asmOut << asmHeader.str() << "dllName\n" << asmBody.str() << std::format(ASM_RDATA,
+        fpath.filename().string());
     defOut << "\n";
 
     path = path.parent_path().append("bootstrap.txt");

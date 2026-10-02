@@ -52,6 +52,14 @@ target_include_directories(${TARGET} PUBLIC
         "${CMAKE_SOURCE_DIR}/test/include"
         "${CMAKE_SOURCE_DIR}/examples"
 )
+target_link_options(Catch2 PRIVATE
+        "$<$<NOT:$<CXX_COMPILER_ID:GNU>>:/NODEFAULTLIB;/subsystem:console;/OPT:REF;/OPT:ICF=3;/LTCG;/DEBUG:NONE;/EMITPOGOPHASEINFO>"
+)
+target_compile_options(Catch2 PRIVATE
+        "$<$<AND:$<CXX_COMPILER_ID:GNU>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-O3;-flto=auto;-fomit-frame-pointer;-ffunction-sections;-fdata-sections;-mconsole;-Wl,--gc-sections>"
+        "$<$<AND:$<CXX_COMPILER_ID:Clang>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:/EHsc;/clang:-O3;/Gw;/Gy;/clang:-flto=auto;/clang:-fomit-frame-pointer>"
+        "$<$<AND:$<CXX_COMPILER_ID:MSVC>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-nologo;/EHsc;/O2;/Ob3;/Ot;/Oy;/Oi;/GL;/Gy;/Gm-;/MP;-GS-;/Gw>"
+)
 
 catch_discover_tests(${TARGET} DISCOVERY_MODE PRE_TEST)
 
