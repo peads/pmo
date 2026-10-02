@@ -20,15 +20,14 @@ else ()
         populateLibs(LIBS)
     endif()
     add_compile_definitions(WIN32_LEAN_AND_MEAN)
-    add_link_options("$<$<NOT:$<OR:$<CONFIG:Debug>,$<CXX_COMPILER_ID:GNU>>>:/NODEFAULTLIB;/subsystem:console>")
+    add_link_options("$<$<NOT:$<CXX_COMPILER_ID:GNU>>:/subsystem:console>")
     add_compile_options(
         "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-O3;-flto=auto;-fomit-frame-pointer;-ffunction-sections;-fdata-sections;-mconsole;-Wl,--gc-sections>"
         "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:Clang>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:/EHsc;/clang:-O3;/Gw;/Gy;/clang:-flto=auto;/clang:-fomit-frame-pointer>"
         "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:MSVC>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-nologo;/EHsc;/O2;/Ob3;/Ot;/Oy;/Oi;/GL;/Gy;/Gm-;/MP;-GS-;/Gw>"
     )
     add_link_options(
-            "$<$<NOT:$<OR:$<CONFIG:Debug>,$<CXX_COMPILER_ID:GNU>>>:/OPT:REF;/OPT:ICF=3;/LTCG;/DEBUG:NONE;/EMITPOGOPHASEINFO>"
-#            "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU>>:-Wl,--gc-sections>"
+            "$<$<NOT:$<OR:$<CONFIG:Debug>,$<CXX_COMPILER_ID:GNU>>>:/NODEFAULTLIB;/OPT:REF;/OPT:ICF=3;/LTCG;/DEBUG:NONE;/EMITPOGOPHASEINFO>"
     )
     set(ARE_TESTS_GENERATED ${GENERATE_TESTS}) # cmake throws annoying warning if iT's NoT uSeD
     include(${CMAKE_SOURCE_DIR}/test/tests.cmake)

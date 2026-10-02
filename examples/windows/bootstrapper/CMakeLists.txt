@@ -1,11 +1,22 @@
 cmake_minimum_required(VERSION 3.29)
-project(Example4 CXX C ASM_NASM)
+project(Example4 CXX C)
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "(arm64|aarch64|ARM64)")
+    set(IS_ARM64 1)
+endif()
+
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    enable_language(ASM)
+else()
+    enable_language(ASM_NASM)
+endif()
 find_package(Git REQUIRED)
 include(FetchContent)
 set(CMAKE_SCRIPT_INCLUDES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../cmake")
 include("${CMAKE_SCRIPT_INCLUDES_PATH}/populatelibs.cmake")
 
 if (DEFINED INCLUDE_SYSWHISPERS AND INCLUDE_SYSWHISPERS)
+    set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
+    set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
     set(SW3_SRC_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/syswhispers3-src")
     set(SW3_BIN_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/syswhispers3-build")
     set(SW3_SUB_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/syswhispers3-subbuild")
@@ -24,6 +35,9 @@ if (DEFINED INCLUDE_SYSWHISPERS AND INCLUDE_SYSWHISPERS)
             "${SW3_SRC_DIR}/CMakeLists.txt"
             COPYONLY
     )
+    add_link_options("/NODEFAULTLIB")
+    set(LIBS "")
+    populateLibs(LIBS)
 endif()
 
 if (DEFINED GENERATE_TEST AND GENERATE_TEST)

@@ -56,6 +56,32 @@
 #define MAX_PATH 260
 #endif
 
+#define ARM64_ASM_HEADER ".section .text,\"xr\"\n.align 2\n.global "
+#define ARM64_ASM_GLOBAL_1 ""
+#define ARM64_ASM_GLOBAL_2 ","
+#define ARM64_ASM_LINE_1 ":\n\tadrp x0, mapping\n\tldr x0, [x0, #:lo12:mapping + "
+#define ARM64_ASM_LINE_2 "]\n\tbr x0\n"
+#define ARM64_ASM_RDATA_1 ".section .rdata,\"dr\"\n.align 4\n\tdllName:\n\t.asciz \""
+#define ARM64_ASM_RDATA_2 "\"\n"
+
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#define X64_ASM_HEADER ".intel_syntax noprefix\n.section .text\n.global "
+#define X64_ASM_GLOBAL_1 ""
+#define X64_ASM_GLOBAL_2 ","
+#define X64_ASM_LINE_1 ":\n\tmov rax, [rip + mapping]\n\tjmp [rax + "
+#define X64_ASM_LINE_2 "]\n"
+#define X64_ASM_RDATA_1 ".section .rdata\n\tdllName: .asciz \""
+#define X64_ASM_RDATA_2 "\"\n"
+#else
+#define X64_ASM_HEADER "bits 64\nsection .text\nextern mapping\nglobal "
+#define X64_ASM_GLOBAL_1 ""
+#define X64_ASM_GLOBAL_2 ","
+#define X64_ASM_LINE_1 ":\n\tmov rax, [rel mapping]\n\tjmp [rax + "
+#define X64_ASM_LINE_2 "]\n"
+#define X64_ASM_RDATA_1 "section .rdata\n\tdllName db \""
+#define X64_ASM_RDATA_2 "\", 0\n"
+#endif
+
 #ifndef _NTDEF_
 typedef struct $UNICODE_STRING {
     uint16_t Length;

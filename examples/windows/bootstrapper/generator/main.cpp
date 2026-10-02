@@ -43,7 +43,33 @@ int main(const int argc, char **argv)
     if (!defOut.is_open())
         return -4;
 
-    asmHeader << "bits 64\nsection .text\nextern mapping\nglobal ";
+    const char *asm_header = nullptr;
+    const char *asm_line[2] = {};
+    const char *asm_rdata[2] = {};
+    const char *asm_global[2] = {};
+
+    if (argc > 3 || IS_ARM64)
+    {
+        asm_header = ARM64_ASM_HEADER;
+        asm_line[0] = ARM64_ASM_LINE_1;
+        asm_line[1] = ARM64_ASM_LINE_2;
+        asm_rdata[0] = ARM64_ASM_RDATA_1;
+        asm_rdata[1] = ARM64_ASM_RDATA_2;
+        asm_global[0] = ARM64_ASM_GLOBAL_1;
+        asm_global[1] = ARM64_ASM_GLOBAL_2;
+    }
+    else
+    {
+        asm_header = X64_ASM_HEADER;
+        asm_line[0] = X64_ASM_LINE_1;
+        asm_line[1] = X64_ASM_LINE_2;
+        asm_rdata[0] = X64_ASM_RDATA_1;
+        asm_rdata[1] = X64_ASM_RDATA_2;
+        asm_global[0] = X64_ASM_GLOBAL_1;
+        asm_global[1] = X64_ASM_GLOBAL_2;
+    }
+
+    asmHeader << asm_header;
     asmBody << "\n";
     defOut << std::format("LIBRARY {}\nEXPORTS\n", fstem.string());
 
@@ -53,24 +79,18 @@ int main(const int argc, char **argv)
         const auto oord = ord + ordinalBase;
         const auto foord = std::format("f{}", ord);
 
-        asmBody << std::format("{}:\n\tmov rax, [rel mapping]\n\tjmp [rax + {}]\n",
-                               foord,
-                               ord << 3);
-        asmHeader << std::format("{},", foord);
-
+        asmBody << std::format("{}", foord) << asm_line[0]
+            << std::format("{}", ord << 3) << asm_line[1];
+        asmHeader << asm_global[0] << std::format("{}", foord) << asm_global[1];
         if (isNamed)
-        {
             defOut << std::format("{}=", name);
-        }
         else
-        {
             defOut << std::format("ordinal{}=", oord);
-        }
         defOut << std::format("{} @{}\n", foord, oord);
     }
 
-    asmOut << asmHeader.str() << "dllName\n" << asmBody.str() <<
-        std::format("section .rdata\n\tdllName db \"{}\", 0\n", fpath.filename().string());
+    asmOut << asmHeader.str() << asm_global[0] << "dllName\n" << asmBody.str()
+        << asm_rdata[0] << std::format("{}", fpath.filename().string()) << asm_rdata[1];
     defOut << "\n";
 
     path = path.parent_path().append("bootstrap.txt");

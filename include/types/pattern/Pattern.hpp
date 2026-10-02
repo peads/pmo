@@ -65,7 +65,7 @@ namespace PMO
             mask = (mask >> 7) * 0xFF;
             result.push_back(mask);
         }
-        return std::move(result);
+        return result;
     }
 
     inline std::vector<uint64_t> Pattern::generatePatternMask(
@@ -80,7 +80,7 @@ namespace PMO
         {
             optr[i] |= generateTypedMask(pattern[i] & 0xFFULL);
         }
-        return std::move(result);
+        return result;
     }
 
     template <size_t M>
@@ -109,7 +109,7 @@ namespace PMO
                     offsets->push_back(offset);
             }
         }
-        return std::move(result);
+        return result;
     }
 }
 #endif //HELPERS_HPP
