@@ -43,7 +43,27 @@ int main(const int argc, char **argv)
     if (!defOut.is_open())
         return -4;
 
-    asmHeader << ASM_HEADER;
+    const char *asm_header = nullptr;
+    const char *asm_line[2];
+    const char *asm_rdata[2];
+    if (argc > 3)
+    {
+        asm_header = ARM64_ASM_HEADER;
+        asm_line[0] = ARM64_ASM_LINE_1;
+        asm_line[1] = ARM64_ASM_LINE_2;
+        asm_rdata[0] = ARM64_ASM_RDATA_1;
+        asm_rdata[1] = ARM64_ASM_RDATA_2;
+    }
+    else
+    {
+        asm_header = X64_ASM_HEADER;
+        asm_line[0] = X64_ASM_LINE_1;
+        asm_line[1] = X64_ASM_LINE_2;
+        asm_rdata[0] = X64_ASM_RDATA_1;
+        asm_rdata[1] = X64_ASM_RDATA_2;
+    }
+
+    asmHeader << asm_header;
     asmBody << "\n";
     defOut << std::format("LIBRARY {}\nEXPORTS\n", fstem.string());
 
@@ -53,22 +73,19 @@ int main(const int argc, char **argv)
         const auto oord = ord + ordinalBase;
         const auto foord = std::format("f{}", ord);
 
-        asmBody << std::format(ASM_LINE, foord, ord << 3);
+        asmBody << std::format("{}", foord) << asm_line[0]
+            << std::format("{}", ord << 3) << asm_line[1];
         asmHeader << std::format("{},", foord);
 
         if (isNamed)
-        {
             defOut << std::format("{}=", name);
-        }
         else
-        {
             defOut << std::format("ordinal{}=", oord);
-        }
         defOut << std::format("{} @{}\n", foord, oord);
     }
 
-    asmOut << asmHeader.str() << "dllName\n" << asmBody.str() << std::format(ASM_RDATA,
-        fpath.filename().string());
+    asmOut << asmHeader.str() << "dllName\n" << asmBody.str()
+        << asm_rdata[0] << std::format("{}", fpath.filename().string()) << asm_rdata[1];
     defOut << "\n";
 
     path = path.parent_path().append("bootstrap.txt");
