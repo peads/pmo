@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.29)
 project(Example4 CXX C)
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "(arm64|aarch64|ARM64)")
-    enable_language(ASM_MARMASM)
+    enable_language(ASM)
     set(IS_ARM64 1)
 else()
     enable_language(ASM_NASM)

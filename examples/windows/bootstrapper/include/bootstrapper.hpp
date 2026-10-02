@@ -55,23 +55,24 @@
 #ifndef _MINWINDEF_
 #define MAX_PATH 260
 #endif
-// #if defined(__aarch64__) || defined(_M_ARM64)
-#define ARM64_ASM_HEADER "AREA |.text|, CODE, READONLY, ALIGN=2\nextern mapping\nexport "
-#define ARM64_ASM_LINE_1 " PROC \n\tadrp x0, mapping\n\tldr x0, [x0, #:lo12:mapping + "
-#define ARM64_ASM_LINE_2 "]\n\tbr x0\n\tENDP\n"
-#define ARM64_ASM_RDATA_1 "AREA |.rdata|, DATA, READONLY, ALIGN=4\n\tdllName dcb \""
-#define ARM64_ASM_RDATA_2 "\", 0\n"
-// #define ARM64_ASM_LINE "{}\n\tadrp x0, mapping\n\tldr x0, [x0, #:lo12:mapping + {}]\n\tbr x0\n"
-// #define ARM64_ASM_RDATA "AREA |.rdata|, DATA, READONLY, ALIGN=4\n\tdllName dcb \"{}\", 0\n"
-// #else
+
+// #define ARM64_ASM_HEADER "AREA |.text|, CODE, READONLY, ALIGN=2\nextern mapping\nexport "
+// #define ARM64_ASM_LINE_1 " PROC \n\tadrp x0, mapping\n\tldr x0, [x0, #:lo12:mapping + "
+// #define ARM64_ASM_LINE_2 "]\n\tbr x0\n\tENDP\n"
+// #define ARM64_ASM_RDATA_1 "AREA |.rdata|, DATA, READONLY, ALIGN=4\n\tdllName dcb \""
+// #define ARM64_ASM_RDATA_2 "\", 0\n"
+#define ARM64_ASM_HEADER ".text\n.global "
+#define ARM64_ASM_LINE_1 ":\n\tadrp x0, mapping\n\tldr x0, [x0, #:lo12:mapping + "
+#define ARM64_ASM_LINE_2 "]\n\tbr x0\n"
+#define ARM64_ASM_RDATA_1 ".section .rdata,\"dr\"\n.align 4\n\tdllName:\n\t.asciz \""
+#define ARM64_ASM_RDATA_2 "\"\n"
+
 #define X64_ASM_HEADER "bits 64\nsection .text\nextern mapping\nglobal "
 #define X64_ASM_LINE_1 ":\n\tmov rax, [rel mapping]\n\tjmp [rax + "
 #define X64_ASM_LINE_2 "]\n"
 #define X64_ASM_RDATA_1 "section .rdata\n\tdllName db \""
 #define X64_ASM_RDATA_2 "\", 0\n"
-// #define X64_ASM_LINE "{}:\n\tmov rax, [rel mapping]\n\tjmp [rax + {}]\n"
-// #define X64_ASM_RDATA "section .rdata\n\tdllName db \"{}\", 0\n"
-// #endif
+
 #ifndef _NTDEF_
 typedef struct $UNICODE_STRING {
     uint16_t Length;

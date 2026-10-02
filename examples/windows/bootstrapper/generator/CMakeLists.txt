@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.29)
 project(bootstrapper-generator CXX C)
 if (IS_ARM64)
-    enable_language(ASM_MARMASM)
+    enable_language(ASM)
 else()
     enable_language(ASM_NASM)
 endif()
