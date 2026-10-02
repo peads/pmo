@@ -48,7 +48,7 @@ int main(const int argc, char **argv)
     const char *asm_rdata[2] = {};
     const char *asm_global[2] = {};
 
-    if (argc > 3)
+    if (argc > 3 || IS_ARM64)
     {
         asm_header = ARM64_ASM_HEADER;
         asm_line[0] = ARM64_ASM_LINE_1;

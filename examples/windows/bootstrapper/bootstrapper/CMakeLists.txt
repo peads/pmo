@@ -1,26 +1,11 @@
 cmake_minimum_required(VERSION 3.29)
 project(bootstrapper CXX C)
-message(STATUS ${CMAKE_SYSTEM_PROCESSOR})
-if (CMAKE_SYSTEM_PROCESSOR MATCHES "(arm64|aarch64|ARM64)")
-#        OR MSVC_C_ARCHITECTURE_ID STREQUAL "ARM64" OR CMAKE_ASM_COMPILER_TARGET STREQUAL "arm64-pc-windows-msvc")
-
-    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-        enable_language(ASM)
-    endif()
-#    set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} --target=arm64-pc-windows-msvc")
-#    add_compile_options(--target=arm64-pc-windows-msvc)
-#    add_link_options(/machine:arm64)
+set(CMAKE_CXX_STANDARD 23)
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    enable_language(ASM)
 else()
     enable_language(ASM_NASM)
 endif()
-
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
-set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
-#set(LIBS "")
-#set(CMAKE_SCRIPT_INCLUDES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../../cmake")
-#include("${CMAKE_SCRIPT_INCLUDES_PATH}/populatelibs.cmake")
-#populateLibs(LIBS)
 
 if (NOT EXISTS "${OUT_PATH}/bootstrap.txt")
     message(WARNING "Please build and run the generator half first.")
@@ -29,8 +14,14 @@ else ()
     list(GET FILE_STEM 0 FILE_STEM)
 
     if (NOT (DEFINED INCLUDE_SYSWHISPERS AND INCLUDE_SYSWHISPERS))
-        add_library(${FILE_STEM} SHARED "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp" "${OUT_PATH}/${FILE_STEM}.asm")
+        add_library(${FILE_STEM} SHARED 
+		"${CMAKE_CURRENT_SOURCE_DIR}/main.cpp" 
+		"${OUT_PATH}/${FILE_STEM}.asm"
+#        "${OUT_PATH}/${FILE_STEM}.def"
+	)
     else()
+        set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
+        set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
         add_library(${FILE_STEM} SHARED
                 "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
                 "${OUT_PATH}/${FILE_STEM}.asm"
