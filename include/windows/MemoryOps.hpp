@@ -28,6 +28,7 @@
 
 #ifndef _MSC_VER
 #define mbstowcs_s(len, dest, words, src, count) mbstowcs(dest, src, count)
+#define wcstombs_s(len, dest, src, count) wcstombs(dest, src, count)
 #endif
 
 #define PID_NAME_LEN 8192
