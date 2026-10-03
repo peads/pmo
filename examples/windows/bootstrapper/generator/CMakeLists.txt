@@ -27,7 +27,7 @@ endif()
 
 target_include_directories(bootstrapper-generator PRIVATE "${PMO_INCLUDE}" "${SW3_SRC_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../include")
 target_link_libraries(bootstrapper-generator PRIVATE "${LIBS}")
-target_link_options(bootstrapper-generator PRIVATE "/subsystem:console")
+target_link_options(bootstrapper-generator PRIVATE "$<$<NOT:$<CXX_COMPILER_ID:GNU>>:/subsystem:console>")
 set_target_properties(bootstrapper-generator PROPERTIES MSVC_RUNTIME_CHECKS "")
 if (DEFINED DLL_NAME)
     add_custom_command(TARGET bootstrapper-generator
