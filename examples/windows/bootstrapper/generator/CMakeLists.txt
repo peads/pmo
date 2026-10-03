@@ -36,3 +36,15 @@ if (DEFINED DLL_NAME)
             COMMAND "$<TARGET_FILE:bootstrapper-generator>" "${DLL_NAME}" "${OUT_PATH}" "$<$<BOOL:${IS_ARM64}>:ARM64>"
     )
 endif()
+
+if(DEFINED CROSS_COMPILE_ARM64 AND CROSS_COMPILE_ARM64)
+    add_custom_command(TARGET bootstrapper-generator
+            POST_BUILD
+            #        OUTPUT "${OUT_PATH}/${DLL_NAME_STEM}.obj"
+            COMMAND "${CMAKE_CXX_COMPILER}" "/EHsc" "/std:c++latest" "/c" "/GR-" "--target=arm64-pc-windows-msvc"
+            "-I${PMO_INCLUDE}" "-I${CMAKE_CURRENT_SOURCE_DIR}/../include" "${CMAKE_CURRENT_SOURCE_DIR}/../bootstrapper/main.cpp"
+            "${OUT_PATH}/${DLL_NAME_STEM}${ASM_EXTENSION}"
+            COMMAND "${RESOLVED_LINKER_PATH}" "/machine:arm64" "main.obj" "dwmapi.obj" "/DEF:${OUT_PATH}/dwmapi.def" "/DLL"
+            "/NODEFAULTLIB:libcpmt.lib" "/NODEFAULTLIB:libucrt.lib" ${paths} COMMAND_EXPAND_LISTS
+    )
+endif()
