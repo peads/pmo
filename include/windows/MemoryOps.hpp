@@ -234,7 +234,7 @@ namespace PMO
         const PointerUnion &addr,
         const char *const code,
         const size_t size,
-        const HMODULE *module = nullptr
+        const HMODULE module = nullptr
     ) noexcept
     {
         if (!addr.address || !code || !size)
@@ -250,7 +250,7 @@ namespace PMO
         if (!VirtualProtect(addr.ptr, size, flOldProtect, &flOldProtect))
             return false;
 
-        if (module && !FlushInstructionCache(*module, addr.ptr, size))
+        if (module && !FlushInstructionCache(module, addr.ptr, size))
             return false;
 
         return true;
