@@ -24,6 +24,7 @@ else()
             "${SW3_SRC_DIR}/syscalls.c"
     )
 endif()
+target_compile_definitions(bootstrapper-generator PRIVATE ASM_EXTENSION="${ASM_EXTENSION}")
 
 target_include_directories(bootstrapper-generator PRIVATE "${PMO_INCLUDE}" "${SW3_SRC_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../include")
 target_link_libraries(bootstrapper-generator PRIVATE "${LIBS}")

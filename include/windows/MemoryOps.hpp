@@ -18,12 +18,17 @@
 #ifndef WMEMORYOPS_HPP
 #define WMEMORYOPS_HPP
 
+#include <cstdlib>
 #include <algorithm>
 #include <filesystem>
 
 #include "../MemoryOps.hpp"
 #include "types/ImportInfo.hpp"
 #include "windows/ImageDirectoryEntryToData.hpp"
+
+#ifndef _MSC_VER
+#define mbstowcs_s(len, dest, words, src, count) mbstowcs(dest, src, count)
+#endif
 
 #define PID_NAME_LEN 8192
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)

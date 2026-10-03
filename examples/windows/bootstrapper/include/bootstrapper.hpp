@@ -72,6 +72,7 @@
 #define X64_ASM_LINE_2 "]\n"
 #define X64_ASM_RDATA_1 ".section .rdata\n\tdllName: .asciz \""
 #define X64_ASM_RDATA_2 "\"\n"
+// #define ASM_EXTENSION ".s"
 #else
 #define X64_ASM_HEADER "bits 64\nsection .text\nextern mapping\nglobal "
 #define X64_ASM_GLOBAL_1 ""
@@ -80,6 +81,7 @@
 #define X64_ASM_LINE_2 "]\n"
 #define X64_ASM_RDATA_1 "section .rdata\n\tdllName db \""
 #define X64_ASM_RDATA_2 "\", 0\n"
+// #define ASM_EXTENSION ".asm"
 #endif
 
 #ifndef _NTDEF_
