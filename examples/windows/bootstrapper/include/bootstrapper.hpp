@@ -59,8 +59,8 @@
 #define ARM64_ASM_HEADER ".section .text,\"xr\"\n.align 2\n.global "
 #define ARM64_ASM_GLOBAL_1 ""
 #define ARM64_ASM_GLOBAL_2 ","
-#define ARM64_ASM_LINE_1 ":\n\tadrp x0, mapping\n\tldr x0, [x0, #:lo12:mapping + "
-#define ARM64_ASM_LINE_2 "]\n\tbr x0\n"
+#define ARM64_ASM_LINE_1 ":\n\tadrp x0, mapping\n\tldr x0, [x0, :lo12:mapping]\n\tmovz x1, #"
+#define ARM64_ASM_LINE_2 "\n\tldr x1, [x0, x1]\n\tbr x1\n"
 #define ARM64_ASM_RDATA_1 ".section .rdata,\"dr\"\n.align 4\n\tdllName:\n\t.asciz \""
 #define ARM64_ASM_RDATA_2 "\"\n"
 
@@ -72,6 +72,7 @@
 #define X64_ASM_LINE_2 "]\n"
 #define X64_ASM_RDATA_1 ".section .rdata\n\tdllName: .asciz \""
 #define X64_ASM_RDATA_2 "\"\n"
+// #define ASM_EXTENSION ".s"
 #else
 #define X64_ASM_HEADER "bits 64\nsection .text\nextern mapping\nglobal "
 #define X64_ASM_GLOBAL_1 ""
@@ -80,6 +81,7 @@
 #define X64_ASM_LINE_2 "]\n"
 #define X64_ASM_RDATA_1 "section .rdata\n\tdllName db \""
 #define X64_ASM_RDATA_2 "\", 0\n"
+// #define ASM_EXTENSION ".asm"
 #endif
 
 #ifndef _NTDEF_

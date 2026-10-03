@@ -31,7 +31,7 @@ int main(const int argc, char **argv)
     const auto &[module, ordinalBase, exports] = dllInfo;
 
     std::filesystem::path path(argv[2]);
-    path.append(fstem.string() + ".asm");
+    path.append(fstem.string() + ASM_EXTENSION);
     std::ofstream asmOut(path);
     if (!asmOut.is_open())
         return -3;

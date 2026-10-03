@@ -105,6 +105,21 @@ TEST_CASE("05 line coverage++", "[PMO]")
     auto a = *puSet.begin();
     PMO::PointerUnion b{.address = a.address};
     REQUIRE(a == b);
+
+    static constexpr const char *strs[] = {"\xDE\xAD\xBE\xEF","\xAD\xDE\xEF\xBE","\xEF\xBE\xAD\xDE"};
+    constexpr char str[] = "\xDE\xAD\xBE\xEF";
+
+    PMO::PointerUnion pu{.str = *strs};
+    REQUIRE(PMO::replaceCode(pu, strs[1], strlen(*strs), CURRENT_MODULE));
+#if !(defined(__GNUC__) || defined(__GNUG__) || defined(__clang__))
+    // gcc and clang, naturally, handle local static consts correctly. so, this check is disabled for them.
+    // ReSharper disable once CppCStyleCast
+    CHECK(*(uint32_t*)strs[1] == *(uint32_t*)*strs);
+#endif
+    pu.str = str;
+    REQUIRE(PMO::replaceCode(pu, strs[2], strlen(str), CURRENT_MODULE));
+    // ReSharper disable once CppCStyleCast
+    CHECK(*(uint32_t*)strs[2] == *(uint32_t*)str);
 }
 
 TEST_CASE("00a more raw search testing", "[PMO]")

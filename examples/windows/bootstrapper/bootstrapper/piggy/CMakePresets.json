@@ -1,0 +1,40 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 27,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "windows-arm64-ninja-msvc-release",
+      "displayName": "Windows ARM64 (Ninja)",
+      "description": "Cross-compile for Windows ARM64 using Ninja and MSVC",
+      "binaryDir": "${sourceDir}/cmake-build-${presetName}",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "arm64",
+      "toolset": "ClangCL",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+        "CMAKE_SYSTEM_NAME": "Windows",
+        "CMAKE_SYSTEM_PROCESSOR": "ARM64",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-arm64-ninja-msvc-release",
+      "configurePreset": "windows-arm64-ninja-msvc-release",
+      "nativeToolOptions": [
+        "/p:Configuration=Release",
+        "/p:Platform=arm64"
+      ]
+    }
+  ]
+}

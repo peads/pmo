@@ -18,12 +18,18 @@
 #ifndef WMEMORYOPS_HPP
 #define WMEMORYOPS_HPP
 
+#include <cstdlib>
 #include <algorithm>
 #include <filesystem>
 
 #include "../MemoryOps.hpp"
 #include "types/ImportInfo.hpp"
 #include "windows/ImageDirectoryEntryToData.hpp"
+
+#ifndef _MSC_VER
+#define mbstowcs_s(len, dest, words, src, count) mbstowcs(dest, src, count)
+#define wcstombs_s(len, dest, src, count) wcstombs(dest, src, count)
+#endif
 
 #define PID_NAME_LEN 8192
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
@@ -228,7 +234,7 @@ namespace PMO
         const PointerUnion &addr,
         const char *const code,
         const size_t size,
-        const HMODULE *module = nullptr
+        const HMODULE module = nullptr
     ) noexcept
     {
         if (!addr.address || !code || !size)
@@ -244,7 +250,7 @@ namespace PMO
         if (!VirtualProtect(addr.ptr, size, flOldProtect, &flOldProtect))
             return false;
 
-        if (module && !FlushInstructionCache(*module, addr.ptr, size))
+        if (module && !FlushInstructionCache(module, addr.ptr, size))
             return false;
 
         return true;

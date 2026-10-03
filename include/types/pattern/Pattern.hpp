@@ -74,7 +74,7 @@ namespace PMO
         const size_t len
     ) noexcept
     {
-        std::vector result(len, 0ULL);
+        std::vector<uint64_t> result(len, 0ULL);
         const auto optr = reinterpret_cast<uint8_t*>(result.data());
         for (size_t i = 0; i < plen; ++i)
         {
