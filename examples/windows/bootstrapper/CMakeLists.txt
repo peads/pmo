@@ -14,7 +14,7 @@ find_package(Git REQUIRED)
 include(FetchContent)
 set(CMAKE_SCRIPT_INCLUDES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../cmake")
 include("${CMAKE_SCRIPT_INCLUDES_PATH}/populatelibs.cmake")
-
+add_compile_definitions("$<$<NOT:$<CONFIG:Debug>>:OPTIMIZATIONS_ON>")
 if (DEFINED INCLUDE_SYSWHISPERS AND INCLUDE_SYSWHISPERS)
     set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
     set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
