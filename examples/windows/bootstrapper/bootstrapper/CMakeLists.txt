@@ -13,23 +13,11 @@ else ()
     file(STRINGS "${OUT_PATH}/bootstrap.txt" FILE_STEM)
     list(GET FILE_STEM 0 FILE_STEM)
 
-    if (NOT (DEFINED INCLUDE_SYSWHISPERS AND INCLUDE_SYSWHISPERS))
-        add_library(${FILE_STEM} SHARED 
-		"${CMAKE_CURRENT_SOURCE_DIR}/main.cpp" 
-		"${OUT_PATH}/${FILE_STEM}${ASM_EXTENSION}"
-#        "${OUT_PATH}/${FILE_STEM}.def"
-	)
-    else()
-        set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
-        set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
-        add_library(${FILE_STEM} SHARED
-                "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
-                "${OUT_PATH}/${FILE_STEM}${ASM_EXTENSION}"
-                "${SW3_SRC_DIR}/syscalls-asm.x64.asm"
-                "${SW3_SRC_DIR}/syscalls.c"
-#                "${OUT_PATH}/${FILE_STEM}.def"
-        )
-    endif()
+    add_library(${FILE_STEM} SHARED
+        "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
+        "${OUT_PATH}/${FILE_STEM}${ASM_EXTENSION}"
+        #        "${OUT_PATH}/${FILE_STEM}.def"
+    )
 if (DEFINED STANDALONE_BOOTSTRAPPER AND STANDALONE_BOOTSTRAPPER)
     cmake_path(SET PMO_INCLUDE NORMALIZE "${CMAKE_CURRENT_SOURCE_DIR}/../../../../include")
 else()

@@ -23,23 +23,14 @@
 #endif
 #include <windows/MemoryOps.hpp>
 
-#ifdef INCLUDE_SYSWHISPERS
-#include "syscalls.h"
-#endif
-
 #ifndef _APISETLIBLOADER_
     extern "C" HMODULE LoadLibraryA(LPCSTR);
-    // extern "C" HMODULE LoadLibraryW(LPCWSTR);
-    // #ifdef UNICODE
-    //     #define LoadLibrary  LoadLibraryW
-    // #else
-    //     #define LoadLibrary  LoadLibraryA
-    // #endif // !UNICODE
-    template <typename T>
-    inline HMODULE LoadLibrary(std::basic_string<T> path)
-    {
-        return LoadLibraryA(path.string().c_str());
-    }
+    extern "C" HMODULE LoadLibraryW(LPCWSTR);
+    #ifdef UNICODE
+        #define LoadLibrary  LoadLibraryW
+    #else
+        #define LoadLibrary  LoadLibraryA
+    #endif
 #endif
 
 #ifndef _SYSINFOAPI_H_
@@ -113,36 +104,6 @@ static void generateDllPath(std::filesystem::path &path)
         path = std::filesystem::path(systemDir).append(path.filename().string());
     }
 }
-
-// static HMODULE loadLibrary(const std::filesystem::path &path)
-// {
-//     static const HMODULE ntDll = PMO::getModule(NTDLL);
-//     if (!ntDll)
-//         return nullptr;
-//
-//     std::map<WORD, std::tuple<uintptr_t, char*, bool>> exports;
-//     PMO::findExports(ntDll, exports);
-//
-//     auto view = PMO::findProcByName("LdrLoadDll", exports);
-//     DllQuadFunction LdrLoadDll = nullptr;
-//     if (view.empty() || !((LdrLoadDll = reinterpret_cast<DllQuadFunction>(view.back()))))
-//         return nullptr;
-//
-//     HANDLE module = nullptr;
-//     UNICODE_STRING uname;
-//     const auto wname = path.wstring();
-//     const size_t len = path.wstring().length();
-//
-//     uname.Length = static_cast<USHORT>(len * sizeof(wchar_t));
-//     uname.MaximumLength = static_cast<USHORT>((len + 1) * sizeof(wchar_t));
-//     uname.Buffer = const_cast<wchar_t*>(wname.c_str());
-//
-//     if (LdrLoadDll(nullptr, 0, &uname, &module) >= 0L)
-//     {
-//         return static_cast<HMODULE>(module);
-//     }
-//     return nullptr;
-// }
 
 static bool populateDllInfo(const std::filesystem::path &name)
 {

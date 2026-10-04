@@ -58,31 +58,6 @@ else()
     set(CMAKE_SCRIPT_INCLUDES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../cmake")
     include("${CMAKE_SCRIPT_INCLUDES_PATH}/populatelibs.cmake")
     add_compile_definitions("$<$<NOT:$<CONFIG:Debug>>:OPTIMIZATIONS_ON>")
-    if (DEFINED INCLUDE_SYSWHISPERS AND INCLUDE_SYSWHISPERS)
-        set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
-        set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
-        set(SW3_SRC_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/syswhispers3-src")
-        set(SW3_BIN_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/syswhispers3-build")
-        set(SW3_SUB_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/syswhispers3-subbuild")
-
-        FetchContent_Populate(
-                syswhispers3
-                QUIET
-                GIT_REPOSITORY https://github.com/klezVirus/SysWhispers3.git
-                SOURCE_DIR ${SW3_SRC_DIR}
-                BINARY_DIR ${SW3_BIN_DIR}
-                SUBBUILD_DIR ${SW3_SUB_DIR}
-        )
-
-        configure_file(
-                "${CMAKE_CURRENT_SOURCE_DIR}/syswhispers3.cmake"
-                "${SW3_SRC_DIR}/CMakeLists.txt"
-                COPYONLY
-        )
-        add_link_options("$<$<NOT:$<CXX_COMPILER_ID:GNU>>:/NODEFAULTLIB>")
-        set(LIBS "")
-        populateLibs(LIBS)
-    endif()
 
     if (DEFINED GENERATE_TEST AND GENERATE_TEST)
         set(DLL_NAME "dwmapi.dll")
@@ -97,10 +72,6 @@ else()
         cmake_path(GET DLL_NAME STEM DLL_NAME_STEM)
     endif()
     set(OUT_PATH "${CMAKE_CURRENT_BINARY_DIR}/bootstrapper")
-
-    if (DEFINED INCLUDE_SYSWHISPERS AND INCLUDE_SYSWHISPERS)
-        add_subdirectory(${SW3_SRC_DIR} ${SW3_BIN_DIR})
-    endif()
 
     cmake_path(SET PMO_INCLUDE NORMALIZE "${CMAKE_CURRENT_SOURCE_DIR}/../../../include")
     add_subdirectory(generator)

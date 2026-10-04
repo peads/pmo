@@ -13,17 +13,7 @@ else()
     add_compile_definitions(IS_ARM64=0)
 endif()
 
-if (NOT (DEFINED INCLUDE_SYSWHISPERS AND INCLUDE_SYSWHISPERS))
-    add_executable(bootstrapper-generator "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")
-else()
-    set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C" FORCE)
-    set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "Standard libraries for C++" FORCE)
-    add_executable(bootstrapper-generator
-            "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
-            "${SW3_SRC_DIR}/syscalls-asm.x64.asm"
-            "${SW3_SRC_DIR}/syscalls.c"
-    )
-endif()
+add_executable(bootstrapper-generator "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")
 target_compile_definitions(bootstrapper-generator PRIVATE ASM_EXTENSION="${ASM_EXTENSION}")
 
 target_include_directories(bootstrapper-generator PRIVATE "${PMO_INCLUDE}" "${SW3_SRC_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../include")
