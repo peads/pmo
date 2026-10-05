@@ -1,0 +1,102 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 27,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+        "CMAKE_BUILD_TYPE": "Release",
+        "GENERATE_TEST": true,
+        "OUT_PATH": "${sourceDir}/cmake-build-${presetName}/bootstrapper",
+        "DLL_NAME": "dwmapi.dll",
+        "PMO_INCLUDE": "${sourceDir}/../../../include"
+      }
+    },
+    {
+      "name": "x64-ninja-clangcl",
+      "displayName": "x64-ninja-clangcl",
+      "description": "Compile for Windows x64 using Ninja and clang-cl",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "binaryDir": "${sourceDir}/cmake-build-${presetName}",
+      "generator": "Ninja",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Windows",
+        "CMAKE_C_COMPILER": "clang-cl",
+        "CMAKE_CXX_COMPILER": "clang-cl",
+        "CMAKE_C_FLAGS": "/nologo /EHsc /clang:-m64 /clang:-O3 /clang:-march=native /WX- /Gy /clang:-flto=auto /clang:-fomit-frame-pointer",
+        "CMAKE_CXX_FLAGS": "/nologo /EHsc /clang:-m64 /clang:-O3 /clang:-march=native /WX- /Gy /clang:-flto=auto /clang:-fomit-frame-pointer",
+        "CMAKE_SHARED_LINKER_FLAGS": "/subsystem:console /OPT:REF /OPT:ICF=3 /LTCG /DEBUG:NONE /EMITPOGOPHASEINFO",
+        "CMAKE_EXE_LINKER_FLAGS": "/subsystem:console /OPT:REF /OPT:ICF=3 /LTCG /DEBUG:NONE /EMITPOGOPHASEINFO"
+      }
+    },
+    {
+      "name": "x64-vs2022-msvc",
+      "displayName": "x64-vs2022-msvc",
+      "description": "Compile for Windows x64 using Visual Studio 17 2022 and msvc",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "binaryDir": "${sourceDir}/cmake-build-${presetName}",
+      "generator": "Visual Studio 17 2022",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Windows",
+        "CMAKE_C_FLAGS": "/nologo /EHsc /O2 /Ob3 /Ot /Oy /Oi /GL /Gy /Gm- /MP /GS- /Gw",
+        "CMAKE_CXX_FLAGS": "/nologo /EHsc /O2 /Ob3 /Ot /Oy /Oi /GL /Gy /Gm- /MP /GS- /Gw",
+        "CMAKE_SHARED_LINKER_FLAGS": "/subsystem:console /OPT:REF /OPT:ICF=3 /LTCG /DEBUG:NONE /EMITPOGOPHASEINFO",
+        "CMAKE_EXE_LINKER_FLAGS": "/subsystem:console /OPT:REF /OPT:ICF=3 /LTCG /DEBUG:NONE /EMITPOGOPHASEINFO"
+      }
+    },
+    {
+      "name": "x64-ninja-clang",
+      "displayName": "x64-ninja-clang",
+      "description": "Compile for Windows x64 using Ninja and clang",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "binaryDir": "${sourceDir}/cmake-build-${presetName}",
+      "generator": "Ninja",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Windows",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang",
+        "CMAKE_C_FLAGS": "-O3 -flto=auto -fomit-frame-pointer -ffunction-sections -fdata-sections -Wl,--gc-sections -Wl,--icf=all -Wl,-s",
+        "CMAKE_CXX_FLAGS": "-O3 -flto=auto -fomit-frame-pointer -ffunction-sections -fdata-sections -Wl,--gc-sections -Wl,--icf=all -Wl,-s"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "x64-ninja-clangcl",
+      "configurePreset": "x64-ninja-clangcl"
+    },
+    {
+      "name": "x64-vs2022-msvc",
+      "configurePreset": "x64-vs2022-msvc",
+      "nativeToolOptions": [
+        "/p:Configuration=Release",
+        "/p:Platform=x64"
+      ]
+    },
+    {
+      "name": "x64-ninja-clang",
+      "configurePreset": "x64-ninja-clang"
+    }
+  ]
+}

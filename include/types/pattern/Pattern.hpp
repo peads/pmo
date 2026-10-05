@@ -19,6 +19,7 @@
 #define HELPERS_HPP
 #include "types/pattern/PatternImpl.hpp"
 #include "parse/ParseJmp.hpp"
+#include <cstring>
 
 namespace PMO
 {

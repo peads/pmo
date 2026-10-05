@@ -16,9 +16,7 @@ endif()
 add_executable(bootstrapper-generator "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")
 target_compile_definitions(bootstrapper-generator PRIVATE ASM_EXTENSION="${ASM_EXTENSION}")
 
-target_include_directories(bootstrapper-generator PRIVATE "${PMO_INCLUDE}" "${SW3_SRC_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../include")
-target_link_libraries(bootstrapper-generator PRIVATE "${LIBS}")
-target_link_options(bootstrapper-generator PRIVATE "$<$<NOT:$<CXX_COMPILER_ID:GNU>>:/subsystem:console>")
+target_include_directories(bootstrapper-generator PRIVATE "${PMO_INCLUDE}" "${CMAKE_CURRENT_SOURCE_DIR}/../include")
 set_target_properties(bootstrapper-generator PROPERTIES MSVC_RUNTIME_CHECKS "")
 if (DEFINED DLL_NAME)
     add_custom_command(TARGET bootstrapper-generator
@@ -30,7 +28,6 @@ endif()
 if(DEFINED CROSS_COMPILE_ARM64 AND CROSS_COMPILE_ARM64)
     add_custom_command(TARGET bootstrapper-generator
             POST_BUILD
-            #        OUTPUT "${OUT_PATH}/${DLL_NAME_STEM}.obj"
             COMMAND "${CMAKE_CXX_COMPILER}" "/EHsc" "/std:c++latest" "/c" "/GR-" "--target=arm64-pc-windows-msvc"
             "-I${PMO_INCLUDE}" "-I${CMAKE_CURRENT_SOURCE_DIR}/../include" "${CMAKE_CURRENT_SOURCE_DIR}/../bootstrapper/main.cpp"
             "${OUT_PATH}/${DLL_NAME_STEM}${ASM_EXTENSION}"

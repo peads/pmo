@@ -411,7 +411,7 @@ namespace PMO
             if (mbi.State == MEM_COMMIT && (mbi.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ |
                 PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)))
             {
-                size_t bytesRead = 0;
+                SIZE_T bytesRead = 0;
                 if (buffer.size() < mbi.RegionSize)
                     buffer.resize(mbi.RegionSize);
                 if (ReadProcessMemory(proc,

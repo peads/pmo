@@ -14,24 +14,17 @@ else ()
     list(GET FILE_STEM 0 FILE_STEM)
 
     add_library(${FILE_STEM} SHARED
-        "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
-        "${OUT_PATH}/${FILE_STEM}${ASM_EXTENSION}"
-        #        "${OUT_PATH}/${FILE_STEM}.def"
+            "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
+            "${OUT_PATH}/${FILE_STEM}${ASM_EXTENSION}"
+            "${OUT_PATH}/${FILE_STEM}.def"
     )
-if (DEFINED STANDALONE_BOOTSTRAPPER AND STANDALONE_BOOTSTRAPPER)
-    cmake_path(SET PMO_INCLUDE NORMALIZE "${CMAKE_CURRENT_SOURCE_DIR}/../../../../include")
-else()
     add_dependencies(${FILE_STEM} bootstrapper-generator)
-endif()
-    target_include_directories(${FILE_STEM} PRIVATE "${PMO_INCLUDE}" "${SW3_SRC_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../include")
-    if(MSVC)
-        set_target_properties(${FILE_STEM} PROPERTIES LINK_FLAGS "/DEF:\"${OUT_PATH}/${FILE_STEM}.def\"")
-    endif()
+    target_include_directories(${FILE_STEM} PRIVATE "${PMO_INCLUDE}" "${CMAKE_CURRENT_SOURCE_DIR}/../include")
+#    if(MSVC)
+#        set_target_properties(${FILE_STEM} PROPERTIES LINK_FLAGS "/DEF:\"${OUT_PATH}/${FILE_STEM}.def\"")
+#    endif()
     set_target_properties(${FILE_STEM} PROPERTIES OUTPUT_NAME "${FILE_STEM}" PREFIX "")
     target_compile_definitions(${FILE_STEM} PRIVATE OUT_PATH="${OUT_PATH}")
-    target_link_options(${FILE_STEM} PRIVATE "$<$<NOT:$<CXX_COMPILER_ID:GNU>>:/subsystem:console>")
-    target_link_options(${FILE_STEM} PRIVATE "$<$<CXX_COMPILER_ID:GNU>:-shared>")
-    target_link_libraries(${FILE_STEM} PRIVATE "${LIBS}")
     set_target_properties(${FILE_STEM} PROPERTIES MSVC_RUNTIME_CHECKS "")
     if (DEFINED GENERATE_TEST)
         add_compile_definitions(DLL_NAME="${CMAKE_CURRENT_BINARY_DIR}/${DLL_NAME}")
