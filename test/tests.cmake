@@ -1,5 +1,17 @@
 find_package(Git REQUIRED)
 include(FetchContent)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    execute_process(
+            COMMAND "which" "gcc-ar"
+            OUTPUT_VARIABLE CMAKE_AR
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    execute_process(
+            COMMAND "which" "gcc-ranlib"
+            OUTPUT_VARIABLE CMAKE_RANLIB
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+endif()
 
 set(PMO_SOURCES
         "${CMAKE_SOURCE_DIR}/test/src/windows/main.cpp"
@@ -24,35 +36,13 @@ include(Catch)
 
 add_executable(${TARGET} ${PMO_SOURCES})
 
-#target_compile_options(${TARGET} PRIVATE
-#        "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-O3;-flto=auto;-fuse-linker-plugin;-fomit-frame-pointer;-ffunction-sections;-fdata-sections;-mconsole;-Wl,--gc-sections>"
-#        "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:Clang>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:/EHsc;/clang:-O3;/Gw;/Gy;/clang:-flto=auto;/clang:-fomit-frame-pointer>"
-#        "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:MSVC>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-nologo;/EHsc;/O2;/Ob3;/Ot;/Oy;/Oi;/GL;/Gy;/Gm-;/MP;-GS-;/Gw>"
-#)
-#target_link_options(${TARGET} PRIVATE
-#        "$<$<NOT:$<CXX_COMPILER_ID:GNU>>:/subsystem:console>"
-#        "$<$<NOT:$<OR:$<CONFIG:Debug>,$<CXX_COMPILER_ID:GNU>>>:/NODEFAULTLIB;/OPT:REF;/OPT:ICF=3;/LTCG;/DEBUG:NONE;/EMITPOGOPHASEINFO>"
-#)
 #target_link_libraries(Catch2 PRIVATE "$<$<NOT:$<CXX_COMPILER_ID:GNU>>:${LIBS};bufferoverflowU.lib>")
 target_link_libraries(${TARGET} PRIVATE Catch2::Catch2WithMain)
-
-#string(REPLACE "/RTC1" "" MY_CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-#set(CMAKE_CXX_FLAGS_DEBUG "${MY_CMAKE_CXX_FLAGS_DEBUG}" CACHE STRING "CXX Debug Flags" FORCE)
-#target_compile_options(${TARGET} PRIVATE "$<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Debug>>:/RTC1>")
-
 target_include_directories(${TARGET} PUBLIC
         "${CMAKE_SOURCE_DIR}/include"
         "${CMAKE_SOURCE_DIR}/test/include"
         "${CMAKE_SOURCE_DIR}/examples"
 )
-#target_link_options(Catch2 PRIVATE
-#        "$<$<NOT:$<CXX_COMPILER_ID:GNU>>:/NODEFAULTLIB;/subsystem:console;/OPT:REF;/OPT:ICF=3;/LTCG;/DEBUG:NONE;/EMITPOGOPHASEINFO>"
-#)
-#target_compile_options(Catch2 PRIVATE
-#        "$<$<AND:$<CXX_COMPILER_ID:GNU>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-O3;-flto=auto;-fuse-linker-plugin;-fomit-frame-pointer;-ffunction-sections;-fdata-sections;-Wl,--gc-sections>"
-#        "$<$<AND:$<CXX_COMPILER_ID:Clang>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:/EHsc;/clang:-O3;/Gw;/Gy;/clang:-flto=auto;/clang:-fomit-frame-pointer>"
-#        "$<$<AND:$<CXX_COMPILER_ID:MSVC>,$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>>:-nologo;/EHsc;/O2;/Ob3;/Ot;/Oy;/Oi;/GL;/Gy;/Gm-;/MP;-GS-;/Gw>"
-#)
 
 catch_discover_tests(${TARGET} DISCOVERY_MODE PRE_TEST)
 

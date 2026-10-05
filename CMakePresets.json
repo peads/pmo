@@ -1,0 +1,106 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 27,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+        "GENERATE_TESTS": true
+      }
+    },
+    {
+      "name": "tests-debug-cov",
+      "displayName": "tests-debug-cov",
+      "description": "Compile tests instrumented for coverage for Windows x64 using Ninja and clang-cl",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "binaryDir": "${sourceDir}/cmake-build-${presetName}",
+      "generator": "Ninja",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_SYSTEM_NAME": "Windows",
+        "CMAKE_C_COMPILER": "clang-cl",
+        "CMAKE_CXX_COMPILER": "clang-cl",
+        "CMAKE_C_FLAGS": "/nologo /EHsc /clang:-m64 /clang:-O0 /clang:-g /clang:-march=native /clang:-fomit-frame-pointer --coverage /clang:-fcoverage-mapping /clang:-fprofile-instr-generate",
+        "CMAKE_CXX_FLAGS": "/nologo /EHsc /clang:-m64 /clang:-O0 /clang:-g /clang:-march=native /clang:-fomit-frame-pointer --coverage /clang:-fcoverage-mapping /clang:-fprofile-instr-generate",
+        "CMAKE_SHARED_LINKER_FLAGS": "/subsystem:console /DEBUG",
+        "CMAKE_EXE_LINKER_FLAGS": "/subsystem:console /DEBUG"
+      }
+    },
+    {
+      "name": "tests-release",
+      "displayName": "tests-release",
+      "description": "Compile tests for Windows x64 using Ninja and clang-cl",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "binaryDir": "${sourceDir}/cmake-build-${presetName}",
+      "generator": "Ninja",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_SYSTEM_NAME": "Windows",
+        "CMAKE_C_COMPILER": "clang-cl",
+        "CMAKE_CXX_COMPILER": "clang-cl",
+        "CMAKE_C_FLAGS": "/nologo /EHsc /clang:-m64 /clang:-O3 /clang:-march=native /WX- /Gy /clang:-flto=auto /clang:-fomit-frame-pointer",
+        "CMAKE_CXX_FLAGS": "/nologo /EHsc /clang:-m64 /clang:-O3 /clang:-march=native /WX- /Gy /clang:-flto=auto /clang:-fomit-frame-pointer",
+        "CMAKE_SHARED_LINKER_FLAGS": "/subsystem:console /OPT:REF /OPT:ICF=3 /LTCG /DEBUG:NONE /EMITPOGOPHASEINFO",
+        "CMAKE_EXE_LINKER_FLAGS": "/subsystem:console /OPT:REF /OPT:ICF=3 /LTCG /DEBUG:NONE /EMITPOGOPHASEINFO"
+      }
+    },
+    {
+      "name": "tests-release-obr",
+      "displayName": "tests-release-obr",
+      "description": "Compile tests for Windows x64 using Ninja and clang-cl with OBR tests",
+      "inherits": "tests-release",
+      "cacheVariables": {
+        "TEST_OBR": true
+      }
+    },
+    {
+      "name": "experimental-gcc",
+      "displayName": "experimental-gcc",
+      "description": "Compile tests for Windows x64 using Ninja and msys2-ucrt64/gcc",
+      "binaryDir": "${sourceDir}/cmake-build-${presetName}",
+      "generator": "Ninja",
+      "inherits": "base",
+      "cacheVariables": {
+        "MSYSTEM": "UCRT64",
+        "CMAKE_C_COMPILER": "gcc.exe",
+        "CMAKE_CXX_COMPILER": "g++.exe",
+        "CMAKE_MAKE_PROGRAM": "ninja.exe",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_FLAGS": "-flto=auto -O3 -flto=auto -fomit-frame-pointer -ffunction-sections -fdata-sections -g0 -fipa-icf -Wl,--gc-sections -Wl,-s",
+        "CMAKE_C_FLAGS": "-flto=auto -O3 -flto=auto -fomit-frame-pointer -ffunction-sections -fdata-sections -g0 -fipa-icf -Wl,--gc-sections -Wl,-s"
+      }
+    }],
+  "buildPresets": [
+    {
+      "name": "tests-release-obr",
+      "configurePreset": "tests-release-obr"
+    },
+    {
+      "name": "tests-release",
+      "configurePreset": "tests-release"
+    },
+    {
+      "name": "tests-debug-cov",
+      "configurePreset": "tests-debug-cov"
+    },
+    {
+      "name": "experimental-gcc",
+      "configurePreset": "experimental-gcc"
+    }]
+}
