@@ -1,0 +1,3 @@
+[submodule "examples/windows/bootstrapper"]
+	path = examples/windows/bootstrapper
+	url = https://github.com/peads/obcd.git
