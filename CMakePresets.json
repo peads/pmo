@@ -82,8 +82,8 @@
         "CMAKE_CXX_COMPILER": "g++.exe",
         "CMAKE_MAKE_PROGRAM": "ninja.exe",
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_CXX_FLAGS": "-flto=auto -O3 -flto=auto -fomit-frame-pointer -ffunction-sections -fdata-sections -g0 -fipa-icf -Wl,--gc-sections -Wl,-s",
-        "CMAKE_C_FLAGS": "-flto=auto -O3 -flto=auto -fomit-frame-pointer -ffunction-sections -fdata-sections -g0 -fipa-icf -Wl,--gc-sections -Wl,-s"
+        "CMAKE_CXX_FLAGS": "-m64 -march=native -flto=auto -O3 -flto=auto -fomit-frame-pointer -ffunction-sections -fdata-sections -g0 -fipa-icf -Wl,--gc-sections -Wl,-s",
+        "CMAKE_C_FLAGS": "-m64 -march=native -flto=auto -O3 -flto=auto -fomit-frame-pointer -ffunction-sections -fdata-sections -g0 -fipa-icf -Wl,--gc-sections -Wl,-s"
       }
     }],
   "buildPresets": [
