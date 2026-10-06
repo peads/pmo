@@ -1,0 +1,36 @@
+# This starter workflow is for a CMake project running on multiple platforms. There is a different starter workflow if you just want a single platform.
+# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-single-platform.yml
+name: CMake Testing Workflow - WIP - x64, arm64
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # TODO: Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
+      fail-fast: false
+      matrix:
+        os: [windows-11-arm, windows-latest]
+        build_type: [Release]
+        c_compiler: [clang-cl]
+        include:
+          - os: windows-latest
+            c_compiler: clang-cl
+            cpp_compiler: clang-cl
+          - os: windows-11-arm
+            c_compiler: clang-cl
+            cpp_compiler: clang-cl
+
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+      - name: "CMake CI Testing Workflow"
+        if: runner.arch == 'X64'
+        run: cmake --workflow --preset ci-testing
+        working-directory: ${{ github.workspace }}
+      - name: "CMake CI Testing Workflow - arm64"
+        if: runner.arch == 'ARM64'
+        run: cmake --workflow --preset ci-testing-arm64
+        working-directory: ${{ github.workspace }}

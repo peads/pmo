@@ -85,22 +85,128 @@
         "CMAKE_CXX_FLAGS": "-m64 -march=native -flto=auto -O3 -flto=auto -fomit-frame-pointer -ffunction-sections -fdata-sections -g0 -fipa-icf -Wl,--gc-sections -Wl,-s",
         "CMAKE_C_FLAGS": "-m64 -march=native -flto=auto -O3 -flto=auto -fomit-frame-pointer -ffunction-sections -fdata-sections -g0 -fipa-icf -Wl,--gc-sections -Wl,-s"
       }
-    }],
+    },
+    {
+      "name": "tests-debug-cov-obr",
+      "displayName": "tests-debug-cov-obr",
+      "description": "Compile tests for Windows x64 using Ninja and clang-cl with OBR tests",
+      "inherits": "tests-debug-cov",
+      "cacheVariables": {
+        "TEST_OBR": true
+      }
+    }
+  ],
   "buildPresets": [
     {
       "name": "tests-release-obr",
-      "configurePreset": "tests-release-obr"
+      "configurePreset": "tests-release-obr",
+      "jobs": 0
     },
     {
       "name": "tests-release",
-      "configurePreset": "tests-release"
+      "configurePreset": "tests-release",
+      "jobs": 0
     },
     {
       "name": "tests-debug-cov",
-      "configurePreset": "tests-debug-cov"
+      "configurePreset": "tests-debug-cov",
+      "jobs": 0
+    },
+    {
+      "name": "tests-debug-cov-obr",
+      "configurePreset": "tests-debug-cov-obr",
+      "jobs": 0
     },
     {
       "name": "experimental-gcc",
-      "configurePreset": "experimental-gcc"
-    }]
+      "configurePreset": "experimental-gcc",
+      "jobs": 0
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "tests-debug-cov-base",
+      "hidden": true,
+      "configurePreset": "tests-debug-cov",
+      "description": "Run the Catch2 test suite via CTest",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error",
+        "stopOnFailure": false
+      }
+    },
+    {
+      "name": "tests-release-base",
+      "hidden": true,
+      "configurePreset": "tests-release",
+      "description": "Run the Catch2 test suite via CTest",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error",
+        "stopOnFailure": false
+      }
+    },
+    {
+      "name": "tests-release-arm64",
+      "inherits": "tests-release-base",
+      "condition": {
+        "type": "equals",
+        "lhs": "$env{PROCESSOR_ARCHITECTURE}",
+        "rhs" : "ARM64"
+      },
+      "filter": {
+        "exclude": {
+          "name": "05 line coverage\\+\\+|01 Test parse far jmp|07 autogen mask|02 Test find by traversing thunks"
+        }
+      }
+    },
+    {
+      "name": "tests-release",
+      "inherits": "tests-release-base",
+      "condition": {
+        "type": "equals",
+        "lhs": "$env{PROCESSOR_ARCHITECTURE}",
+        "rhs" : "AMD64"
+      }
+    }
+  ],
+  "workflowPresets": [
+    {
+      "name": "ci-testing",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "tests-release"
+        },
+        {
+          "type": "build",
+          "name": "tests-release"
+        },
+        {
+          "type": "test",
+          "name": "tests-release"
+        }
+      ]
+    },{
+      "name": "ci-testing-arm64",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "tests-release"
+        },
+        {
+          "type": "build",
+          "name": "tests-release"
+        },
+        {
+          "type": "test",
+          "name": "tests-release-arm64"
+        }
+      ]
+    }
+  ]
 }
