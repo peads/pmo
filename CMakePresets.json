@@ -85,7 +85,17 @@
         "CMAKE_CXX_FLAGS": "-m64 -march=native -flto=auto -O3 -flto=auto -fomit-frame-pointer -ffunction-sections -fdata-sections -g0 -fipa-icf -Wl,--gc-sections -Wl,-s",
         "CMAKE_C_FLAGS": "-m64 -march=native -flto=auto -O3 -flto=auto -fomit-frame-pointer -ffunction-sections -fdata-sections -g0 -fipa-icf -Wl,--gc-sections -Wl,-s"
       }
-    }],
+    },
+    {
+      "name": "tests-debug-cov-obr",
+      "displayName": "tests-debug-cov-obr",
+      "description": "Compile tests for Windows x64 using Ninja and clang-cl with OBR tests",
+      "inherits": "tests-debug-cov",
+      "cacheVariables": {
+        "TEST_OBR": true
+      }
+    }
+  ],
   "buildPresets": [
     {
       "name": "tests-release-obr",
@@ -100,7 +110,45 @@
       "configurePreset": "tests-debug-cov"
     },
     {
+      "name": "tests-debug-cov-obr",
+      "configurePreset": "tests-debug-cov-obr"
+    },
+    {
       "name": "experimental-gcc",
       "configurePreset": "experimental-gcc"
-    }]
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "tests-debug-cov",
+      "configurePreset": "tests-debug-cov",
+      "description": "Run the Catch2 test suite via CTest",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error",
+        "stopOnFailure": false
+      }
+    }
+  ],
+  "workflowPresets": [
+    {
+      "name": "ci-testing",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "tests-debug-cov"
+        },
+        {
+          "type": "build",
+          "name": "tests-debug-cov"
+        },
+        {
+          "type": "test",
+          "name": "tests-debug-cov"
+        }
+      ]
+    }
+  ]
 }

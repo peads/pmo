@@ -44,7 +44,7 @@ target_include_directories(${TARGET} PUBLIC
         "${CMAKE_SOURCE_DIR}/examples"
 )
 
-catch_discover_tests(${TARGET} DISCOVERY_MODE PRE_TEST)
+catch_discover_tests(${TARGET} DISCOVERY_MODE PRE_TEST EXTRA_ARGS "--order lex")
 
 if(TEST_OBR)
     target_compile_definitions(${TARGET} PRIVATE "TEST_OBR=${TEST_OBR}")
