@@ -120,7 +120,8 @@
   ],
   "testPresets": [
     {
-      "name": "tests-debug-cov",
+      "name": "tests-debug-cov-base",
+      "hidden": true,
       "configurePreset": "tests-debug-cov",
       "description": "Run the Catch2 test suite via CTest",
       "output": {
@@ -129,6 +130,29 @@
       "execution": {
         "noTestsAction": "error",
         "stopOnFailure": false
+      }
+    },
+    {
+      "name": "tests-debug-cov-arm64",
+      "inherits": "tests-debug-cov-base",
+      "condition": {
+        "type": "equals",
+        "lhs": "$env{PROCESSOR_ARCHITECTURE}",
+        "rhs" : "ARM64"
+      },
+      "filter": {
+        "exclude": {
+          "name": "05 line coverage\\+\\+"
+        }
+      }
+    },
+    {
+      "name": "tests-debug-cov",
+      "inherits": "tests-debug-cov-base",
+      "condition": {
+        "type": "equals",
+        "lhs": "$env{PROCESSOR_ARCHITECTURE}",
+        "rhs" : "AMD64"
       }
     }
   ],
@@ -147,6 +171,22 @@
         {
           "type": "test",
           "name": "tests-debug-cov"
+        }
+      ]
+    },{
+      "name": "ci-testing-arm64",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "tests-debug-cov"
+        },
+        {
+          "type": "build",
+          "name": "tests-debug-cov"
+        },
+        {
+          "type": "test",
+          "name": "tests-debug-cov-arm64"
         }
       ]
     }

@@ -24,7 +24,13 @@ jobs:
             cpp_compiler: clang-cl
 
     steps:
-      - uses: actions/checkout@v4
+      - name: "Checkout code"
+        uses: actions/checkout@v4
       - name: "CMake CI Testing Workflow"
+        if: runner.arch == 'X64'
         run: cmake --workflow --preset ci-testing
+        working-directory: ${{ github.workspace }}
+      - name: "CMake CI Testing Workflow - arm64"
+        if: runner.arch == 'ARM64'
+        run: cmake --workflow --preset ci-testing-arm64
         working-directory: ${{ github.workspace }}
