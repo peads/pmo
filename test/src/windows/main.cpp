@@ -130,14 +130,14 @@ TEST_CASE("00a more raw search testing", "[PMO]")
     const std::filesystem::path path{buf};
     const std::string name = path.filename().string();
     const auto imports = PMO::getImports();
-
+#ifdef IS_DEBUG
     uintptr_t addrs[2];
     auto addr = idpAddr;
     PMO::findNamedFunction(addr, &addrs[0]);
 
     addr = crdpAddr;
     PMO::findNamedFunction(addr, &addrs[1]);
-
+#endif
     size_t cnt = 0;
     for (auto &pattern : debuggerPatterns)
     {
@@ -199,17 +199,14 @@ TEST_CASE("00 raw search testing", "[PMO]")
 #ifdef IS_DEBUG
     if (!foundAtLeastOne)
     {
-        // for (const auto &e : debuggerPatterns)
-        // {
-            std::cout << "Searched for:\n";
-            for (size_t i = 0; i < debuggerPatterns[0].patternLen; ++i)
-                std::cout << std::format("{:02X} ", debuggerPatterns[0].pattern.str[i]);
-            std::cout << "\nShould have matched:\n";
+        std::cout << "Searched for:\n";
+        for (size_t i = 0; i < debuggerPatterns[0].patternLen; ++i)
+            std::cout << std::format("{:02X} ", debuggerPatterns[0].pattern.str[i]);
+        std::cout << "\nShould have matched:\n";
         PMO::PointerUnion failPu{.address = *reinterpret_cast<uintptr_t*>(idp)};
         for (size_t i = 0; i < debuggerPatterns[0].patternLen; ++i)
             std::cout << std::format("{:02X} ", failPu.str[i]);
         std::cout << std::endl;
-        // }
     }
 #endif
     REQUIRE(foundAtLeastOne);
