@@ -133,8 +133,21 @@
       }
     },
     {
-      "name": "tests-debug-cov-arm64",
-      "inherits": "tests-debug-cov-base",
+      "name": "tests-release-base",
+      "hidden": true,
+      "configurePreset": "tests-release",
+      "description": "Run the Catch2 test suite via CTest",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error",
+        "stopOnFailure": false
+      }
+    },
+    {
+      "name": "tests-release-arm64",
+      "inherits": "tests-release-base",
       "condition": {
         "type": "equals",
         "lhs": "$env{PROCESSOR_ARCHITECTURE}",
@@ -147,8 +160,8 @@
       }
     },
     {
-      "name": "tests-debug-cov",
-      "inherits": "tests-debug-cov-base",
+      "name": "tests-release",
+      "inherits": "tests-release-base",
       "condition": {
         "type": "equals",
         "lhs": "$env{PROCESSOR_ARCHITECTURE}",
@@ -162,15 +175,15 @@
       "steps": [
         {
           "type": "configure",
-          "name": "tests-debug-cov"
+          "name": "tests-release"
         },
         {
           "type": "build",
-          "name": "tests-debug-cov"
+          "name": "tests-release"
         },
         {
           "type": "test",
-          "name": "tests-debug-cov"
+          "name": "tests-release"
         }
       ]
     },{
@@ -178,15 +191,15 @@
       "steps": [
         {
           "type": "configure",
-          "name": "tests-debug-cov"
+          "name": "tests-release"
         },
         {
           "type": "build",
-          "name": "tests-debug-cov"
+          "name": "tests-release"
         },
         {
           "type": "test",
-          "name": "tests-debug-cov-arm64"
+          "name": "tests-release-arm64"
         }
       ]
     }
