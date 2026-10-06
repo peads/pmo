@@ -176,6 +176,22 @@ TEST_CASE("00 raw search testing", "[PMO]")
                                         info.SizeOfImage,
                                         debuggerPatterns[0]);
     }
+#ifdef IS_DEBUG
+    if (!foundAtLeastOne)
+    {
+        // for (const auto &e : debuggerPatterns)
+        // {
+            std::cout << "Searched for:\n";
+            for (size_t i = 0; i < debuggerPatterns[0].patternLen; ++i)
+                std::cout << std::format("{:02X} ", debuggerPatterns[0].pattern.str[i]);
+            std::cout << "\nShould have matched:\n";
+        PMO::PointerUnion failPu{.address = *reinterpret_cast<uintptr_t*>(idp)};
+        for (size_t i = 0; i < debuggerPatterns[0].patternLen; ++i)
+            std::cout << std::format("{:02X} ", failPu.str[i]);
+        std::cout << std::endl;
+        // }
+    }
+#endif
     REQUIRE(foundAtLeastOne);
     for (unsigned long long f : debuggerPatterns[0])
     {
