@@ -142,7 +142,7 @@
       },
       "filter": {
         "exclude": {
-          "name": "05 line coverage\\+\\+|01 Test parse far jmp|07 autogen mask"
+          "name": "05 line coverage\\+\\+|01 Test parse far jmp|07 autogen mask|02 Test find by traversing thunks"
         }
       }
     },

@@ -228,6 +228,7 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
 
 }
 
+// TODO: figure out why this hangs on github's hosted arm64 instance
 TEST_CASE("02 Test find by traversing thunks", "[PMO]")
 {
     reset();
@@ -259,6 +260,7 @@ TEST_CASE("02 Test find by traversing thunks", "[PMO]")
     REQUIRE(fn2() == fn1());
 }
 
+// TODO: create equivalent version for arm64
 TEST_CASE("01 Test parse far jmp", "[PMO]")
 {
     reset();
