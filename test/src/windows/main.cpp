@@ -131,6 +131,13 @@ TEST_CASE("00a more raw search testing", "[PMO]")
     const std::string name = path.filename().string();
     const auto imports = PMO::getImports();
 
+    uintptr_t addrs[2];
+    auto addr = idpAddr;
+    PMO::findNamedFunction(addr, &addrs[0]);
+
+    addr = crdpAddr;
+    PMO::findNamedFunction(addr, &addrs[1]);
+
     size_t cnt = 0;
     for (auto &pattern : debuggerPatterns)
     {
@@ -145,6 +152,19 @@ TEST_CASE("00a more raw search testing", "[PMO]")
                                             info.SizeOfImage,
                                             pattern);
         }
+#ifdef IS_DEBUG
+        if (!foundAtLeastOne)
+        {
+            std::cout << "Searched for:\n";
+            for (size_t i = 0; i < pattern.patternLen; ++i)
+                std::cout << std::format("{:02X} ", pattern.pattern.str[i]);
+            std::cout << "\nShould have matched:\n";
+            PMO::PointerUnion failPu{.address = *reinterpret_cast<uintptr_t*>(addrs[cnt])};
+            for (size_t i = 0; i < pattern.patternLen; ++i)
+                std::cout << std::format("{:02X} ", failPu.str[i]);
+            std::cout << std::endl;
+        }
+#endif
         REQUIRE(foundAtLeastOne);
         REQUIRE(pattern.size() >= expected[cnt++]);
     }
