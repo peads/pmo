@@ -99,23 +99,28 @@
   "buildPresets": [
     {
       "name": "tests-release-obr",
-      "configurePreset": "tests-release-obr"
+      "configurePreset": "tests-release-obr",
+      "jobs": 0
     },
     {
       "name": "tests-release",
-      "configurePreset": "tests-release"
+      "configurePreset": "tests-release",
+      "jobs": 0
     },
     {
       "name": "tests-debug-cov",
-      "configurePreset": "tests-debug-cov"
+      "configurePreset": "tests-debug-cov",
+      "jobs": 0
     },
     {
       "name": "tests-debug-cov-obr",
-      "configurePreset": "tests-debug-cov-obr"
+      "configurePreset": "tests-debug-cov-obr",
+      "jobs": 0
     },
     {
       "name": "experimental-gcc",
-      "configurePreset": "experimental-gcc"
+      "configurePreset": "experimental-gcc",
+      "jobs": 0
     }
   ],
   "testPresets": [
