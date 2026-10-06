@@ -195,13 +195,7 @@ namespace PMO
     inline bool findPatterns(const uintptr_t addr, size_t len,
                              Pattern &searchStruct,
                              const bool stopOne = false,
-                             const searchFunc search =
-#if defined(__aarch64__) || defined(_M_ARM64)
-                             searchBytewise
-#else
-                             searchChunked
-#endif
-                             ) noexcept
+                             const searchFunc search = searchChunked) noexcept
     {
         if (!(addr && len))
             return false;
