@@ -140,8 +140,8 @@ TEST_CASE("00a more raw search testing", "[PMO]")
         {
             auto module = PMO::getModule(it.name.c_str());
             MODULEINFO info = PMO::getModuleInfo(module);
-            foundAtLeastOne |= findPatterns(reinterpret_cast<uintptr_t>(info.
-                                                lpBaseOfDll),
+            PMO::PointerUnion pu{info.lpBaseOfDll};
+            foundAtLeastOne |= findPatterns(pu.address,
                                             info.SizeOfImage,
                                             pattern);
         }
@@ -161,8 +161,8 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
     auto module = PMO::getModule("KERNELBASE.dll");
     MODULEINFO info = PMO::getModuleInfo(module);
-    REQUIRE(PMO::findPatterns(reinterpret_cast<uintptr_t>(info.lpBaseOfDll), info.
-                SizeOfImage, debuggerPatterns[0]));
+    PMO::PointerUnion pu{info.lpBaseOfDll};
+    REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]));
     REQUIRE(reinterpret_cast<int(*)()>(debuggerPatterns[0].back().address)() == IsDebuggerPresent(
             ));
     auto imports = PMO::getImports();
@@ -171,8 +171,8 @@ TEST_CASE("00 raw search testing", "[PMO]")
     {
         module = PMO::getModule(it.name.c_str());
         info = PMO::getModuleInfo(module);
-        foundAtLeastOne |= findPatterns(reinterpret_cast<uintptr_t>(info.
-                                            lpBaseOfDll),
+        PMO::PointerUnion tpu{info.lpBaseOfDll};
+        foundAtLeastOne |= findPatterns(tpu.address,
                                         info.SizeOfImage,
                                         debuggerPatterns[0]);
     }
