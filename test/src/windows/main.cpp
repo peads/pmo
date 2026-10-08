@@ -103,7 +103,7 @@ TEST_CASE("05 line coverage++", "[PMO]")
         imTree.insert_or_assign(im, str);
         imSwO.insert(im);
     }
-    uintptr_t addr;
+    uintptr_t addr = 0;
     REQUIRE((!PMO::findNamedFunction(0, &addr) && !addr));
     auto a = *puSet.begin();
     PMO::PointerUnion b{.address = a.address};
@@ -197,23 +197,12 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
 
     intBiFunction crdp = nullptr;
     PMO::findNamedFunction(crdpAddr, &crdp);
-
     PMO::PointerUnion pu{ (void*)crdp };
-    for (size_t i = 0; i < debuggerPatterns[1].patternLen; ++i) {
-        std::cout << std::format("{:02X} ", pu.cptr[i]);
-    }
-    std::cout << std::endl;
 
     REQUIRE(disableDebuggerChecking());
 
-    for (size_t i = 0; i < debuggerPatterns[1].patternLen; ++i) {
-        std::cout << std::format("{:02X} ", pu.cptr[i]);
-    }
-    std::cout << std::endl;
-
-    auto ret = IsDebuggerPresent();
     REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 1));
-    REQUIRE((ret == bl[1] && !bl[1]));
+    REQUIRE((IsDebuggerPresent() == bl[1] && !bl[1]));
 
     PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
     PMO::Pattern b{CRDP_CODE, CRDP_MASK, CRDP_CODE};
