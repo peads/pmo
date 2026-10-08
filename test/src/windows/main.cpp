@@ -157,9 +157,6 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
     SECTION("Final Boss: Find the patterns knowing only that they reside in KERNELBASE.dll")
     {
-#if defined(__aarch64__) || defined(_M_ARM64)
-        SKIP("https://github.com/peads/pmo/issues/34");
-#endif
         reset();
         auto foo = PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]);
         REQUIRE(foo);
