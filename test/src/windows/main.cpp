@@ -124,9 +124,6 @@ TEST_CASE("05 line coverage++", "[PMO]")
 
 TEST_CASE("00a more raw search testing", "[PMO]")
 {
-#if defined(__aarch64__) || defined(_M_ARM64)
-    SKIP("Ticket (https://github.com/peads/pmo/issues/34) created to fix the underlying problem, s.t. this test will be available on arm 64");
-#endif
     reset();
 
     const std::wstring buf = PMO::getModuleFileName(CURRENT_MODULE);
@@ -302,6 +299,9 @@ TEST_CASE("02 Test find by traversing thunks", "[PMO]")
 // TODO: create equivalent version for arm64
 TEST_CASE("01 Test parse far jmp", "[PMO]")
 {
+#if defined(__aarch64__) || defined(_M_ARM64)
+    SKIP("Not yet implemented for this architecture.");
+#endif
     reset();
 
     auto addr = idpAddr;
@@ -378,6 +378,9 @@ TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[P
 
 TEST_CASE("07 autogen mask", "[PMO]")
 {
+#if defined(__aarch64__) || defined(_M_ARM64)
+    SKIP("Not yet implemented for this architecture.");
+#endif
     reset();
 
     auto crdpMask = PMO::Pattern::autoGenerateMask(CRDP_PATTERN);

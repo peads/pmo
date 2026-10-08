@@ -21,6 +21,20 @@
 #include "types/pattern/Pattern.hpp"
 #include "parse/ParseJmp.hpp"
 
+#if defined(__clang__)
+    #define PRAGMA_IVDEP _Pragma("clang loop vectorize(enable) interleave(enable)")
+    #define PRAGMA_UNROLL(n) _Pragma("clang loop unroll_count(n)")
+#elif defined(__GNUC__) || defined(__GNUG__)
+    #define PRAGMA_IVDEP _Pragma("GCC ivdep")
+    #define PRAGMA_UNROLL(n) _Pragma("GCC unroll n")
+#elif defined(_MSC_VER) // MSVC
+    #define PRAGMA_IVDEP _Pragma("loop(ivdep)")
+    #define PRAGMA_UNROLL(n) // MSVC doesn't have a direct loop unroll factor pragma
+#else
+    #define PRAGMA_IVDEP
+    #define PRAGMA_UNROLL(n)
+#endif
+
 namespace PMO
 {
 #if defined(__aarch64__) || defined(_M_ARM64)
@@ -149,13 +163,16 @@ namespace PMO
         auto pat = searchStruct.pattern.u64ptr;
 
         for (auto pmsk = searchStruct.pmsk().data(),
-            bmsk = searchStruct.bmsk().data();
+            bmsk = searchStruct.bmsk().data(); len - 7 > 0 &&
             pat < theEnd.u64ptr; ++pmsk, ++bmsk, ++pat)
         {
             // const auto valMasked = *baseAddr & *pmsk | *bmsk;
             // const auto patMasked = *pat & *pmsk | *bmsk;
             if ((notHit = (*baseAddr ^ *pat) & (~*bmsk & *pmsk)))
+            {
+                --len;
                 break;
+            }
             ++baseAddr;
         }
 
@@ -163,9 +180,11 @@ namespace PMO
         {
             result = true;
             searchStruct.push_back(pointer.address + offset);
-            pointer.u64ptr = baseAddr;
+            // pointer.u64ptr = baseAddr;
+            pointer.u8ptr += searchStruct.patternLen;
+            len -= searchStruct.patternLen;
         }
-        ++pointer.u64ptr;
+        ++pointer.u8ptr;
         return result;
     }
 
