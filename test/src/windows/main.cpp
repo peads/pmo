@@ -215,12 +215,8 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
 
 }
 
-// TODO: figure out why this hangs on github's hosted arm64 instance
 TEST_CASE("02 Test find by traversing thunks", "[PMO]")
 {
-#if defined(__aarch64__) || defined(_M_ARM64)
-    SKIP("https://github.com/peads/pmo/issues/34");
-#endif
     reset();
 
     intProducer fn = nullptr;
@@ -232,11 +228,12 @@ TEST_CASE("02 Test find by traversing thunks", "[PMO]")
 
     for (auto imports = PMO::getImports(); auto &im : imports)
     {
-        for (auto &gn : im.thunks | std::views::values)
+        for (auto &[k, v] : im.thunks)
         {
+            const auto gn = !v ? k : v;
             if (gn == addr)
             {
-                findPatterns(gn, debuggerPatterns[0].patternLen, debuggerPatterns[0]);
+                REQUIRE(findPatterns(gn, debuggerPatterns[0].patternLen, debuggerPatterns[0]));
                 break;
             }
         }
@@ -245,6 +242,7 @@ TEST_CASE("02 Test find by traversing thunks", "[PMO]")
     }
     intProducer fn1 = &IsDebuggerPresent;
     REQUIRE(fn() == fn1());
+    REQUIRE(!debuggerPatterns[0].empty());
     intProducer fn2 = reinterpret_cast<intProducer>(debuggerPatterns[0].back().address);
     REQUIRE(fn2() == fn1());
 }
