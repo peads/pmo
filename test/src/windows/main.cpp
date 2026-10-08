@@ -27,6 +27,9 @@
 
 #define CATCH_CONFIG_MAIN // provides main(); this line is required in only one .cpp file
 
+typedef int (*intProducer)();
+typedef int (*intBiFunction)(void*,int*);
+
 template <size_t N>
 static uintptr_t parseJmpFar(uint8_t (&code)[N], const uintptr_t rip)
 {
@@ -122,9 +125,6 @@ TEST_CASE("05 line coverage++", "[PMO]")
     CHECK(*(uint32_t*)strs[2] == *(uint32_t*)str);
 }
 
-typedef int (*intProducer)();
-typedef int (*intBiFunction)(void*,int*);
-
 TEST_CASE("00 raw search testing", "[PMO]")
 {
     reset();
@@ -155,7 +155,7 @@ TEST_CASE("00 raw search testing", "[PMO]")
     }
     reset();
 
-    SECTION("Final Boss: Find the patterns knowing only that it resides in KERNELBASE.dll")
+    SECTION("Final Boss: Find the patterns knowing only that they reside in KERNELBASE.dll")
     {
         REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]));
         REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().address)()
@@ -213,31 +213,30 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
 TEST_CASE("02 Test find by traversing thunks", "[PMO]")
 {
     reset();
-    auto addr = idpAddr;
-    int (*fn)() = nullptr;
-    PMO::findNamedFunction(addr, &fn);
+
+    intProducer fn = nullptr;
+    PMO::findNamedFunction(idpAddr, &fn);
+    auto addr = reinterpret_cast<uintptr_t>(fn);
     REQUIRE((!!fn && fn() == IsDebuggerPresent()));
     auto module = CURRENT_MODULE;
     REQUIRE(module);
 
     for (auto imports = PMO::getImports(); auto &im : imports)
     {
-        for (const auto &gn : im.thunks | std::views::values)
+        for (auto &gn : im.thunks | std::views::values)
         {
             if (gn == addr)
             {
-                findPatterns(reinterpret_cast<uintptr_t>(*reinterpret_cast<void**>(gn)),
-                             debuggerPatterns[0].patternLen,
-                             debuggerPatterns[0]);
+                findPatterns(gn, debuggerPatterns[0].patternLen, debuggerPatterns[0]);
                 break;
             }
         }
         if (!debuggerPatterns[0].empty())
             break;
     }
-    int (*fn1)() = &IsDebuggerPresent;
+    intProducer fn1 = &IsDebuggerPresent;
     REQUIRE(fn() == fn1());
-    int (*fn2)() = *reinterpret_cast<int(*)()>(debuggerPatterns[0].back().address);
+    intProducer fn2 = reinterpret_cast<intProducer>(debuggerPatterns[0].back().address);
     REQUIRE(fn2() == fn1());
 }
 
@@ -249,22 +248,18 @@ TEST_CASE("01 Test parse far jmp", "[PMO]")
 #endif
     reset();
 
-    auto addr = idpAddr;
-    auto out = parseJmpFar(*reinterpret_cast<uint8_t(*)[8]>(&IsDebuggerPresent), addr);
-    int (*fn)() = nullptr;
-    auto outTest = PMO::findNamedFunction(addr, &fn);
+    auto out = parseJmpFar(*reinterpret_cast<uint8_t(*)[8]>(&IsDebuggerPresent), idpAddr);
+    intProducer fn = nullptr;
+    auto outTest = PMO::findNamedFunction(idpAddr, &fn);
 
-    CHECK((addr - idpAddr - 7) == outTest);
-    CHECK(addr == out);
+    CHECK(out == outTest + 7 + idpAddr);
     REQUIRE(fn() == IsDebuggerPresent());
 
-    addr = crdpAddr;
-    out = parseJmpFar(*reinterpret_cast<uint8_t(*)[8]>(&CheckRemoteDebuggerPresent), addr);
-    int (*fn1)(HANDLE, int *) = nullptr;
-    outTest = PMO::findNamedFunction(addr, &fn1);
+    out = parseJmpFar(*reinterpret_cast<uint8_t(*)[8]>(&CheckRemoteDebuggerPresent), crdpAddr);
+    intBiFunction fn1 = nullptr;
+    outTest = PMO::findNamedFunction(crdpAddr, &fn1);
 
-    CHECK((addr - crdpAddr - 7) == outTest);
-    CHECK(addr == out);
+    CHECK(out == outTest + 7 + crdpAddr);
     int b[2];
     REQUIRE(fn1(GetCurrentProcess(), b) == CheckRemoteDebuggerPresent(GetCurrentProcess(), b + 1));
     REQUIRE(b[0] == b[1]);
