@@ -89,7 +89,7 @@ namespace PMO
     template <typename T, typename =
               std::enable_if_t<std::is_pointer_v<T> // is ptr to *non-member* fn ptr
                   && std::is_function_v<std::remove_pointer_t<std::remove_pointer_t<T>>>>>
-        inline uintptr_t findNamedFunction(uintptr_t& addr, T out) noexcept
+        inline uintptr_t findNamedFunction(uintptr_t addr, T out) noexcept
     {
         uintptr_t addr1;
         const uintptr_t result = findNamedFunction(addr, &addr1);
