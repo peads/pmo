@@ -94,7 +94,12 @@ namespace PMO
         {
             auint64_t e{*(uint64_t*)&pattern[i]};
             e.i = generateTypedMask(e.i);
+
+#if (defined(__aarch64__) || defined(_M_ARM64))
+            result.push_back(e);
+#else
             result.push_front(e);
+#endif
         }
         // auto val = ((uint8_t*)&result.back().i);
         // for (size_t j = plen; j < i; ++j)
