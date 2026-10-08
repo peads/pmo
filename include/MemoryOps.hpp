@@ -168,7 +168,7 @@ namespace PMO
         {
             // const auto valMasked = *baseAddr & *pmsk | *bmsk;
             // const auto patMasked = *pat & *pmsk | *bmsk;
-            if ((notHit = (*baseAddr ^ *pat) & (~*bmsk & *pmsk)))
+            if ((notHit = (*baseAddr ^ *pat) & (~bmsk->i & pmsk->i)))
             {
                 --len;
                 break;

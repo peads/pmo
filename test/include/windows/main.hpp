@@ -19,14 +19,6 @@
 #ifndef WMAIN_HPP
 #define WMAIN_HPP
 #include "windows/MemoryOps.hpp"
-#include "windows/helpers/debug/debug.hpp"
-#ifndef DBGPATS
-#define DBGPATS
-static inline PMO::Pattern debuggerPatterns[] = {
-    PMO::Pattern{IDP_PATTERN, IDP_MASK, IDP_CODE},
-    PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
-};
-#endif
 #ifdef TEST_OBR
 #include "../../../examples/windows/games/mods/qswprime/qswprime.hpp"
 static inline PMO::Pattern swPattern{SLEEP_WAIT_PATTERN, SLEEP_WAIT_MASK, SLEEP_WAIT_CODE};

@@ -18,3 +18,4 @@ junk/
 *.lib
 cmake_install.cmake
 *.exp
+remote-build

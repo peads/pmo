@@ -18,32 +18,64 @@
 #include <cstdint>
 #include "debug.hpp"
 #include "windows/MemoryOps.hpp"
-#ifndef DBGPATS
-#define DBGPATS
-static PMO::Pattern debuggerPatterns[] = {
-    PMO::Pattern{IDP_PATTERN, IDP_MASK, IDP_CODE},
-    PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
-};
-#endif
+
+inline void printDebugger() noexcept
+{
+    intProducer idp = nullptr;
+    PMO::findNamedFunction(reinterpret_cast<uintptr_t>(&IsDebuggerPresent), &idp);
+    intBiFunction crdp = nullptr;
+    PMO::findNamedFunction(reinterpret_cast<uintptr_t>(&CheckRemoteDebuggerPresent), &crdp);
+    for (auto ptr : {reinterpret_cast<uint8_t*>(idp), reinterpret_cast<uint8_t*>(crdp)})
+    {
+        for (; ptr && *ptr != 0xCC; ++ptr)
+            std::cout << std::format("{:02X}", *ptr);
+        std::cout << std::endl;
+    }
+    // std::cout /*<< std::endl << debuggerPatterns[0].mask.str */<< std::endl;
+    // for (const auto &e : debuggerPatterns[0].pmsk())
+    //     std::cout << std::format("{:016X} ", e.i);
+    // std::cout << std::endl;
+    // for (const auto &e : debuggerPatterns[0].bmsk())
+    //     std::cout << std::format("{:016X} ", e.i);
+    std::cout << std::endl << std::endl;
+}
 inline bool disableDebuggerChecking() noexcept
 {
-    int (*idp)() = nullptr;
-    auto addr = reinterpret_cast<uintptr_t>(&IsDebuggerPresent);
-    PMO::findNamedFunction(addr, &idp);
-    debuggerPatterns[0].push_back(reinterpret_cast<uintptr_t>(idp));
-    bool result = replaceCode(debuggerPatterns[0].back(), debuggerPatterns[0].code.str, debuggerPatterns[0].codeLen);
+    PMO::Pattern debuggerPatterns[] = {
+        PMO::Pattern{IDP_PATTERN, IDP_MASK, IDP_CODE},
+        PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
+    };
+    intProducer idp = nullptr;
+    PMO::findNamedFunction(reinterpret_cast<uintptr_t>(&IsDebuggerPresent), &idp);
+    const auto idpAddr = reinterpret_cast<uintptr_t>(idp);
+    debuggerPatterns[0].push_back(idpAddr);
+    const PMO::PointerUnion puI{.address = idpAddr};
+    bool result = replaceCode(puI,
+                              debuggerPatterns[0].code.str,
+                              debuggerPatterns[0].codeLen);
 
-    int (*crdp)(HANDLE, int *) = nullptr;
-    addr = reinterpret_cast<uintptr_t>(&CheckRemoteDebuggerPresent);
-    PMO::findNamedFunction(addr, &crdp);
-    debuggerPatterns[1].push_back(reinterpret_cast<uintptr_t>(crdp));
-    result &= replaceCode(debuggerPatterns[1].back(),debuggerPatterns[1].code.str, debuggerPatterns[1].codeLen);
+    intBiFunction crdp = nullptr;
+    PMO::findNamedFunction(reinterpret_cast<uintptr_t>(&CheckRemoteDebuggerPresent), &crdp);
+    const auto crdpAddr = reinterpret_cast<uintptr_t>(crdp);
+    const PMO::PointerUnion puC{.address = crdpAddr};
+    debuggerPatterns[1].push_back(crdpAddr);
+    result &= replaceCode(puC,
+                          debuggerPatterns[1].code.str,
+                          debuggerPatterns[1].codeLen);
 
     return result;
 }
 
 extern "C" {
-    __declspec(dllexport) int DllMain() noexcept {
+    __declspec(dllexport) int DllMain() noexcept
+    {
+#ifndef IS_DEBUG
         return disableDebuggerChecking();
+#else
+        printDebugger();
+        const auto result = disableDebuggerChecking();
+        printDebugger();
+        return result;
+#endif
     }
 }
