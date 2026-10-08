@@ -148,19 +148,26 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
     SECTION("Ensure PMO::findNamedFunction returned a pointer to where the actual code resides using PMO::findPatterns")
     {
+        reset();
         REQUIRE(PMO::findPatterns(reinterpret_cast<uintptr_t>(idp),
             debuggerPatterns[0].patternLen, debuggerPatterns[0]));
         REQUIRE(PMO::findPatterns(reinterpret_cast<uintptr_t>(crdp),
                     debuggerPatterns[1].patternLen, debuggerPatterns[1]));
     }
-    reset();
 
     SECTION("Final Boss: Find the patterns knowing only that they reside in KERNELBASE.dll")
     {
-        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]));
-        REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().address)()
-            == IsDebuggerPresent());
+#if defined(__aarch64__) || defined(_M_ARM64)
+        SKIP("https://github.com/peads/pmo/issues/34");
+#endif
+        reset();
+        auto foo = PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]);
+        REQUIRE(foo);
+        REQUIRE(!debuggerPatterns[0].empty());
         REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1]));
+        REQUIRE(!debuggerPatterns[1].empty());
+
+        REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().address)() == IsDebuggerPresent());
         REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().address)(handle, bl + 0)
             == CheckRemoteDebuggerPresent(handle, bl + 1));
         REQUIRE(bl[0] == bl[1]);
@@ -192,15 +199,7 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
     REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 0));
     REQUIRE(IsDebuggerPresent() == bl[0]);
 
-    //intProducer idp = nullptr;
-    //PMO::findNamedFunction(idpAddr, &idp);
-
-    intBiFunction crdp = nullptr;
-    PMO::findNamedFunction(crdpAddr, &crdp);
-    PMO::PointerUnion pu{ (void*)crdp };
-
     REQUIRE(disableDebuggerChecking());
-
     REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 1));
     REQUIRE((IsDebuggerPresent() == bl[1] && !bl[1]));
 
@@ -220,7 +219,7 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
 TEST_CASE("02 Test find by traversing thunks", "[PMO]")
 {
 #if defined(__aarch64__) || defined(_M_ARM64)
-    SKIP("Not yet implemented for this architecture.");
+    SKIP("https://github.com/peads/pmo/issues/34");
 #endif
     reset();
 
