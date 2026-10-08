@@ -172,9 +172,6 @@ TEST_CASE("00a more raw search testing", "[PMO]")
 
 TEST_CASE("00 raw search testing", "[PMO]")
 {
-#if defined(__aarch64__) || defined(_M_ARM64)
-    SKIP("Ticket (https://github.com/peads/pmo/issues/34) created to fix the underlying problem, s.t. this test will be available on arm 64");
-#endif
     reset();
     uintptr_t idp;
     const auto addr = idpAddr;
