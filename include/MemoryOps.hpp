@@ -109,15 +109,15 @@ namespace PMO
     *             stores the function pointer, and the VA is returned. The address result is parsed
     *             from bytes of the jmp stored at the given address [N.B. Only jmp \em far,
     *             \em absolute \em indirect (i.e. FF /5, and REX.W FF /5) is supported].
-    * @param[in,out] addr   Given address of thunk function; reused to store VA.
-    * @param[out] out       Pointer to storage for resultant function pointer, of inferred type,
+    * @param[in]    addr   Given address of thunk function; reused to store VA.
+    * @param[out]   out    Pointer to storage for resultant function pointer, of inferred type,
     *                         cast from VA.
-    * @return               RVA
+    * @return              RVA
     */
     template <typename T, typename =
               std::enable_if_t<std::is_pointer_v<T> // is ptr to *non-member* fn ptr
                   && std::is_function_v<std::remove_pointer_t<std::remove_pointer_t<T>>>>>
-    inline uintptr_t findNamedFunction(uintptr_t &addr, T out) noexcept
+    inline uintptr_t findNamedFunction(uintptr_t addr, T out) noexcept
     {
         const uintptr_t result = startParseJmp(addr);
         if (result)
@@ -129,7 +129,7 @@ namespace PMO
     }
 
     /**
-    * Same as above, but doesn't clobber first operand.
+    * Same as above, but out arg is uintptr_t.
     */
     inline uintptr_t findNamedFunction(uintptr_t addr, uintptr_t *out) noexcept
     {

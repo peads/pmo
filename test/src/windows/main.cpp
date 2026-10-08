@@ -122,101 +122,49 @@ TEST_CASE("05 line coverage++", "[PMO]")
     CHECK(*(uint32_t*)strs[2] == *(uint32_t*)str);
 }
 
-TEST_CASE("00a more raw search testing", "[PMO]")
-{
-    reset();
-
-    const std::wstring buf = PMO::getModuleFileName(CURRENT_MODULE);
-    const std::filesystem::path path{buf};
-    const std::string name = path.filename().string();
-    const auto imports = PMO::getImports();
-#ifdef IS_DEBUG
-    uintptr_t addrs[2];
-    auto addr = idpAddr;
-    PMO::findNamedFunction(addr, &addrs[0]);
-
-    addr = crdpAddr;
-    PMO::findNamedFunction(addr, &addrs[1]);
-#endif
-    size_t cnt = 0;
-    for (auto &pattern : debuggerPatterns)
-    {
-        static constexpr size_t expected[] = {1, 1};
-        bool foundAtLeastOne = false;
-        for (const auto &it : imports)
-        {
-            auto module = PMO::getModule(it.name.c_str());
-            MODULEINFO info = PMO::getModuleInfo(module);
-            PMO::PointerUnion pu{info.lpBaseOfDll};
-            foundAtLeastOne |= findPatterns(pu.address,
-                                            info.SizeOfImage,
-                                            pattern);
-        }
-#ifdef IS_DEBUG
-        if (!foundAtLeastOne)
-        {
-            std::cout << "Searched for:\n";
-            for (size_t i = 0; i < pattern.patternLen; ++i)
-                std::cout << std::format("{:02X} ", pattern.pattern.str[i]);
-            std::cout << "\nShould have matched:\n";
-            PMO::PointerUnion failPu{.address = *reinterpret_cast<uintptr_t*>(addrs[cnt])};
-            for (size_t i = 0; i < pattern.patternLen; ++i)
-                std::cout << std::format("{:02X} ", failPu.str[i]);
-            std::cout << std::endl;
-        }
-#endif
-        REQUIRE(foundAtLeastOne);
-        REQUIRE(pattern.size() >= expected[cnt++]);
-    }
-}
+typedef int (*intProducer)();
+typedef int (*intBiFunction)(void*,int*);
 
 TEST_CASE("00 raw search testing", "[PMO]")
 {
     reset();
-    uintptr_t idp;
-    const auto addr = idpAddr;
-    PMO::findNamedFunction(addr, &idp);
-    REQUIRE(PMO::findPatterns(*reinterpret_cast<uintptr_t*>(idp),
-                debuggerPatterns[0].patternLen, debuggerPatterns[0]));
-
+    intProducer idp;
+    intBiFunction crdp;
+    HANDLE handle = GetCurrentProcess();
+    int bl[2];
     auto module = PMO::getModule("KERNELBASE.dll");
     MODULEINFO info = PMO::getModuleInfo(module);
     PMO::PointerUnion pu{info.lpBaseOfDll};
-    REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]));
-    REQUIRE(reinterpret_cast<int(*)()>(debuggerPatterns[0].back().address)() == IsDebuggerPresent(
-            ));
-    auto imports = PMO::getImports();
-    bool foundAtLeastOne = false;
-    for (const auto &it : imports)
+
+    PMO::findNamedFunction(idpAddr, &idp);
+    PMO::findNamedFunction(crdpAddr, &crdp);
+
+    SECTION("Ensure PMO::findNamedFunction returns a functioning pointer")
     {
-        module = PMO::getModule(it.name.c_str());
-        info = PMO::getModuleInfo(module);
-        PMO::PointerUnion tpu{info.lpBaseOfDll};
-        foundAtLeastOne |= findPatterns(tpu.address,
-                                        info.SizeOfImage,
-                                        debuggerPatterns[0]);
+        REQUIRE(idp() == IsDebuggerPresent());
+        REQUIRE(crdp(handle, bl + 0) == CheckRemoteDebuggerPresent(handle, bl + 1));
+        REQUIRE(bl[0] == bl[1]);
     }
-#ifdef IS_DEBUG
-    if (!foundAtLeastOne)
+
+    SECTION("Ensure PMO::findNamedFunction returned a pointer to where the actual code resides using PMO::findPatterns")
     {
-        std::cout << "Searched for:\n";
-        for (size_t i = 0; i < debuggerPatterns[0].patternLen; ++i)
-            std::cout << std::format("{:02X} ", debuggerPatterns[0].pattern.str[i]);
-        std::cout << "\nShould have matched:\n";
-        PMO::PointerUnion failPu{.address = *reinterpret_cast<uintptr_t*>(idp)};
-        for (size_t i = 0; i < debuggerPatterns[0].patternLen; ++i)
-            std::cout << std::format("{:02X} ", failPu.str[i]);
-        std::cout << std::endl;
+        REQUIRE(PMO::findPatterns(reinterpret_cast<uintptr_t>(idp),
+            debuggerPatterns[0].patternLen, debuggerPatterns[0]));
+        REQUIRE(PMO::findPatterns(reinterpret_cast<uintptr_t>(crdp),
+                    debuggerPatterns[1].patternLen, debuggerPatterns[1]));
     }
-#endif
-    REQUIRE(foundAtLeastOne);
-    for (unsigned long long f : debuggerPatterns[0])
+    reset();
+
+    SECTION("Final Boss: Find the patterns knowing only that it resides in KERNELBASE.dll")
     {
-        auto fn = reinterpret_cast<int(*)()>(f);
-        REQUIRE(fn() == IsDebuggerPresent());
+        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]));
+        REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().address)()
+            == IsDebuggerPresent());
+        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1]));
+        REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().address)(handle, bl + 0)
+            == CheckRemoteDebuggerPresent(handle, bl + 1));
+        REQUIRE(bl[0] == bl[1]);
     }
-    REQUIRE((*reinterpret_cast<int(**)()>(idp))() == IsDebuggerPresent());
-    REQUIRE(reinterpret_cast<int(*)()>(addr)() == IsDebuggerPresent());
 }
 
 TEST_CASE("04 Test expected function name", "[PMO]")

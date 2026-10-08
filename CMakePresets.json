@@ -57,7 +57,8 @@
         "CMAKE_C_FLAGS": "/nologo /EHsc /clang:-m64 /clang:-O3 /clang:-march=native /WX- /Gy /clang:-flto=auto /clang:-fomit-frame-pointer",
         "CMAKE_CXX_FLAGS": "/nologo /EHsc /clang:-m64 /clang:-O3 /clang:-march=native /WX- /Gy /clang:-flto=auto /clang:-fomit-frame-pointer",
         "CMAKE_SHARED_LINKER_FLAGS": "/subsystem:console /OPT:REF /OPT:ICF=3 /LTCG /DEBUG:NONE /EMITPOGOPHASEINFO",
-        "CMAKE_EXE_LINKER_FLAGS": "/subsystem:console /OPT:REF /OPT:ICF=3 /LTCG /DEBUG:NONE /EMITPOGOPHASEINFO"
+        "CMAKE_EXE_LINKER_FLAGS": "/subsystem:console /OPT:REF /OPT:ICF=3 /LTCG /DEBUG:NONE /EMITPOGOPHASEINFO",
+        "IS_DEBUG": "ON"
       }
     },
     {
