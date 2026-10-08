@@ -28,8 +28,8 @@
 
 #define CATCH_CONFIG_MAIN // provides main(); this line is required in only one .cpp file
 inline PMO::Pattern debuggerPatterns[] = {
-    PMO::Pattern{IDP_PATTERN, /*IDP_MASK,*/ IDP_CODE},
-    PMO::Pattern{CRDP_PATTERN,/* CRDP_MASK,*/ CRDP_CODE},
+    PMO::Pattern{IDP_PATTERN, IDP_MASK, IDP_CODE},
+    PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
 };
 namespace
 {
@@ -218,8 +218,8 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
     REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 1));
     REQUIRE((IsDebuggerPresent() == bl[1] && !bl[1]));
 
-    PMO::Pattern a{IDP_CODE, /*IDP_MASK, */IDP_CODE};
-    PMO::Pattern b{CRDP_CODE,/* CRDP_MASK,*/ CRDP_CODE};
+    PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
+    PMO::Pattern b{CRDP_CODE, CRDP_MASK, CRDP_CODE};
 
     auto module = PMO::getModule("KERNELBASE.dll");
     auto [lpBaseOfDll, SizeOfImage, EntryPoint] =
