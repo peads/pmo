@@ -21,6 +21,20 @@
 #include "types/pattern/Pattern.hpp"
 #include "parse/ParseJmp.hpp"
 
+#if defined(__clang__)
+    #define PRAGMA_IVDEP _Pragma("clang loop vectorize(enable) interleave(enable)")
+    #define PRAGMA_UNROLL(n) _Pragma("clang loop unroll_count(n)")
+#elif defined(__GNUC__) || defined(__GNUG__)
+    #define PRAGMA_IVDEP _Pragma("GCC ivdep")
+    #define PRAGMA_UNROLL(n) _Pragma("GCC unroll n")
+#elif defined(_MSC_VER) // MSVC
+    #define PRAGMA_IVDEP _Pragma("loop(ivdep)")
+    #define PRAGMA_UNROLL(n) // MSVC doesn't have a direct loop unroll factor pragma
+#else
+    #define PRAGMA_IVDEP
+    #define PRAGMA_UNROLL(n)
+#endif
+
 namespace PMO
 {
 #if defined(__aarch64__) || defined(_M_ARM64)
@@ -75,7 +89,7 @@ namespace PMO
     template <typename T, typename =
               std::enable_if_t<std::is_pointer_v<T> // is ptr to *non-member* fn ptr
                   && std::is_function_v<std::remove_pointer_t<std::remove_pointer_t<T>>>>>
-        inline uintptr_t findNamedFunction(uintptr_t& addr, T out) noexcept
+        inline uintptr_t findNamedFunction(uintptr_t addr, T out) noexcept
     {
         uintptr_t addr1;
         const uintptr_t result = findNamedFunction(addr, &addr1);
@@ -95,15 +109,15 @@ namespace PMO
     *             stores the function pointer, and the VA is returned. The address result is parsed
     *             from bytes of the jmp stored at the given address [N.B. Only jmp \em far,
     *             \em absolute \em indirect (i.e. FF /5, and REX.W FF /5) is supported].
-    * @param[in,out] addr   Given address of thunk function; reused to store VA.
-    * @param[out] out       Pointer to storage for resultant function pointer, of inferred type,
+    * @param[in]    addr   Given address of thunk function; reused to store VA.
+    * @param[out]   out    Pointer to storage for resultant function pointer, of inferred type,
     *                         cast from VA.
-    * @return               RVA
+    * @return              RVA
     */
     template <typename T, typename =
               std::enable_if_t<std::is_pointer_v<T> // is ptr to *non-member* fn ptr
                   && std::is_function_v<std::remove_pointer_t<std::remove_pointer_t<T>>>>>
-    inline uintptr_t findNamedFunction(uintptr_t &addr, T out) noexcept
+    inline uintptr_t findNamedFunction(uintptr_t addr, T out) noexcept
     {
         const uintptr_t result = startParseJmp(addr);
         if (result)
@@ -115,7 +129,7 @@ namespace PMO
     }
 
     /**
-    * Same as above, but doesn't clobber first operand.
+    * Same as above, but out arg is uintptr_t.
     */
     inline uintptr_t findNamedFunction(uintptr_t addr, uintptr_t *out) noexcept
     {
@@ -149,13 +163,16 @@ namespace PMO
         auto pat = searchStruct.pattern.u64ptr;
 
         for (auto pmsk = searchStruct.pmsk().data(),
-            bmsk = searchStruct.bmsk().data();
+            bmsk = searchStruct.bmsk().data(); len - 7 > 0 &&
             pat < theEnd.u64ptr; ++pmsk, ++bmsk, ++pat)
         {
             // const auto valMasked = *baseAddr & *pmsk | *bmsk;
             // const auto patMasked = *pat & *pmsk | *bmsk;
             if ((notHit = (*baseAddr ^ *pat) & (~*bmsk & *pmsk)))
+            {
+                --len;
                 break;
+            }
             ++baseAddr;
         }
 
@@ -163,9 +180,11 @@ namespace PMO
         {
             result = true;
             searchStruct.push_back(pointer.address + offset);
-            pointer.u64ptr = baseAddr;
+            // pointer.u64ptr = baseAddr;
+            pointer.u8ptr += searchStruct.patternLen;
+            len -= searchStruct.patternLen;
         }
-        ++pointer.u64ptr;
+        ++pointer.u8ptr;
         return result;
     }
 
