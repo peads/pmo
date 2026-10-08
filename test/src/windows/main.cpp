@@ -227,9 +227,9 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
     PMO::PointerUnion pu{lpBaseOfDll};
 
     findPatterns(pu.address, SizeOfImage, a);
-    REQUIRE(!a.empty());
     findPatterns(pu.address, SizeOfImage, b);
     REQUIRE(!b.empty());
+    REQUIRE(!a.empty());
 }
 
 TEST_CASE("02 Test find by traversing thunks", "[PMO]")

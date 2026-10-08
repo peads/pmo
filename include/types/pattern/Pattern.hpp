@@ -20,18 +20,19 @@
 #include "types/pattern/PatternImpl.hpp"
 #include "parse/ParseJmp.hpp"
 #include <cstring>
+#include <deque>
 
 namespace PMO
 {
     template <typename T>
-    inline T Pattern::generateTypedMask(T n) noexcept
+    inline T Pattern::generateTypedMask(T n) requires (std::is_unsigned_v<T>)
     {
         if (!n)
             return 0;
         int bits = std::bit_width(n);
-        if (bits >= (sizeof(T) << 3))
+        if (bits >= (sizeof(n) << 3))
         {
-            return static_cast<T>(~static_cast<T>(0));
+            return static_cast<T>(-1);
         }
         return std::move((static_cast<T>(1) << bits) - 1);
     }
@@ -74,7 +75,7 @@ namespace PMO
         const size_t plen
     ) noexcept
     {
-        std::vector<auint64_t> result{};
+        std::deque<auint64_t> result{};
         // const auto optr = reinterpret_cast<uint8_t*>(result.data());
         // for (size_t i = 0; i < plen; ++i)
         // {
@@ -88,15 +89,20 @@ namespace PMO
         //         optr[i] |= generateTypedMask(pattern[i] & 0xFFULL);
         //     }
         // }
-        for (size_t i = 0; i < plen; i += 8)
+        size_t i = 0;
+        for (; i < plen; i += 8)
         {
-            auint64_t e{};
-            auto *optr = reinterpret_cast<uint8_t*>(&e.i);
-            for (size_t j = 0, k = i; j < 8 && k < plen; k += ++j)
-                optr[j] |= generateTypedMask(pattern[k] & 0xFFULL);
-            result.push_back(e);
+            auint64_t e{*(uint64_t*)&pattern[i]};
+            e.i = generateTypedMask(e.i);
+            result.push_front(e);
         }
-        return result;
+        // auto val = ((uint8_t*)&result.back().i);
+        // for (size_t j = plen; j < i; ++j)
+        // {
+        //     val[j] = 0;
+        // }
+
+        return std::vector(result.begin(), result.end());
     }
 
     template <size_t M>

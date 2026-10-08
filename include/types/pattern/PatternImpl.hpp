@@ -35,7 +35,7 @@ namespace PMO
         static inline std::vector<auint64_t> generateU64Vect(const char (&arr)[N]) noexcept;
         static inline std::vector<auint64_t> generateBMI2Mask(const char *, size_t, size_t) noexcept;
         template <typename T>
-        static inline T generateTypedMask(T) noexcept;
+        static inline T generateTypedMask(T n) requires (std::is_unsigned_v<T>);
 
         public:
             template <size_t M>
