@@ -434,7 +434,7 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
     REQUIRE((IsDebuggerPresent() == bl[1] && !bl[1]));
 
     PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
-    PMO::Pattern b{CRDP_CODE, CRDP_MASK, CRDP_CODE};
+    PMO::Pattern b{CRDP_CODE, CRDP_CODE};
 
     auto module = PMO::getModule("KERNELBASE.dll");
     auto [lpBaseOfDll, SizeOfImage, EntryPoint] =
