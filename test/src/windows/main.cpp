@@ -177,25 +177,20 @@ TEST_CASE("05 line coverage++", "[PMO]")
 
 TEST_CASE("00 raw search testing", "[PMO]")
 {
-    static PMO::Pattern foo[] = {
-        PMO::Pattern{IDP_PATTERN, IDP_MASK, IDP_CODE},
-        PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
-    };
-
-    foo->reset();
+    reset();
+    int bl[2] = {};
     intProducer idp;
     intBiFunction crdp;
     auto handle = reinterpret_cast<HANDLE>(-1ULL); // GetCurrentProcess
-    auto module = PMO::getModule("KERNELBASE.dll");
-    MODULEINFO info = PMO::getModuleInfo(module);
-    PMO::PointerUnion pu{info.lpBaseOfDll};
+    // auto module = PMO::getModule("KERNELBASE.dll");
+    // MODULEINFO info = PMO::getModuleInfo(module);
+    // PMO::PointerUnion pu{info.lpBaseOfDll};
 
     PMO::findNamedFunction(idpAddr, &idp);
     PMO::findNamedFunction(crdpAddr, &crdp);
 
     SECTION("Ensure PMO::findNamedFunction returns a functioning pointer")
     {
-        int bl[2];
         printWindowsVers();
         REQUIRE(idp() == IsDebuggerPresent());
         REQUIRE(crdp(handle, bl + 0) == CheckRemoteDebuggerPresent(handle, bl + 1));
@@ -205,7 +200,7 @@ TEST_CASE("00 raw search testing", "[PMO]")
     SECTION("Ensure PMO::findNamedFunction returned a pointer to where the actual code resides using PMO::findPatterns")
     {
         bool matchedIdp = PMO::findPatterns(reinterpret_cast<uintptr_t>(idp),
-            foo[0].patternLen, foo[0]);
+            debuggerPatterns[0].patternLen, debuggerPatterns[0]);
 #ifdef IS_DEBUG
         if (!matchedIdp)
         {
@@ -217,7 +212,7 @@ TEST_CASE("00 raw search testing", "[PMO]")
 #endif
         CHECK(matchedIdp);
         bool matchedCrdp = PMO::findPatterns(reinterpret_cast<uintptr_t>(crdp),
-                    foo[1].patternLen, foo[1]);
+                    debuggerPatterns[1].patternLen, debuggerPatterns[1]);
 #ifdef IS_DEBUG
         if (!matchedCrdp)
         {
@@ -230,19 +225,35 @@ TEST_CASE("00 raw search testing", "[PMO]")
         CHECK(matchedCrdp);
     }
 
-    SECTION("Final Boss: Find the patterns knowing only that they reside in KERNELBASE.dll")
-    {
-        int bl[2];
-        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, foo[1]));
-        REQUIRE(foo[1].size() == 1);
-        REQUIRE(reinterpret_cast<intBiFunction>(foo[1].back().address)(handle, bl + 0)
-            == CheckRemoteDebuggerPresent(handle, bl + 1));
-        REQUIRE(bl[0] == bl[1]);
+    // SECTION("Final Boss: Find the patterns knowing only that they reside in KERNELBASE.dll")
+    // {
+    //     REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1]));
+    //     REQUIRE(debuggerPatterns[1].size() == 1);
+    //     REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().address)(handle, bl + 0)
+    //         == CheckRemoteDebuggerPresent(handle, bl + 1));
+    //     REQUIRE(bl[0] == bl[1]);
+    //
+    //     REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]));
+    //     REQUIRE(debuggerPatterns[0].size() == 1);
+    //     REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().address)() == IsDebuggerPresent());
+    // }
+}
 
-        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, foo[0]));
-        REQUIRE(foo[0].size() == 1);
-        REQUIRE(reinterpret_cast<intProducer>(foo[0].back().address)() == IsDebuggerPresent());
-    }
+TEST_CASE("Final Boss: Find the patterns knowing only that they reside in KERNELBASE.dll", "[PMO]")
+{
+    int bl[2];
+    auto module = PMO::getModule("KERNELBASE.dll");
+    MODULEINFO info = PMO::getModuleInfo(module);
+    PMO::PointerUnion pu{info.lpBaseOfDll};
+    REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1]));
+    REQUIRE(debuggerPatterns[1].size() == 1);
+    REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().address)((void*)-1ULL, bl + 0)
+        == CheckRemoteDebuggerPresent((void*)-1ULL, bl + 1));
+    REQUIRE(bl[0] == bl[1]);
+
+    REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]));
+    REQUIRE(debuggerPatterns[0].size() == 1);
+    REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().address)() == IsDebuggerPresent());
 }
 
 TEST_CASE("04 Test expected function name", "[PMO]")
