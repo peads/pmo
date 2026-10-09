@@ -100,6 +100,27 @@ namespace
         }
         return result + rip + 7;
     }
+
+    void printWindowsVers()
+    {
+        if (const HMODULE module = GetModuleHandleA("ntdll.dll")) {
+            auto getVers = reinterpret_cast<long(__stdcall *)(PRTL_OSVERSIONINFOW)>(
+                GetProcAddress(module, "RtlGetVersion"));
+
+            if (getVers) {
+                RTL_OSVERSIONINFOW info{};
+                info.dwOSVersionInfoSize = sizeof(info);
+
+                if (getVers(&info) == 0) { // 0 status means STATUS_SUCCESS
+                    std::cout << std::format("Windows: {}.{}.{}.{}\n",
+                           info.dwMajorVersion,
+                           info.dwMinorVersion,
+                           info.dwBuildNumber,
+                           info.dwPlatformId);
+                }
+            }
+        }
+    }
 }
 
 TEST_CASE("05 line coverage++", "[PMO]")
@@ -169,7 +190,7 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
     SECTION("Ensure PMO::findNamedFunction returns a functioning pointer")
     {
-
+        printWindowsVers();
         REQUIRE(idp() == IsDebuggerPresent());
         REQUIRE(crdp(handle, bl + 0) == CheckRemoteDebuggerPresent(handle, bl + 1));
         REQUIRE(bl[0] == bl[1]);

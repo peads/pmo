@@ -21,9 +21,9 @@
 
 namespace PMO
 {
-    struct alignas(16) PointerUnion
-    {
-        union
+    // struct alignas(16) PointerUnion
+    // {
+        union PointerUnion
         {
             void *const ptr;
             char *cptr;
@@ -31,7 +31,7 @@ namespace PMO
             const char *str;
             uint64_t *u64ptr;
             uint8_t *u8ptr;
-        };
+        // };
 
         bool operator<(const PointerUnion &a) const noexcept
         {

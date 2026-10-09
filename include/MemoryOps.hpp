@@ -48,7 +48,6 @@ namespace PMO
         return 0; // it wasn't
     }
 
-    //30 04 00 90 10 A6 43 F9 00 02 1F D6
     inline int32_t parseAdrpImm(uintptr_t addr) noexcept
     {
         uint32_t* ptr = (uint32_t*)addr;
