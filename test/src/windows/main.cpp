@@ -215,10 +215,10 @@ TEST_CASE("00 raw search testing", "[PMO]")
         {
             auto n = strlen(CRDP_MASK);
             std::cout << "CRDP - Found vs sought:\n";
-            printPatternAsBytes(reinterpret_cast<uint8_t*>(crdp), n);
+            printPatternAsBytes(reinterpret_cast<uint8_t*>(crdp), 96);
             printPatternAsBytes((void*)CRDP_PATTERN, n);
         }
-        REQUIRE(matchedCrdp);
+        CHECK(matchedCrdp);
     }
 
     SECTION("Final Boss: Find the patterns knowing only that they reside in KERNELBASE.dll")
