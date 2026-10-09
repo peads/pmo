@@ -27,12 +27,12 @@
 #include <catch2/catch_test_macros.hpp>
 
 #define CATCH_CONFIG_MAIN // provides main(); this line is required in only one .cpp file
-inline PMO::Pattern debuggerPatterns[] = {
-    PMO::Pattern{IDP_PATTERN, IDP_MASK, IDP_CODE},
-    PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
-};
 namespace
 {
+    inline PMO::Pattern debuggerPatterns[] = {
+        PMO::Pattern{IDP_PATTERN, IDP_MASK, IDP_CODE},
+        PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
+    };
 
     inline void printPatterns()
     {
