@@ -76,38 +76,23 @@ namespace PMO
     ) noexcept
     {
         std::deque<auint64_t> result{};
-        // const auto optr = reinterpret_cast<uint8_t*>(result.data());
-        // for (size_t i = 0; i < plen; ++i)
-        // {
-        // optr[i] |= generateTypedMask(pattern[i] & 0xFFULL);
-        // }
-        // for (auto &e : result)
-        // {
-        //     auto *optr = reinterpret_cast<uint8_t *>(&e.i);
-        //     for (size_t i = 0; i < 8; ++i)
-        //     {
-        //         optr[i] |= generateTypedMask(pattern[i] & 0xFFULL);
-        //     }
-        // }
-        size_t i = 0;
-        for (; i < plen; i += 8)
+        std::vector<uint8_t> temp{};
+        auto end = (plen + 7ULL) & ~7ULL;
+        for (size_t i = 0; i < end; ++i)
         {
-            auint64_t e{*(uint64_t*)&pattern[i]};
-            e.i = generateTypedMask(e.i);
-
-#if (defined(__aarch64__) || defined(_M_ARM64))
-            result.push_back(e);
-#else
-            result.push_front(e);
-#endif
+            uint8_t c = pattern[i];
+            if (i < plen)
+                temp.push_back(generateTypedMask(c));
+            else
+                temp.push_back(0);
         }
-        // auto val = ((uint8_t*)&result.back().i);
-        // for (size_t j = plen; j < i; ++j)
-        // {
-        //     val[j] = 0;
-        // }
+        for (size_t i = 0; i < temp.size(); i += 8)
+        {
+            auint64_t e{*(uint64_t*) &temp[i]};
+            result.push_back(e);
+        }
 
-        return std::vector(result.begin(), result.end());
+        return {result.begin(), result.end()};
     }
 
     template <size_t M>
