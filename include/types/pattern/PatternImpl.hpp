@@ -33,7 +33,7 @@ namespace PMO
         static inline std::vector<auint64_t> generatePatternMask(const char *, size_t) noexcept;
         template <size_t N>
         static inline std::vector<auint64_t> generateU64Vect(const char (&arr)[N]) noexcept;
-        static inline std::vector<auint64_t> generateBMI2Mask(const char *, size_t, size_t) noexcept;
+        static inline std::vector<auint64_t> generateByteMask(const char *, size_t) noexcept;
         template <typename T>
         static inline T generateTypedMask(T n) requires (std::is_unsigned_v<T>);
 
@@ -123,7 +123,7 @@ namespace PMO
                   m_pattern(pattern),
                   m_mask(mask),
                   m_code(code),
-                  byteMask(generateBMI2Mask(mask, M, pSize)),
+                  byteMask(generateByteMask(mask, M)),
                   searchMask(generatePatternMask(pattern, N)),
                   patternVect(generateU64Vect(pattern)),
                   pattern{.str = m_pattern},
@@ -146,7 +146,7 @@ namespace PMO
                   m_pattern(pattern),
                   m_mask(mask),
                   m_code(code),
-                  byteMask(generateBMI2Mask(mask, mlen, pSize)),
+                  byteMask(generateByteMask(mask, mlen)),
                   searchMask(generatePatternMask(pattern, N)),
                   patternVect(generateU64Vect(pattern)),
                   pattern{.str = m_pattern},
@@ -163,7 +163,7 @@ namespace PMO
                   m_pattern(pattern),
                   m_mask(m_mask_str.c_str()),
                   m_code(code),
-                  byteMask(generateBMI2Mask(m_mask, N, pSize)),
+                  byteMask(generateByteMask(m_mask, N)),
                   searchMask(generatePatternMask(pattern, N)),
                   patternVect(generateU64Vect(pattern)),
                   pattern{.str = m_pattern},

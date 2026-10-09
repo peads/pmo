@@ -35,36 +35,32 @@ namespace PMO
         return std::move((static_cast<T>(1) << bits) - 1);
     }
 
-    inline std::vector<auint64_t> Pattern::generateBMI2Mask(
+    inline std::vector<auint64_t> Pattern::generateByteMask(
         const char *smask,
-        const size_t mlen,
-        const size_t len
-    ) noexcept
+        const size_t mlen
+    )
+        noexcept
     {
-        const std::vector q(mlen, '?');
-        const std::vector p(mlen, 'x');
         std::vector<auint64_t> result{};
-
-        PointerUnion qs{.str = q.data()};
-        PointerUnion xs{.str = p.data()};
-        PointerUnion ptr{.str = smask};
-
-        uint64_t prev = 0;
-        for (auto i = 0ULL; i < len; ++i, ++ptr.u64ptr, ++qs.u64ptr, ++xs.u64ptr)
+        if (!mlen)
+            return result;
+        const auto end = (mlen + 7ULL) & ~7ULL;
+        size_t i = 0;
+        std::array<uint8_t, 8> temp{};
+        for (size_t k = 0; i < end; ++i, k = i % 8)
         {
-            if (!(*ptr.u64ptr ^ *xs.u64ptr))
+            if (i < mlen)
+                temp[k] = '?' == smask[i] ? 0xFF : 0;
+            // else
+            // temp[i] = 0;
+            if (i && !k)
             {
-                result.emplace_back(prev);
-                prev = 0;
-                continue;
+                result.push_back({*reinterpret_cast<uint64_t*>(temp.data())});
+                temp.fill(0);
             }
-
-            const auto del = *ptr.u64ptr ^ *qs.u64ptr;
-            auto mask = del - 0x0101'0101'0101'0101LLU;
-            mask &= ~del & 0x8080'8080'8080'8080LLU;
-            mask = (mask >> 7) * 0xFF;
-            result.emplace_back(mask);
         }
+        result.push_back({*reinterpret_cast<uint64_t*>(temp.data())});
+
         return result;
     }
 
@@ -75,7 +71,7 @@ namespace PMO
     {
         std::vector<auint64_t> result{};
         std::vector<uint8_t> temp{};
-        auto end = (plen + 7ULL) & ~7ULL;
+        const auto end = (plen + 7ULL) & ~7ULL;
         for (size_t i = 0; i < end; ++i)
         {
             const uint8_t c = pattern[i];
