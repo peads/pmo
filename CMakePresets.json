@@ -143,11 +143,13 @@
       "configurePreset": "tests-release",
       "description": "Run the Catch2 test suite via CTest",
       "output": {
-        "outputOnFailure": true
+        "outputOnFailure": true,
+        "shortProgress": true
       },
       "execution": {
         "noTestsAction": "error",
-        "stopOnFailure": false
+        "stopOnFailure": false,
+        "jobs": 1
       }
     },
     {
@@ -160,7 +162,7 @@
       },
       "filter": {
         "exclude": {
-          "name": "05 line coverage\\+\\+|01 Test parse far jmp|07 autogen mask|02 Test find by traversing thunks"
+          "name": "01 Test parse far jmp|07 autogen mask"
         }
       }
     },

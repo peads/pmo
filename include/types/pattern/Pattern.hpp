@@ -47,12 +47,10 @@ namespace PMO
         const auto end = (mlen + 7ULL) & ~7ULL;
         size_t i = 0;
         std::array<uint8_t, 8> temp{};
-        for (size_t k = 0; i < end; ++i, k = i % 8)
+        for (size_t k = 0; i < end; k = ++i % 8)
         {
             if (i < mlen)
                 temp[k] = '?' == smask[i] ? 0xFF : 0;
-            // else
-            // temp[i] = 0;
             if (i && !k)
             {
                 result.push_back({*reinterpret_cast<uint64_t*>(temp.data())});
