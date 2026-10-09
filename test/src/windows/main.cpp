@@ -34,21 +34,30 @@ namespace
         PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
     };
 
-    inline void printPatterns()
+    inline void printPatternAsBytes(void *ptr, const size_t len)
     {
-        for (const auto &debuggerPattern : debuggerPatterns)
-        {
-            for (const auto &e : debuggerPattern.patternVect)
-                std::cout << std::format("{:016X} ", e.i);
-            std::cout << std::endl;
-            for (const auto &e : debuggerPattern.pmsk())
-                std::cout << std::format("{:016X} ", e.i);
-            std::cout << std::endl;
-            for (const auto &e : debuggerPattern.bmsk())
-                std::cout << std::format("{:016X} ", e.i);
-            std::cout << std::endl;
-        }
+        const uint8_t *arr = static_cast<uint8_t*>(ptr);
+        for (size_t i = 0; i < len; ++i)
+            std::cout << std::format("{:02X} ", arr[i]);
+        std::cout << std::endl;
     }
+
+    // inline void printPatterns()
+    // {
+    //     for (const auto &debuggerPattern : debuggerPatterns)
+    //     {
+    //         for (const auto &e : debuggerPattern.patternVect)
+    //             std::cout << std::format("{:016X} ", e.i);
+    //         std::cout << std::endl;
+    //         for (const auto &e : debuggerPattern.pmsk())
+    //             std::cout << std::format("{:016X} ", e.i);
+    //         std::cout << std::endl;
+    //         for (const auto &e : debuggerPattern.bmsk())
+    //             std::cout << std::format("{:016X} ", e.i);
+    //         std::cout << std::endl;
+    //     }
+    // }
+
     inline void reset()
     {
         for (auto &pattern : debuggerPatterns)
@@ -160,6 +169,7 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
     SECTION("Ensure PMO::findNamedFunction returns a functioning pointer")
     {
+
         REQUIRE(idp() == IsDebuggerPresent());
         REQUIRE(crdp(handle, bl + 0) == CheckRemoteDebuggerPresent(handle, bl + 1));
         REQUIRE(bl[0] == bl[1]);
@@ -167,10 +177,26 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
     SECTION("Ensure PMO::findNamedFunction returned a pointer to where the actual code resides using PMO::findPatterns")
     {
-        REQUIRE(PMO::findPatterns(reinterpret_cast<uintptr_t>(idp),
-            debuggerPatterns[0].patternLen, debuggerPatterns[0]));
-        REQUIRE(PMO::findPatterns(reinterpret_cast<uintptr_t>(crdp),
-                    debuggerPatterns[1].patternLen, debuggerPatterns[1]));
+        bool matchedIdp = PMO::findPatterns(reinterpret_cast<uintptr_t>(idp),
+            debuggerPatterns[0].patternLen, debuggerPatterns[0]);
+        if (!matchedIdp)
+        {
+            auto n = strlen(IDP_MASK);
+            std::cout << "IDP - Found vs sought:\n";
+            printPatternAsBytes(reinterpret_cast<uint8_t*>(idp), n);
+            printPatternAsBytes((void*)IDP_PATTERN, n);
+        }
+        CHECK(matchedIdp);
+        bool matchedCrdp = PMO::findPatterns(reinterpret_cast<uintptr_t>(crdp),
+                    debuggerPatterns[1].patternLen, debuggerPatterns[1]);
+        if (!matchedCrdp)
+        {
+            auto n = strlen(CRDP_MASK);
+            std::cout << "CRDP - Found vs sought:\n";
+            printPatternAsBytes(reinterpret_cast<uint8_t*>(crdp), n);
+            printPatternAsBytes((void*)CRDP_PATTERN, n);
+        }
+        REQUIRE(matchedCrdp);
     }
 
     SECTION("Final Boss: Find the patterns knowing only that they reside in KERNELBASE.dll")
