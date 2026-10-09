@@ -103,20 +103,21 @@ namespace
 
     void printWindowsVers()
     {
-        if (const HMODULE module = GetModuleHandleA("ntdll.dll")) {
-            auto getVers = reinterpret_cast<long(__stdcall *)(PRTL_OSVERSIONINFOW)>(
-                GetProcAddress(module, "RtlGetVersion"));
-
-            if (getVers) {
+        if (const HMODULE module = PMO::getModule("ntdll.dll"); module)
+        {
+            if (const auto getVers = reinterpret_cast<long(__stdcall *)(PRTL_OSVERSIONINFOW)>(
+                GetProcAddress(module, "RtlGetVersion")); getVers)
+            {
                 RTL_OSVERSIONINFOW info{};
                 info.dwOSVersionInfoSize = sizeof(info);
 
-                if (getVers(&info) == 0) { // 0 status means STATUS_SUCCESS
+                if (!getVers(&info))
+                {
                     std::cout << std::format("Windows: {}.{}.{}.{}\n",
-                           info.dwMajorVersion,
-                           info.dwMinorVersion,
-                           info.dwBuildNumber,
-                           info.dwPlatformId);
+                                             info.dwMajorVersion,
+                                             info.dwMinorVersion,
+                                             info.dwBuildNumber,
+                                             info.dwPlatformId);
                 }
             }
         }
