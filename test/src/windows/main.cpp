@@ -34,21 +34,22 @@ namespace
         PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
     };
 
-    inline void printPatterns()
-    {
-        for (const auto &debuggerPattern : debuggerPatterns)
-        {
-            for (const auto &e : debuggerPattern.patternVect)
-                std::cout << std::format("{:016X} ", e.i);
-            std::cout << std::endl;
-            for (const auto &e : debuggerPattern.pmsk())
-                std::cout << std::format("{:016X} ", e.i);
-            std::cout << std::endl;
-            for (const auto &e : debuggerPattern.bmsk())
-                std::cout << std::format("{:016X} ", e.i);
-            std::cout << std::endl;
-        }
-    }
+    // inline void printPatterns()
+    // {
+    //     for (const auto &debuggerPattern : debuggerPatterns)
+    //     {
+    //         for (const auto &e : debuggerPattern.patternVect)
+    //             std::cout << std::format("{:016X} ", e.i);
+    //         std::cout << std::endl;
+    //         for (const auto &e : debuggerPattern.pmsk())
+    //             std::cout << std::format("{:016X} ", e.i);
+    //         std::cout << std::endl;
+    //         for (const auto &e : debuggerPattern.bmsk())
+    //             std::cout << std::format("{:016X} ", e.i);
+    //         std::cout << std::endl;
+    //     }
+    // }
+
     inline void reset()
     {
         for (auto &pattern : debuggerPatterns)
@@ -90,6 +91,14 @@ namespace
             }
         }
         return result + rip + 7;
+    }
+
+    inline void printPatternAsBytes(void *ptr, const size_t len)
+    {
+        const uint8_t *arr = static_cast<uint8_t*>(ptr);
+        for (size_t i = 0; i < len; ++i)
+            std::cout << std::format("{:02X} ", arr[i]);
+        std::cout << std::endl;
     }
 }
 
@@ -149,11 +158,8 @@ TEST_CASE("00 raw search testing", "[PMO]")
     reset();
     intProducer idp;
     intBiFunction crdp;
-    HANDLE handle = GetCurrentProcess();
+    auto handle = reinterpret_cast<HANDLE>(-1ULL);//GetCurrentProcess();
     int bl[2];
-    auto module = PMO::getModule("KERNELBASE.dll");
-    MODULEINFO info = PMO::getModuleInfo(module);
-    PMO::PointerUnion pu{info.lpBaseOfDll};
 
     PMO::findNamedFunction(idpAddr, &idp);
     PMO::findNamedFunction(crdpAddr, &crdp);
@@ -175,6 +181,10 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
     SECTION("Final Boss: Find the patterns knowing only that they reside in KERNELBASE.dll")
     {
+        auto module = PMO::getModule("KERNELBASE.dll");
+        MODULEINFO info = PMO::getModuleInfo(module);
+        PMO::PointerUnion pu{info.lpBaseOfDll};
+
         REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1]));
         REQUIRE(debuggerPatterns[1].size() == 1);
         REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().address)(handle, bl + 0)
@@ -386,7 +396,7 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
     REQUIRE((IsDebuggerPresent() == bl[1] && !bl[1]));
 
     PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
-    PMO::Pattern b{CRDP_CODE, CRDP_MASK, CRDP_CODE};
+    PMO::Pattern b{CRDP_CODE, CRDP_CODE};
 
     auto module = PMO::getModule("KERNELBASE.dll");
     auto [lpBaseOfDll, SizeOfImage, EntryPoint] =

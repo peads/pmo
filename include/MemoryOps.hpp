@@ -162,12 +162,12 @@ namespace PMO
         auto baseAddr = pointer.u64ptr;
         auto pat = searchStruct.pattern.u64ptr;
 
-        for (auto pmsk = searchStruct.pmsk().data(),
-            bmsk = searchStruct.bmsk().data(); len - 7 > 0 &&
+        for (auto pmsk = (uint64_t*)searchStruct.pmsk().data(),
+            bmsk = (uint64_t*)searchStruct.bmsk().data(); len - 7 > 0 &&
             pat < theEnd.u64ptr; ++pmsk, ++bmsk, ++pat)
         {
-            const auto valMasked = *baseAddr & pmsk->i | bmsk->i;
-            const auto patMasked = *pat & pmsk->i | bmsk->i;
+            const auto valMasked = *baseAddr & *pmsk | *bmsk;
+            const auto patMasked = *pat & *pmsk | *bmsk;
             notHit = valMasked ^ patMasked;
             if (notHit)
             // if ((notHit = (*baseAddr ^ *pat) & (~bmsk->i & pmsk->i)))

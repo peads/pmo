@@ -25,19 +25,14 @@
 #define PSIZE_EXPR ((((N - 1ULL) + 7ULL) & ~7ULL) >> 3)
 namespace PMO
 {
-    struct alignas(16) auint64_t {
-        uint64_t i;
-    };
     class Pattern final
     {
-        static inline std::vector<auint64_t> generatePatternMask(const char *, size_t) noexcept;
-        template <size_t N>
-        static inline std::vector<auint64_t> generateU64Vect(const char (&arr)[N]) noexcept;
-        static inline std::vector<auint64_t> generateBMI2Mask(const char *, size_t, size_t) noexcept;
+        static inline std::vector<uint8_t> generatePatternMask(const char *, size_t) noexcept;
         template <typename T>
         static inline T generateTypedMask(T n) requires (std::is_unsigned_v<T>);
 
         public:
+            static inline std::vector<uint8_t> generateByteMask(const char *smask, size_t) noexcept;
             template <size_t M>
             static inline std::string autoGenerateMask(
                 const char (&)[M],
@@ -54,11 +49,10 @@ namespace PMO
             const char *const m_mask;
             const char *const m_code;
             SetWrapper<uintptr_t> m_occurrences{};
-            const std::vector<auint64_t> byteMask;
-            const std::vector<auint64_t> searchMask;
+            const std::vector<uint8_t> byteMask;
+            const std::vector<uint8_t> searchMask;
 
         public:
-            const std::vector<auint64_t> patternVect;
             const PointerUnion pattern;
             const PointerUnion mask;
             const PointerUnion code;
@@ -123,9 +117,8 @@ namespace PMO
                   m_pattern(pattern),
                   m_mask(mask),
                   m_code(code),
-                  byteMask(generateBMI2Mask(mask, M, pSize)),
+                  byteMask(generateByteMask(mask, M)),
                   searchMask(generatePatternMask(pattern, N)),
-                  patternVect(generateU64Vect(pattern)),
                   pattern{.str = m_pattern},
                   mask{.str = m_mask},
                   code{.str = m_code}
@@ -146,9 +139,8 @@ namespace PMO
                   m_pattern(pattern),
                   m_mask(mask),
                   m_code(code),
-                  byteMask(generateBMI2Mask(mask, mlen, pSize)),
+                  byteMask(generateByteMask(mask, mlen)),
                   searchMask(generatePatternMask(pattern, N)),
-                  patternVect(generateU64Vect(pattern)),
                   pattern{.str = m_pattern},
                   mask{.str = m_mask},
                   code{.str = m_code}
@@ -163,9 +155,8 @@ namespace PMO
                   m_pattern(pattern),
                   m_mask(m_mask_str.c_str()),
                   m_code(code),
-                  byteMask(generateBMI2Mask(m_mask, N, pSize)),
+                  byteMask(generateByteMask(m_mask, N)),
                   searchMask(generatePatternMask(pattern, N)),
-                  patternVect(generateU64Vect(pattern)),
                   pattern{.str = m_pattern},
                   mask{.str = m_mask},
                   code{.str = m_code}

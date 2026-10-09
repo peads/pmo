@@ -35,59 +35,38 @@ namespace PMO
         return std::move((static_cast<T>(1) << bits) - 1);
     }
 
-    inline std::vector<auint64_t> Pattern::generateBMI2Mask(
-        const char *smask,
-        const size_t mlen,
-        const size_t len
-    ) noexcept
+    inline std::vector<uint8_t> Pattern::generateByteMask(const char *smask,const size_t mlen)noexcept
     {
-        const std::vector q(mlen, '?');
-        const std::vector p(mlen, 'x');
-        std::vector<auint64_t> result{};
+        std::vector<uint8_t> result{};
+        if (!mlen)
+            return result;
 
-        PointerUnion qs{.str = q.data()};
-        PointerUnion xs{.str = p.data()};
-        PointerUnion ptr{.str = smask};
-
-        uint64_t prev = 0;
-        for (auto i = 0ULL; i < len; ++i, ++ptr.u64ptr, ++qs.u64ptr, ++xs.u64ptr)
+        const auto end = (mlen + 7ULL) & ~7ULL;
+        for (size_t i = 0; i < end; ++i)
         {
-            if (!(*ptr.u64ptr ^ *xs.u64ptr))
-            {
-                result.emplace_back(prev);
-                prev = 0;
-                continue;
-            }
-
-            const auto del = *ptr.u64ptr ^ *qs.u64ptr;
-            auto mask = del - 0x0101'0101'0101'0101LLU;
-            mask &= ~del & 0x8080'8080'8080'8080LLU;
-            mask = (mask >> 7) * 0xFF;
-            result.emplace_back(mask);
+            if (i < mlen)
+                result.push_back('?' == smask[i] ? 0xFF : 0);
+            else
+                result.push_back(0);
         }
+    
         return result;
     }
 
-    inline std::vector<auint64_t> Pattern::generatePatternMask(
+    inline std::vector<uint8_t> Pattern::generatePatternMask(
         const char *pattern,
         const size_t plen
     ) noexcept
     {
-        std::vector<auint64_t> result{};
-        std::vector<uint8_t> temp{};
-        auto end = (plen + 7ULL) & ~7ULL;
+        std::vector<uint8_t> result{};
+        const auto end = (plen + 7ULL) & ~7ULL;
         for (size_t i = 0; i < end; ++i)
         {
             const uint8_t c = pattern[i];
             if (i < plen)
-                temp.push_back(c);
+                result.push_back(generateTypedMask(c));
             else
-                temp.push_back(0);
-        }
-        for (size_t i = 0; i < temp.size(); i += 8)
-        {
-            auint64_t e{generateTypedMask(*reinterpret_cast<uint64_t*>(&temp[i]))};
-            result.push_back(e);
+                result.push_back(0);
         }
 
         return result;
@@ -118,17 +97,6 @@ namespace PMO
                 if (offsets)
                     offsets->push_back(offset);
             }
-        }
-        return result;
-    }
-
-    template <size_t N>
-    inline std::vector<auint64_t> Pattern::generateU64Vect(const char (&arr)[N]) noexcept
-    {
-        std::vector<auint64_t> result{};
-        for (size_t i = 0; i < N; i += 8)
-        {
-            result.emplace_back(*static_cast<uint64_t*>((void*) (arr + i)));
         }
         return result;
     }
