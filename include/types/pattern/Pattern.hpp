@@ -19,8 +19,6 @@
 #define HELPERS_HPP
 #include "types/pattern/PatternImpl.hpp"
 #include "parse/ParseJmp.hpp"
-#include <cstring>
-#include <deque>
 
 namespace PMO
 {
@@ -75,12 +73,12 @@ namespace PMO
         const size_t plen
     ) noexcept
     {
-        std::deque<auint64_t> result{};
+        std::vector<auint64_t> result{};
         std::vector<uint8_t> temp{};
         auto end = (plen + 7ULL) & ~7ULL;
         for (size_t i = 0; i < end; ++i)
         {
-            uint8_t c = pattern[i];
+            const uint8_t c = pattern[i];
             if (i < plen)
                 temp.push_back(generateTypedMask(c));
             else
@@ -88,11 +86,11 @@ namespace PMO
         }
         for (size_t i = 0; i < temp.size(); i += 8)
         {
-            auint64_t e{*(uint64_t*) &temp[i]};
+            auint64_t e{*reinterpret_cast<uint64_t*>(&temp[i])};
             result.push_back(e);
         }
 
-        return {result.begin(), result.end()};
+        return result;
     }
 
     template <size_t M>
