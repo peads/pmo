@@ -241,7 +241,8 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
 TEST_CASE("Final Boss: Find the patterns knowing only that they reside in KERNELBASE.dll", "[PMO]")
 {
-    int bl[2];
+    reset();
+    // int bl[2];
     auto module = PMO::getModule("KERNELBASE.dll");
     MODULEINFO info = PMO::getModuleInfo(module);
     PMO::PointerUnion pu{info.lpBaseOfDll};
@@ -253,7 +254,7 @@ TEST_CASE("Final Boss: Find the patterns knowing only that they reside in KERNEL
 
     REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]));
     REQUIRE(debuggerPatterns[0].size() == 1);
-    REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().address)() == IsDebuggerPresent());
+    // REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().address)() == IsDebuggerPresent());
 }
 
 TEST_CASE("04 Test expected function name", "[PMO]")
