@@ -80,13 +80,13 @@ namespace PMO
         {
             const uint8_t c = pattern[i];
             if (i < plen)
-                temp.push_back(generateTypedMask(c));
+                temp.push_back(c);
             else
                 temp.push_back(0);
         }
         for (size_t i = 0; i < temp.size(); i += 8)
         {
-            auint64_t e{*reinterpret_cast<uint64_t*>(&temp[i])};
+            auint64_t e{generateTypedMask(*reinterpret_cast<uint64_t*>(&temp[i]))};
             result.push_back(e);
         }
 
