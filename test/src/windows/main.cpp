@@ -177,11 +177,15 @@ TEST_CASE("05 line coverage++", "[PMO]")
 
 TEST_CASE("00 raw search testing", "[PMO]")
 {
-    reset();
+    static PMO::Pattern foo[] = {
+        PMO::Pattern{IDP_PATTERN, IDP_MASK, IDP_CODE},
+        PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
+    };
+
+    foo->reset();
     intProducer idp;
     intBiFunction crdp;
-    HANDLE handle = GetCurrentProcess();
-    int bl[2];
+    auto handle = reinterpret_cast<HANDLE>(-1ULL); // GetCurrentProcess
     auto module = PMO::getModule("KERNELBASE.dll");
     MODULEINFO info = PMO::getModuleInfo(module);
     PMO::PointerUnion pu{info.lpBaseOfDll};
@@ -191,6 +195,7 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
     SECTION("Ensure PMO::findNamedFunction returns a functioning pointer")
     {
+        int bl[2];
         printWindowsVers();
         REQUIRE(idp() == IsDebuggerPresent());
         REQUIRE(crdp(handle, bl + 0) == CheckRemoteDebuggerPresent(handle, bl + 1));
@@ -200,7 +205,8 @@ TEST_CASE("00 raw search testing", "[PMO]")
     SECTION("Ensure PMO::findNamedFunction returned a pointer to where the actual code resides using PMO::findPatterns")
     {
         bool matchedIdp = PMO::findPatterns(reinterpret_cast<uintptr_t>(idp),
-            debuggerPatterns[0].patternLen, debuggerPatterns[0]);
+            foo[0].patternLen, foo[0]);
+#ifdef IS_DEBUG
         if (!matchedIdp)
         {
             auto n = strlen(IDP_MASK);
@@ -208,9 +214,11 @@ TEST_CASE("00 raw search testing", "[PMO]")
             printPatternAsBytes(reinterpret_cast<uint8_t*>(idp), n);
             printPatternAsBytes((void*)IDP_PATTERN, n);
         }
+#endif
         CHECK(matchedIdp);
         bool matchedCrdp = PMO::findPatterns(reinterpret_cast<uintptr_t>(crdp),
-                    debuggerPatterns[1].patternLen, debuggerPatterns[1]);
+                    foo[1].patternLen, foo[1]);
+#ifdef IS_DEBUG
         if (!matchedCrdp)
         {
             auto n = strlen(CRDP_MASK);
@@ -218,20 +226,22 @@ TEST_CASE("00 raw search testing", "[PMO]")
             printPatternAsBytes(reinterpret_cast<uint8_t*>(crdp), 96);
             printPatternAsBytes((void*)CRDP_PATTERN, n);
         }
+#endif
         CHECK(matchedCrdp);
     }
 
     SECTION("Final Boss: Find the patterns knowing only that they reside in KERNELBASE.dll")
     {
-        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1]));
-        REQUIRE(debuggerPatterns[1].size() == 1);
-        REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().address)(handle, bl + 0)
+        int bl[2];
+        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, foo[1]));
+        REQUIRE(foo[1].size() == 1);
+        REQUIRE(reinterpret_cast<intBiFunction>(foo[1].back().address)(handle, bl + 0)
             == CheckRemoteDebuggerPresent(handle, bl + 1));
         REQUIRE(bl[0] == bl[1]);
 
-        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]));
-        REQUIRE(debuggerPatterns[0].size() == 1);
-        REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().address)() == IsDebuggerPresent());
+        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, foo[0]));
+        REQUIRE(foo[0].size() == 1);
+        REQUIRE(reinterpret_cast<intProducer>(foo[0].back().address)() == IsDebuggerPresent());
     }
 }
 
