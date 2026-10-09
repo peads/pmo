@@ -163,7 +163,6 @@ TEST_CASE("00 raw search testing", "[PMO]")
         REQUIRE(idp() == IsDebuggerPresent());
         REQUIRE(crdp(handle, bl + 0) == CheckRemoteDebuggerPresent(handle, bl + 1));
         REQUIRE(bl[0] == bl[1]);
-        printPatterns();
     }
 
     SECTION("Ensure PMO::findNamedFunction returned a pointer to where the actual code resides using PMO::findPatterns")
@@ -202,34 +201,6 @@ TEST_CASE("04 Test expected function name", "[PMO]")
         }
     }
     imports.clear();
-}
-
-TEST_CASE("ZZ Test replace by function name", "[PMO]")
-{
-    reset();
-
-    int bl[2] = {};
-    HANDLE handle = GetCurrentProcess();
-    REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 0));
-    REQUIRE(IsDebuggerPresent() == bl[0]);
-
-    REQUIRE(disableDebuggerChecking());
-
-    REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 1));
-    REQUIRE((IsDebuggerPresent() == bl[1] && !bl[1]));
-
-    PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
-    PMO::Pattern b{CRDP_CODE, CRDP_MASK, CRDP_CODE};
-
-    auto module = PMO::getModule("KERNELBASE.dll");
-    auto [lpBaseOfDll, SizeOfImage, EntryPoint] =
-        PMO::getModuleInfo(module);
-    PMO::PointerUnion pu{lpBaseOfDll};
-
-    findPatterns(pu.address, SizeOfImage, a);
-    findPatterns(pu.address, SizeOfImage, b);
-    REQUIRE(!b.empty());
-    REQUIRE(!a.empty());
 }
 
 TEST_CASE("02 Test find by traversing thunks", "[PMO]")
@@ -398,4 +369,32 @@ TEST_CASE("09 Test getModuleInfo", "[PMO]")
     REQUIRE(info.EntryPoint == EntryPoint);
     REQUIRE(info.lpBaseOfDll == lpBaseOfDll);
     REQUIRE(info.SizeOfImage == SizeOfImage);
+}
+
+TEST_CASE("ZZ Test replace by function name", "[PMO]")
+{
+    reset();
+
+    int bl[2] = {};
+    HANDLE handle = GetCurrentProcess();
+    REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 0));
+    REQUIRE(IsDebuggerPresent() == bl[0]);
+
+    REQUIRE(disableDebuggerChecking());
+
+    REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 1));
+    REQUIRE((IsDebuggerPresent() == bl[1] && !bl[1]));
+
+    PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
+    PMO::Pattern b{CRDP_CODE, CRDP_MASK, CRDP_CODE};
+
+    auto module = PMO::getModule("KERNELBASE.dll");
+    auto [lpBaseOfDll, SizeOfImage, EntryPoint] =
+        PMO::getModuleInfo(module);
+    PMO::PointerUnion pu{lpBaseOfDll};
+
+    findPatterns(pu.address, SizeOfImage, a);
+    findPatterns(pu.address, SizeOfImage, b);
+    REQUIRE(!b.empty());
+    REQUIRE(!a.empty());
 }

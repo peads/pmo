@@ -31,12 +31,6 @@ inline void printDebugger() noexcept
             std::cout << std::format("{:02X}", *ptr);
         std::cout << std::endl;
     }
-    // std::cout /*<< std::endl << debuggerPatterns[0].mask.str */<< std::endl;
-    // for (const auto &e : debuggerPatterns[0].pmsk())
-    //     std::cout << std::format("{:016X} ", e.i);
-    // std::cout << std::endl;
-    // for (const auto &e : debuggerPatterns[0].bmsk())
-    //     std::cout << std::format("{:016X} ", e.i);
     std::cout << std::endl << std::endl;
 }
 inline bool disableDebuggerChecking() noexcept
