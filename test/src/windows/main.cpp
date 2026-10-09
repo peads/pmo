@@ -247,13 +247,27 @@ TEST_CASE("Final Boss: Find the patterns knowing only that they reside in KERNEL
     MODULEINFO info = PMO::getModuleInfo(module);
     PMO::PointerUnion pu{info.lpBaseOfDll};
     REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1]));
-    REQUIRE(debuggerPatterns[1].size() == 1);
+    bool isSize = debuggerPatterns[1].size() == 1;
+    if (!isSize)
+        for (const auto &e: debuggerPatterns[1])
+        {
+            std::cout << std::format("RVA from base of KERNELBASE.dll: {:016X}\n", e - pu.address);
+            printPatternAsBytes((void*)e, debuggerPatterns[1].patternLen);
+        }
+    CHECK(isSize);
     // REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().address)((void*)-1ULL, bl + 0)
         // == CheckRemoteDebuggerPresent((void*)-1ULL, bl + 1));
     // REQUIRE(bl[0] == bl[1]);
 
     REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]));
-    REQUIRE(debuggerPatterns[0].size() == 1);
+    isSize = debuggerPatterns[0].size() == 1;
+    if (!isSize)
+        for (const auto &e: debuggerPatterns[0])
+        {
+            std::cout << std::format("RVA from base of KERNELBASE.dll: {:016X}\n", e - pu.address);
+            printPatternAsBytes((void*)e, debuggerPatterns[0].patternLen);
+        }
+    CHECK(isSize);
     // REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().address)() == IsDebuggerPresent());
 }
 
