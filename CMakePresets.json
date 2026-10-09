@@ -158,7 +158,7 @@
       "condition": {
         "type": "equals",
         "lhs": "$env{PROCESSOR_ARCHITECTURE}",
-        "rhs" : "ARM64"
+        "rhs": "ARM64"
       },
       "filter": {
         "exclude": {
@@ -172,7 +172,7 @@
       "condition": {
         "type": "equals",
         "lhs": "$env{PROCESSOR_ARCHITECTURE}",
-        "rhs" : "AMD64"
+        "rhs": "AMD64"
       }
     }
   ],
@@ -193,7 +193,8 @@
           "name": "tests-release"
         }
       ]
-    },{
+    },
+    {
       "name": "ci-testing-arm64",
       "steps": [
         {
