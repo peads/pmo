@@ -249,7 +249,7 @@ namespace PMO
 
         if (!VirtualProtect(addr.ptr, size, flOldProtect, &flOldProtect))
             return false;
-#if !(defined(__aarch64__) || defined(_M_ARM64))
+#if !(defined(__aarch64__) || defined(_M_ARM64)) // TODO: is this truly even necessary?
         if (module && !FlushInstructionCache(module, addr.ptr, size))
             return false;
 #endif

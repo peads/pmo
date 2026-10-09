@@ -166,9 +166,11 @@ namespace PMO
             bmsk = searchStruct.bmsk().data(); len - 7 > 0 &&
             pat < theEnd.u64ptr; ++pmsk, ++bmsk, ++pat)
         {
-            // const auto valMasked = *baseAddr & *pmsk | *bmsk;
-            // const auto patMasked = *pat & *pmsk | *bmsk;
-            if ((notHit = (*baseAddr ^ *pat) & (~*bmsk & *pmsk)))
+            const auto valMasked = *baseAddr & pmsk->i | bmsk->i;
+            const auto patMasked = *pat & pmsk->i | bmsk->i;
+            notHit = valMasked ^ patMasked;
+            if (notHit)
+            // if ((notHit = (*baseAddr ^ *pat) & (~bmsk->i & pmsk->i)))
             {
                 --len;
                 break;

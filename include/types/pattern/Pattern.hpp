@@ -19,24 +19,23 @@
 #define HELPERS_HPP
 #include "types/pattern/PatternImpl.hpp"
 #include "parse/ParseJmp.hpp"
-#include <cstring>
 
 namespace PMO
 {
     template <typename T>
-    inline T Pattern::generateTypedMask(T n) noexcept
+    inline T Pattern::generateTypedMask(T n) requires (std::is_unsigned_v<T>)
     {
         if (!n)
             return 0;
         int bits = std::bit_width(n);
-        if (bits >= (sizeof(T) << 3))
+        if (bits >= (sizeof(n) << 3))
         {
-            return static_cast<T>(~static_cast<T>(0));
+            return static_cast<T>(-1);
         }
         return std::move((static_cast<T>(1) << bits) - 1);
     }
 
-    inline std::vector<uint64_t> Pattern::generateBMI2Mask(
+    inline std::vector<auint64_t> Pattern::generateBMI2Mask(
         const char *smask,
         const size_t mlen,
         const size_t len
@@ -44,7 +43,7 @@ namespace PMO
     {
         const std::vector q(mlen, '?');
         const std::vector p(mlen, 'x');
-        std::vector<uint64_t> result{};
+        std::vector<auint64_t> result{};
 
         PointerUnion qs{.str = q.data()};
         PointerUnion xs{.str = p.data()};
@@ -55,7 +54,7 @@ namespace PMO
         {
             if (!(*ptr.u64ptr ^ *xs.u64ptr))
             {
-                result.push_back(prev);
+                result.emplace_back(prev);
                 prev = 0;
                 continue;
             }
@@ -64,23 +63,33 @@ namespace PMO
             auto mask = del - 0x0101'0101'0101'0101LLU;
             mask &= ~del & 0x8080'8080'8080'8080LLU;
             mask = (mask >> 7) * 0xFF;
-            result.push_back(mask);
+            result.emplace_back(mask);
         }
         return result;
     }
 
-    inline std::vector<uint64_t> Pattern::generatePatternMask(
+    inline std::vector<auint64_t> Pattern::generatePatternMask(
         const char *pattern,
-        const size_t plen,
-        const size_t len
+        const size_t plen
     ) noexcept
     {
-        std::vector<uint64_t> result(len, 0ULL);
-        const auto optr = reinterpret_cast<uint8_t*>(result.data());
-        for (size_t i = 0; i < plen; ++i)
+        std::vector<auint64_t> result{};
+        std::vector<uint8_t> temp{};
+        auto end = (plen + 7ULL) & ~7ULL;
+        for (size_t i = 0; i < end; ++i)
         {
-            optr[i] |= generateTypedMask(pattern[i] & 0xFFULL);
+            const uint8_t c = pattern[i];
+            if (i < plen)
+                temp.push_back(c);
+            else
+                temp.push_back(0);
         }
+        for (size_t i = 0; i < temp.size(); i += 8)
+        {
+            auint64_t e{generateTypedMask(*reinterpret_cast<uint64_t*>(&temp[i]))};
+            result.push_back(e);
+        }
+
         return result;
     }
 
@@ -109,6 +118,17 @@ namespace PMO
                 if (offsets)
                     offsets->push_back(offset);
             }
+        }
+        return result;
+    }
+
+    template <size_t N>
+    inline std::vector<auint64_t> Pattern::generateU64Vect(const char (&arr)[N]) noexcept
+    {
+        std::vector<auint64_t> result{};
+        for (size_t i = 0; i < N; i += 8)
+        {
+            result.emplace_back(*static_cast<uint64_t*>((void*) (arr + i)));
         }
         return result;
     }

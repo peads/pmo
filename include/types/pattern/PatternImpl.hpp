@@ -22,21 +22,20 @@
 #include "types/SetWrapper.hpp"
 #include <vector>
 #include <ranges>
-
+#define PSIZE_EXPR ((((N - 1ULL) + 7ULL) & ~7ULL) >> 3)
 namespace PMO
 {
+    struct alignas(16) auint64_t {
+        uint64_t i;
+    };
     class Pattern final
     {
-        static inline std::vector<uint64_t> generatePatternMask(
-            const char *,
-            size_t,
-            size_t
-        ) noexcept;
-
-        static inline std::vector<uint64_t> generateBMI2Mask(const char *, size_t, size_t) noexcept;
-
+        static inline std::vector<auint64_t> generatePatternMask(const char *, size_t) noexcept;
+        template <size_t N>
+        static inline std::vector<auint64_t> generateU64Vect(const char (&arr)[N]) noexcept;
+        static inline std::vector<auint64_t> generateBMI2Mask(const char *, size_t, size_t) noexcept;
         template <typename T>
-        static inline T generateTypedMask(T) noexcept;
+        static inline T generateTypedMask(T n) requires (std::is_unsigned_v<T>);
 
         public:
             template <size_t M>
@@ -55,10 +54,11 @@ namespace PMO
             const char *const m_mask;
             const char *const m_code;
             SetWrapper<uintptr_t> m_occurrences{};
-            std::vector<uint64_t> byteMask;
-            std::vector<uint64_t> searchMask;
+            const std::vector<auint64_t> byteMask;
+            const std::vector<auint64_t> searchMask;
 
         public:
+            const std::vector<auint64_t> patternVect;
             const PointerUnion pattern;
             const PointerUnion mask;
             const PointerUnion code;
@@ -119,12 +119,13 @@ namespace PMO
             Pattern(const char (&pattern)[N], const char (&mask)[M], const char (&code)[P]) noexcept
                 : patternLen(N - 1ULL),
                   codeLen(P - 1ULL),
-                  pSize(((N + 7ULL) & ~7ULL) >> 3),
+                  pSize(PSIZE_EXPR),
                   m_pattern(pattern),
                   m_mask(mask),
                   m_code(code),
                   byteMask(generateBMI2Mask(mask, M, pSize)),
-                  searchMask(generatePatternMask(pattern, N, pSize)),
+                  searchMask(generatePatternMask(pattern, N)),
+                  patternVect(generateU64Vect(pattern)),
                   pattern{.str = m_pattern},
                   mask{.str = m_mask},
                   code{.str = m_code}
@@ -141,12 +142,13 @@ namespace PMO
             ) noexcept
                 : patternLen(N - 1ULL),
                   codeLen(P - 1ULL),
-                  pSize(((N + 7ULL) & ~7ULL) >> 3),
+                  pSize(PSIZE_EXPR),
                   m_pattern(pattern),
                   m_mask(mask),
                   m_code(code),
                   byteMask(generateBMI2Mask(mask, mlen, pSize)),
-                  searchMask(generatePatternMask(pattern, N, pSize)),
+                  searchMask(generatePatternMask(pattern, N)),
+                  patternVect(generateU64Vect(pattern)),
                   pattern{.str = m_pattern},
                   mask{.str = m_mask},
                   code{.str = m_code}
@@ -156,13 +158,14 @@ namespace PMO
             Pattern(const char (&pattern)[N], const char (&code)[P]) noexcept
                 : patternLen(N - 1ULL),
                   codeLen(P - 1ULL),
-                  pSize(((N + 7ULL) & ~7ULL) >> 3),
+                  pSize(PSIZE_EXPR),
                   m_mask_str(autoGenerateMask(pattern)),
                   m_pattern(pattern),
                   m_mask(m_mask_str.c_str()),
                   m_code(code),
                   byteMask(generateBMI2Mask(m_mask, N, pSize)),
-                  searchMask(generatePatternMask(pattern, N, pSize)),
+                  searchMask(generatePatternMask(pattern, N)),
+                  patternVect(generateU64Vect(pattern)),
                   pattern{.str = m_pattern},
                   mask{.str = m_mask},
                   code{.str = m_code}

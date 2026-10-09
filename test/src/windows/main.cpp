@@ -22,56 +22,75 @@
 #include <set>
 
 #include "windows/main.hpp"
+#include "windows/helpers/debug/debug.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
 #define CATCH_CONFIG_MAIN // provides main(); this line is required in only one .cpp file
-
-typedef int (*intProducer)();
-typedef int (*intBiFunction)(void*,int*);
-
-template <size_t N>
-static uintptr_t parseJmpFar(uint8_t (&code)[N], const uintptr_t rip)
+namespace
 {
-    uint64_t result = 0;
-    uint8_t *p = &reinterpret_cast<uint8_t*>(&code)[0];
-    uint8_t *q = &reinterpret_cast<uint8_t*>(&result)[0];
-    bool atRva = false;
-    for (size_t i = 0; i < N; ++i)
+    inline PMO::Pattern debuggerPatterns[] = {
+        PMO::Pattern{IDP_PATTERN, IDP_MASK, IDP_CODE},
+        PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
+    };
+
+    inline void printPatterns()
     {
-        switch (*p)
+        for (const auto &debuggerPattern : debuggerPatterns)
         {
-            case 0x48:
-            case 0xFF:
-                ++p;
-                break;
-            default:
-                if (atRva)
-                {
-                    *q++ = *p++;
-                }
-                else
-                {
-                    switch (*p & 0xF) // @ 48 FF xy now, don't care about x
-                    {
-                        case 0x5:   // 5 is jmp far absolute indirect
-                            atRva = true;
-                            ++p;
-                            i = N - 5;
-                            break;
-                        default:
-                            return false;
-                    }
-                }
+            for (const auto &e : debuggerPattern.patternVect)
+                std::cout << std::format("{:016X} ", e.i);
+            std::cout << std::endl;
+            for (const auto &e : debuggerPattern.pmsk())
+                std::cout << std::format("{:016X} ", e.i);
+            std::cout << std::endl;
+            for (const auto &e : debuggerPattern.bmsk())
+                std::cout << std::format("{:016X} ", e.i);
+            std::cout << std::endl;
         }
     }
-    return result + rip + 7;
-}
-
-static inline void reset()
-{
-    for (auto &pattern : debuggerPatterns)
-        pattern.reset();
+    inline void reset()
+    {
+        for (auto &pattern : debuggerPatterns)
+            pattern.reset();
+    }
+    template <size_t N>
+    inline uintptr_t parseJmpFar(uint8_t (&code)[N], const uintptr_t rip)
+    {
+        uint64_t result = 0;
+        uint8_t *p = &reinterpret_cast<uint8_t*>(&code)[0];
+        uint8_t *q = &reinterpret_cast<uint8_t*>(&result)[0];
+        bool atRva = false;
+        for (size_t i = 0; i < N; ++i)
+        {
+            switch (*p)
+            {
+                case 0x48:
+                case 0xFF:
+                    ++p;
+                    break;
+                default:
+                    if (atRva)
+                    {
+                        *q++ = *p++;
+                    }
+                    else
+                    {
+                        switch (*p & 0xF) // @ 48 FF xy now, don't care about x
+                        {
+                            case 0x5:   // 5 is jmp far absolute indirect
+                                atRva = true;
+                                ++p;
+                                i = N - 5;
+                                break;
+                            default:
+                                return false;
+                        }
+                    }
+            }
+        }
+        return result + rip + 7;
+    }
 }
 
 TEST_CASE("05 line coverage++", "[PMO]")
@@ -153,17 +172,18 @@ TEST_CASE("00 raw search testing", "[PMO]")
         REQUIRE(PMO::findPatterns(reinterpret_cast<uintptr_t>(crdp),
                     debuggerPatterns[1].patternLen, debuggerPatterns[1]));
     }
-    reset();
 
     SECTION("Final Boss: Find the patterns knowing only that they reside in KERNELBASE.dll")
     {
-        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]));
-        REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().address)()
-            == IsDebuggerPresent());
         REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1]));
+        REQUIRE(debuggerPatterns[1].size() == 1);
         REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().address)(handle, bl + 0)
             == CheckRemoteDebuggerPresent(handle, bl + 1));
         REQUIRE(bl[0] == bl[1]);
+
+        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]));
+        REQUIRE(debuggerPatterns[0].size() == 1);
+        REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().address)() == IsDebuggerPresent());
     }
 }
 
@@ -183,45 +203,8 @@ TEST_CASE("04 Test expected function name", "[PMO]")
     imports.clear();
 }
 
-TEST_CASE("ZZ Test replace by function name", "[PMO]")
-{
-    reset();
-
-    int bl[2] = {};
-    HANDLE handle = GetCurrentProcess();
-    REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 0));
-    REQUIRE(IsDebuggerPresent() == bl[0]);
-
-    //intProducer idp = nullptr;
-    //PMO::findNamedFunction(idpAddr, &idp);
-
-    intBiFunction crdp = nullptr;
-    PMO::findNamedFunction(crdpAddr, &crdp);
-    PMO::PointerUnion pu{ (void*)crdp };
-
-    REQUIRE(disableDebuggerChecking());
-
-    REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 1));
-    REQUIRE((IsDebuggerPresent() == bl[1] && !bl[1]));
-
-    PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
-    PMO::Pattern b{CRDP_CODE, CRDP_MASK, CRDP_CODE};
-
-    auto [lpBaseOfDll, SizeOfImage, EntryPoint] =
-        PMO::getModuleInfo(PMO::getModule("KERNELBASE.dll"));
-    findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, a);
-    REQUIRE(!a.empty());
-    findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, b);
-    REQUIRE(!b.empty());
-
-}
-
-// TODO: figure out why this hangs on github's hosted arm64 instance
 TEST_CASE("02 Test find by traversing thunks", "[PMO]")
 {
-#if defined(__aarch64__) || defined(_M_ARM64)
-    SKIP("Not yet implemented for this architecture.");
-#endif
     reset();
 
     intProducer fn = nullptr;
@@ -233,11 +216,12 @@ TEST_CASE("02 Test find by traversing thunks", "[PMO]")
 
     for (auto imports = PMO::getImports(); auto &im : imports)
     {
-        for (auto &gn : im.thunks | std::views::values)
+        for (auto &[k, v] : im.thunks)
         {
+            const auto gn = !v ? k : v;
             if (gn == addr)
             {
-                findPatterns(gn, debuggerPatterns[0].patternLen, debuggerPatterns[0]);
+                REQUIRE(findPatterns(gn, debuggerPatterns[0].patternLen, debuggerPatterns[0]));
                 break;
             }
         }
@@ -246,6 +230,7 @@ TEST_CASE("02 Test find by traversing thunks", "[PMO]")
     }
     intProducer fn1 = &IsDebuggerPresent;
     REQUIRE(fn() == fn1());
+    REQUIRE(!debuggerPatterns[0].empty());
     intProducer fn2 = reinterpret_cast<intProducer>(debuggerPatterns[0].back().address);
     REQUIRE(fn2() == fn1());
 }
@@ -384,4 +369,32 @@ TEST_CASE("09 Test getModuleInfo", "[PMO]")
     REQUIRE(info.EntryPoint == EntryPoint);
     REQUIRE(info.lpBaseOfDll == lpBaseOfDll);
     REQUIRE(info.SizeOfImage == SizeOfImage);
+}
+
+TEST_CASE("ZZ Test replace by function name", "[PMO]")
+{
+    reset();
+
+    int bl[2] = {};
+    HANDLE handle = GetCurrentProcess();
+    REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 0));
+    REQUIRE(IsDebuggerPresent() == bl[0]);
+
+    REQUIRE(disableDebuggerChecking());
+
+    REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 1));
+    REQUIRE((IsDebuggerPresent() == bl[1] && !bl[1]));
+
+    PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
+    PMO::Pattern b{CRDP_CODE, CRDP_MASK, CRDP_CODE};
+
+    auto module = PMO::getModule("KERNELBASE.dll");
+    auto [lpBaseOfDll, SizeOfImage, EntryPoint] =
+        PMO::getModuleInfo(module);
+    PMO::PointerUnion pu{lpBaseOfDll};
+
+    findPatterns(pu.address, SizeOfImage, a);
+    findPatterns(pu.address, SizeOfImage, b);
+    REQUIRE(!b.empty());
+    REQUIRE(!a.empty());
 }
