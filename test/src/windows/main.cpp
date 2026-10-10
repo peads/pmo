@@ -228,10 +228,9 @@ TEST_CASE("02 Test find by traversing thunks", "[PMO]")
     {
         for (auto &[k, v] : im.thunks)
         {
-            const auto gn = !v ? k : v;
-            if (gn == addr)
+            if (const auto gn = !v ? k : v; gn == addr)
             {
-                REQUIRE(findPatterns(gn, debuggerPatterns[0].patternLen, debuggerPatterns[0]));
+                CHECK(findPatterns(gn, debuggerPatterns[0].patternLen, debuggerPatterns[0]));
                 break;
             }
         }
