@@ -60,7 +60,7 @@ namespace PMO
             std::vector<char> m_code;
 
             template <typename T>
-            static T generateTypedMask(T n) requires (std::is_unsigned_v<T>)
+            static T generateTypedMask(T n) noexcept requires (std::is_unsigned_v<T>)
             {
                 if (!n)
                     return 0;
@@ -163,12 +163,6 @@ namespace PMO
             {
                 return PointerUnion{.str = m_pattern.data()};
             }
-
-            // [[nodiscard]] auto masks() const noexcept
-            // {
-            //     std::vector<PointerUnion> result{{.str = m_mask[0].data()}, {.str = m_mask[1].data()}};
-            //     return result;
-            // }
 
             [[nodiscard]] auto code() const noexcept
             {

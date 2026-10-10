@@ -161,12 +161,7 @@ namespace PMO
         auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
         auto baseAddr = pointer.u64ptr;
         auto pat = searchStruct.pattern().u64ptr;
-
-        auto masks = searchStruct.masks;
-        // auto foo = masks[0];
-        // auto bar = masks[1];
-        // PointerUnion baz[] = {PointerUnion{.cptr = foo.data()},
-        //         PointerUnion{.cptr = bar.data()}};
+        const auto masks = searchStruct.masks;
 
         for (auto pmsk = masks[0].u64ptr, bmsk = masks[1].u64ptr;
             len - 7 > 0 && pat < theEnd.u64ptr; ++pmsk, ++pat, ++bmsk)

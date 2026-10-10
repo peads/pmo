@@ -50,6 +50,7 @@
       "generator": "Ninja",
       "inherits": "base",
       "cacheVariables": {
+        "IS_DEPLOYMENT": true,
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_SYSTEM_NAME": "Windows",
         "CMAKE_C_COMPILER": "clang-cl",

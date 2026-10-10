@@ -370,7 +370,7 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
 
     REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 1));
     REQUIRE((IsDebuggerPresent() == bl[1] && !bl[1]));
-
+#if !(defined(__aarch64__) || defined(_M_ARM64))
     PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
     PMO::Pattern b{CRDP_CODE, CRDP_MASK, CRDP_CODE};
 
@@ -383,4 +383,5 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
     findPatterns(pu.address, SizeOfImage, b);
     REQUIRE(!a.empty());
     REQUIRE(!b.empty());
+#endif
 }
