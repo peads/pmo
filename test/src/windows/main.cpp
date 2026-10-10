@@ -185,13 +185,14 @@ TEST_CASE("00 raw search testing", "[PMO]")
         MODULEINFO info = PMO::getModuleInfo(module);
         PMO::PointerUnion pu{info.lpBaseOfDll};
 
-        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1]));
+        CHECK(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]));
+        CHECK(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1]));
+
         REQUIRE(debuggerPatterns[1].size() == 1);
         REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().address)(handle, bl + 0)
             == CheckRemoteDebuggerPresent(handle, bl + 1));
         REQUIRE(bl[0] == bl[1]);
 
-        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]));
         REQUIRE(debuggerPatterns[0].size() == 1);
         REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().address)() == IsDebuggerPresent());
     }
@@ -230,7 +231,7 @@ TEST_CASE("02 Test find by traversing thunks", "[PMO]")
         {
             if (const auto gn = !v ? k : v; gn == addr)
             {
-                CHECK(findPatterns(gn, debuggerPatterns[0].patternLen, debuggerPatterns[0]));
+                REQUIRE(findPatterns(gn, debuggerPatterns[0].patternLen, debuggerPatterns[0]));
                 break;
             }
         }
@@ -272,8 +273,6 @@ TEST_CASE("01 Test parse far jmp", "[PMO]")
 TEST_CASE("03 Test findProcessByName", "[PMO]")
 {
     std::vector<DWORD> handles{};
-    // char buffer[MAX_PATH];
-    // GetModuleFileName(nullptr, buffer, MAX_PATH);
     const std::wstring buffer = PMO::getModuleFileName(CURRENT_MODULE);
     const std::filesystem::path path(buffer);
     REQUIRE((path.has_filename() && "pmo.exe" == path.filename().string()));
