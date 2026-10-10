@@ -402,9 +402,9 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
     REQUIRE(disableDebuggerChecking());
 
     std::cout << "idp:\n";
-    printPatternAsBytes((void*)&IsDebuggerPresent, strlen(IDP_MASK));
+    printPatternAsBytes((void*)idp, strlen(IDP_MASK));
     std::cout << "crdp:\n";
-    printPatternAsBytes((void*)&CheckRemoteDebuggerPresent, strlen(CRDP_MASK));
+    printPatternAsBytes((void*)crdp, strlen(CRDP_MASK));
 
     REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 1));
     REQUIRE((IsDebuggerPresent() == bl[1] && !bl[1]));
