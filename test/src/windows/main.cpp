@@ -156,8 +156,8 @@ TEST_CASE("05 line coverage++", "[PMO]")
 TEST_CASE("00 raw search testing", "[PMO]")
 {
     reset();
-    intProducer idp;
-    intBiFunction crdp;
+    intProducer idp = nullptr;
+    intBiFunction crdp = nullptr;
     auto handle = reinterpret_cast<HANDLE>(-1ULL);//GetCurrentProcess();
     int bl[2];
 
@@ -383,15 +383,21 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
 {
     reset();
 
+
+    intProducer idp = nullptr;
+    intBiFunction crdp = nullptr;
+    PMO::findNamedFunction(idpAddr, &idp);
+    PMO::findNamedFunction(crdpAddr, &crdp);
+
     int bl[2] = {};
     HANDLE handle = GetCurrentProcess();
     REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 0));
     REQUIRE(IsDebuggerPresent() == bl[0]);
 
     std::cout << "idp:\n";
-    printPatternAsBytes((void*)&IsDebuggerPresent, strlen(IDP_MASK));
+    printPatternAsBytes((void*)idp, strlen(IDP_MASK));
     std::cout << "crdp:\n";
-    printPatternAsBytes((void*)&CheckRemoteDebuggerPresent, strlen(CRDP_MASK));
+    printPatternAsBytes((void*)crdp, strlen(CRDP_MASK));
 
     REQUIRE(disableDebuggerChecking());
 
