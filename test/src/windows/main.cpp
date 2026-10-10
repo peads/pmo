@@ -166,6 +166,10 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
     SECTION("Ensure PMO::findNamedFunction returns a functioning pointer")
     {
+        std::cout << "idp:\n";
+        printPatternAsBytes((void*)idp, strlen(IDP_MASK));
+        std::cout << "crdp:\n";
+        printPatternAsBytes((void*)crdp, strlen(CRDP_MASK));
         REQUIRE(idp() == IsDebuggerPresent());
         REQUIRE(crdp(handle, bl + 0) == CheckRemoteDebuggerPresent(handle, bl + 1));
         REQUIRE(bl[0] == bl[1]);
