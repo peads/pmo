@@ -21,6 +21,7 @@
 #include <cstdlib>
 #include <algorithm>
 #include <filesystem>
+#include <ranges>
 
 #include "../MemoryOps.hpp"
 #include "types/ImportInfo.hpp"
@@ -401,7 +402,7 @@ namespace PMO
         MEMORY_BASIC_INFORMATION mbi;
         std::vector<char> buffer(8192);
 
-        const auto end = searchStruct.pattern.cptr + searchStruct.patternLen;
+        const auto end = searchStruct.pattern().cptr + searchStruct.patternLen;
         const PointerUnion theEnd = {.cptr = end};
 
         for (uintptr_t address = 0;
@@ -492,7 +493,7 @@ finished:
     // ReSharper disable once CppParameterMayBeConst
     inline bool replaceCodeExternal(HANDLE proc, void *address, const Pattern &pattern) noexcept
     {
-        return WriteProcessMemory(proc, address, pattern.code.ptr, pattern.codeLen, nullptr);
+        return WriteProcessMemory(proc, address, pattern.code().ptr, pattern.codeLen, nullptr);
     }
 
     // ReSharper disable once CppParameterMayBeConst

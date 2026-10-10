@@ -160,14 +160,19 @@ namespace PMO
         uint64_t notHit = -1;
         auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
         auto baseAddr = pointer.u64ptr;
-        auto pat = searchStruct.pattern.u64ptr;
+        auto pat = searchStruct.pattern().u64ptr;
 
-        for (auto pmsk = searchStruct.pmsk().data(),
-            bmsk = searchStruct.bmsk().data(); len - 7 > 0 &&
-            pat < theEnd.u64ptr; ++pmsk, ++bmsk, ++pat)
+        auto masks = searchStruct.masks;
+        // auto foo = masks[0];
+        // auto bar = masks[1];
+        // PointerUnion baz[] = {PointerUnion{.cptr = foo.data()},
+        //         PointerUnion{.cptr = bar.data()}};
+
+        for (auto pmsk = masks[0].u64ptr, bmsk = masks[1].u64ptr;
+            len - 7 > 0 && pat < theEnd.u64ptr; ++pmsk, ++pat, ++bmsk)
         {
-            const auto valMasked = *baseAddr & pmsk->i | bmsk->i;
-            const auto patMasked = *pat & pmsk->i | bmsk->i;
+            const auto valMasked = *baseAddr & *pmsk | *bmsk;
+            const auto patMasked = *pat & *pmsk | *bmsk;
             notHit = valMasked ^ patMasked;
             if (notHit)
             // if ((notHit = (*baseAddr ^ *pat) & (~bmsk->i & pmsk->i)))
@@ -194,9 +199,9 @@ namespace PMO
     {
         bool notHit = true;
         auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
-        for (auto pat = searchStruct.pattern.cptr,
-                  msk = searchStruct.mask.cptr,
-                  val = pointer.cptr; pat < theEnd.cptr; ++pat, ++msk, ++val)
+        for (auto pat = searchStruct.pattern().str,
+                  msk = searchStruct.mask,
+                  val = pointer.str; pat < theEnd.str; ++pat, ++msk, ++val)
             if ('?' != *msk && ((notHit = *pat ^ *val)))
                 break;
 
@@ -222,7 +227,7 @@ namespace PMO
             return false;
 
         bool result = false;
-        const PointerUnion theEnd = {.address = searchStruct.pattern.address + searchStruct.patternLen};
+        const PointerUnion theEnd = {.address = searchStruct.pattern().address + searchStruct.patternLen};
         PointerUnion pointer = {.address = addr};
 
         SearchContext ctx{

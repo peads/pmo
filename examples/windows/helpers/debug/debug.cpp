@@ -45,7 +45,7 @@ inline bool disableDebuggerChecking() noexcept
     debuggerPatterns[0].push_back(idpAddr);
     const PMO::PointerUnion puI{.address = idpAddr};
     bool result = replaceCode(puI,
-                              debuggerPatterns[0].code.str,
+                              debuggerPatterns[0].code().str,
                               debuggerPatterns[0].codeLen);
 
     intBiFunction crdp = nullptr;
@@ -54,7 +54,7 @@ inline bool disableDebuggerChecking() noexcept
     const PMO::PointerUnion puC{.address = crdpAddr};
     debuggerPatterns[1].push_back(crdpAddr);
     result &= replaceCode(puC,
-                          debuggerPatterns[1].code.str,
+                          debuggerPatterns[1].code().str,
                           debuggerPatterns[1].codeLen);
 
     return result;
