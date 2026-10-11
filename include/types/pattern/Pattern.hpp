@@ -105,7 +105,7 @@ namespace PMO
                     {
                         if ('?' != mask[i])
                         {
-                            result[0].push_back(generateTypedMask(static_cast<uint8_t>(pattern[i])));
+                            result[0].push_back(EFFS);//generateTypedMask(static_cast<uint8_t>(pattern[i])));
                             result[1].push_back(0);
                         }
                         else

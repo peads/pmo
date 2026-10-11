@@ -42,15 +42,19 @@ namespace
         {
             uintptr_t addr = e;
             PMO::findExports(module, exports, &addr);
-            const auto &[ord, tup] = *exports.begin();
-            if (const auto &[fn, name, isNamed] = tup; isNamed)
-                std::cout << std::format("{}: ", name);
-            for (size_t i = 0; i < len; ++i)
+            auto ex = exports.begin();
+            if (ex != exports.end())
             {
-                std::cout << std::format("{:02X} ", ((char*)e)[i]);
+                const auto &[ord, tup] = *ex;
+                if (const auto &[fn, name, isNamed] = tup; isNamed)
+                    std::cout << std::format("{}: ", name);
+                for (size_t i = 0; i < len; ++i)
+                {
+                    std::cout << std::format("{:02X} ", ((char*)e)[i]);
+                }
+                exports.clear();
+                std::cout << std::endl;
             }
-            exports.clear();
-            std::cout << std::endl;
         }
     }
     inline void reset()

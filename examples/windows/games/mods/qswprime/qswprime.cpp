@@ -19,6 +19,9 @@
 #include "windows/MemoryOps.hpp"
 #include "qswprime.hpp"
 
+#include <fstream>
+
+static std::ofstream logfile("qsw.log");//, std::ios::app);
 extern "C" {
     __declspec(dllexport) int DllMain() noexcept
     {
@@ -27,8 +30,16 @@ extern "C" {
         static const HMODULE module = PMO::findModule(names);
         auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getModuleInfo(module);
         const PMO::PointerUnion pu{lpBaseOfDll};
-
-        return findPatterns(pu.address, SizeOfImage, pattern)
-                  && replaceCode(pattern.back(), pattern.code().str,  pattern.codeLen);
+        logfile << std::format("Module {}\n", lpBaseOfDll);
+        auto foundPatterns = findPatterns(pu.address, SizeOfImage, pattern);
+        logfile << std::format("Found {} {}\n", foundPatterns, pattern.size());
+        bool codeReplaced = false;
+        if (foundPatterns)
+        {
+            codeReplaced = replaceCode(pattern.back(), pattern.code().str,  pattern.codeLen);
+            logfile << std::format("Code replaced {}\n", codeReplaced);
+        }
+        logfile.close();
+        return codeReplaced && foundPatterns;
     }
 }
