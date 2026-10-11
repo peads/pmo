@@ -17,6 +17,9 @@
  */
 #include <cstdint>
 #include "debug.hpp"
+
+#include <thread>
+
 #include "windows/MemoryOps.hpp"
 
 inline void printDebugger() noexcept
@@ -33,7 +36,7 @@ inline void printDebugger() noexcept
     }
     std::cout << std::endl << std::endl;
 }
-inline bool disableDebuggerChecking() noexcept
+inline bool disableDebuggerChecking(const HMODULE inModule) noexcept
 {
     PMO::Pattern debuggerPatterns[] = {
         PMO::Pattern{IDP_PATTERN, IDP_MASK, IDP_CODE},
@@ -56,20 +59,18 @@ inline bool disableDebuggerChecking() noexcept
     result &= replaceCode(puC,
                           debuggerPatterns[1].code().str,
                           debuggerPatterns[1].codeLen);
-
+    if (inModule)
+        FreeLibraryAndExitThread(inModule, !result);
     return result;
 }
 
 extern "C" {
-    __declspec(dllexport) int DllMain() noexcept
+    BOOL WINAPI DllMain(const HMODULE module, const DWORD reason, LPVOID lpvReserved) noexcept
     {
-#ifndef IS_DEBUG
-        return disableDebuggerChecking();
-#else
-        printDebugger();
-        const auto result = disableDebuggerChecking();
-        printDebugger();
-        return result;
-#endif
+        if (DLL_PROCESS_ATTACH == reason)
+        {
+            std::jthread(disableDebuggerChecking, module).detach();
+        }
+        return TRUE;
     }
 }

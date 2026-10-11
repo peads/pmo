@@ -35,6 +35,11 @@
     #define PRAGMA_UNROLL(n)
 #endif
 
+// #ifndef STRIDE
+// #undef STRIDE
+// #define STRIDE 8ULL
+// #endif
+
 namespace PMO
 {
 #if defined(__aarch64__) || defined(_M_ARM64)
@@ -155,34 +160,80 @@ namespace PMO
 
     typedef bool (*searchFunc)(SearchContext &ctx);
 
+
+// /*#if STRIDE == 8
+//     inline uint64_t compare(
+//         const uint8_t *baseAddr,
+//         const uint8_t *pat,
+//         const uint8_t *bmsk,
+//         const uint8_t *pmsk
+//     )
+//     {
+//         uint64_t result = 0;
+//         PRAGMA_IVDEP
+//         for (size_t i = 0; i < 8; i += 4)
+//         {
+//             if ((result |= (*(uint32_t*) &baseAddr[i] ^ *(uint32_t*) &pat[i]) & (~*(uint32_t*) &bmsk[i] & *(uint32_t*) &pmsk[i])))
+//                 continue;
+//         }
+//         return result;
+//     }
+// #el*/#if STRIDE == 8
+//     inline bool compare(
+//         const uint8_t *baseAddr,
+//         const uint8_t *pat,
+//         const uint8_t *bmsk,
+//         const uint8_t *pmsk
+//     )
+//     {
+//         return (*(uint64_t*) baseAddr ^ *(uint64_t*) pat) & (~*(uint64_t*) bmsk & *(uint64_t*) pmsk);
+//     }
+// #elif STRIDE == 16
+//     inline bool compare(
+//         const uint8_t *baseAddr,
+//         const uint8_t *pat,
+//         const uint8_t *bmsk,
+//         const uint8_t *pmsk
+//     )
+//     {
+//         return compare8(baseAddr, pat, bmsk, pmsk)
+//             && compare8(baseAddr + 8, pat + 8, bmsk + 8, pmsk + 8);
+//     }
+// #endif
     inline bool searchChunked(SearchContext &ctx) noexcept
     {
         uint64_t notHit = -1;
         auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
-        auto baseAddr = pointer.u64ptr;
-        auto pat = searchStruct.pattern().u64ptr;
         const auto masks = searchStruct.masks;
-
-        for (auto pmsk = masks[0].u64ptr, bmsk = masks[1].u64ptr;
-            len - 7 > 0 && pat < theEnd.u64ptr; ++pmsk, ++pat, ++bmsk)
+        auto baseAddr = pointer.u8ptr;
+        auto pat = searchStruct.pattern().u8ptr;
+        auto pmsk = masks[0].u8ptr;
+        auto bmsk = masks[1].u8ptr;
+        PRAGMA_IVDEP
+        for (size_t i = 0;
+            // pmsk = masks[0].u8ptr,
+            // bmsk = masks[1].u8ptr;
+            i < searchStruct.patternLen &&
+            len - (STRIDE - 1) > 0;
+            i += STRIDE)
+            // && pat < theEnd.u8ptr;
+            // pmsk += STRIDE, pat += STRIDE, bmsk += STRIDE, baseAddr += STRIDE)
         {
-            const auto valMasked = *baseAddr & *pmsk | *bmsk;
-            const auto patMasked = *pat & *pmsk | *bmsk;
-            notHit = valMasked ^ patMasked;
-            if (notHit)
-            // if ((notHit = (*baseAddr ^ *pat) & (~bmsk->i & pmsk->i)))
+            // const auto valMasked = *baseAddr & *pmsk | *bmsk;
+            // const auto patMasked = *pat & *pmsk | *bmsk;
+            // notHit = valMasked ^ patMasked;
+            // if (notHit)
+            if ((notHit = (*(uint64_t*) &baseAddr[i] ^ *(uint64_t*) &pat[i]) & (~*(uint64_t*) &bmsk[i] & *(uint64_t*) &pmsk[i])))
             {
                 --len;
                 break;
             }
-            ++baseAddr;
         }
 
         if (!notHit)
         {
             result = true;
             searchStruct.push_back(pointer.address + offset);
-            // pointer.u64ptr = baseAddr;
             pointer.u8ptr += searchStruct.patternLen;
             len -= searchStruct.patternLen;
         }

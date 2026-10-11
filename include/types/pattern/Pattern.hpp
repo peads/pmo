@@ -21,6 +21,11 @@
 #include "types/PointerUnion.hpp"
 #include "types/SetWrapper.hpp"
 
+#ifndef STRIDE
+#undef STRIDE
+#define STRIDE 8ULL
+#endif
+
 namespace PMO
 {
     class Pattern
@@ -58,24 +63,24 @@ namespace PMO
             std::vector<char> m_pattern;
             std::vector<char> m_code;
 
-            template <typename T>
-            static T generateTypedMask(T n) noexcept requires (std::is_unsigned_v<T>)
-            {
-                if (!n)
-                    return 0;
-                int bits = std::bit_width(n);
-                if (bits >= (sizeof(n) << 3))
-                {
-                    return static_cast<T>(-1);
-                }
-                return std::move((static_cast<T>(1) << bits) - 1);
-            }
+            // template <typename T>
+            // static T generateTypedMask(T n) noexcept requires (std::is_unsigned_v<T>)
+            // {
+            //     if (!n)
+            //         return 0;
+            //     int bits = std::bit_width(n);
+            //     if (bits >= (sizeof(n) << 3))
+            //     {
+            //         return static_cast<T>(-1);
+            //     }
+            //     return std::move((static_cast<T>(1) << bits) - 1);
+            // }
 
             template <typename T>
             static auto storeData(T data, const size_t len) noexcept
             {
                 std::vector<char> result{};
-                const size_t plen = (len + 7ULL) & ~7ULL;
+                const size_t plen = (len + (STRIDE - 1ULL)) & ~(STRIDE - 1ULL);
                 for (size_t i = 0; i < plen; ++i)
                 {
                     if (i < len)
@@ -91,7 +96,7 @@ namespace PMO
             {
                 static constexpr auto EFFS = static_cast<char>(0xFF);
                 std::vector<std::vector<char>> result(2);
-                const size_t plen = (len + 7ULL) & ~7ULL;
+                const size_t plen = (len + (STRIDE - 1ULL)) & ~(STRIDE - 1ULL);
                 for (size_t i = 0; i < plen; ++i)
                 {
                     if (i >= len)
