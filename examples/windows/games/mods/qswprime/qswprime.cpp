@@ -29,6 +29,6 @@ extern "C" {
         const PMO::PointerUnion pu{lpBaseOfDll};
 
         return findPatterns(pu.address, SizeOfImage, pattern)
-                  && replaceCode(pattern.back(), pattern.code.str,  pattern.codeLen);
+                  && replaceCode(pattern.back(), pattern.code().str,  pattern.codeLen);
     }
 }

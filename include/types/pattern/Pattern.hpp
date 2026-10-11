@@ -122,7 +122,6 @@ namespace PMO
             const char *const mask;
             const size_t patternLen;
             const size_t codeLen;
-            std::string genMask;
             std::array<PointerUnion, 2> masks{};
 
         private:
@@ -136,7 +135,6 @@ namespace PMO
                   mask(mask),
                   patternLen(N - 1),
                   codeLen(P - 1),
-                  genMask(autoGenerateMask(pattern, N)),
                   m_mask(generateMask(m_pattern.data(), mask, M - 1))
             {
                 static_assert(M == N);
@@ -144,7 +142,7 @@ namespace PMO
                 masks[1].str = m_mask[1].data();
             }
 
-            template <PseudoContainer T, size_t M>
+            template <typename T>
             Pattern(
                 T pattern, const size_t plen, T mask, const size_t mlen, T code, const size_t clen
             ) noexcept
