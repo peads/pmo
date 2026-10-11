@@ -179,6 +179,7 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
     SECTION("Final Boss: Find the patterns knowing only that they reside in KERNELBASE.dll")
     {
+        const char *failMsg = nullptr;
         CHECK(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1]));
         CHECK(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]));
 
@@ -189,7 +190,7 @@ TEST_CASE("00 raw search testing", "[PMO]")
         CHECKED_ELSE(debuggerPatterns[0].size() == 1)
         {
             printBytes(debuggerPatterns[0], debuggerPatterns[0].patternLen, PMO::getModule("KERNELBASE.dll"));
-            FAIL("Failed to find IsDebuggerPresent in KERNELBASE.dll");
+            failMsg = "Failed to find IsDebuggerPresent in KERNELBASE.dll";
         }
         CHECKED_IF(debuggerPatterns[1].size() == 1)
         {
@@ -200,7 +201,11 @@ TEST_CASE("00 raw search testing", "[PMO]")
         CHECKED_ELSE(debuggerPatterns[1].size() == 1)
         {
             printBytes(debuggerPatterns[1], debuggerPatterns[1].patternLen, PMO::getModule("KERNELBASE.dll"));
-            FAIL("Failed to find CheckRemoteDebuggerPresent in KERNELBASE.dll");
+            failMsg = "Failed to find CheckRemoteDebuggerPresent in KERNELBASE.dll";
+        }
+        CHECKED_IF(failMsg)
+        {
+            FAIL(failMsg);
         }
     }
 }
