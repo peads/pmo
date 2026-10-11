@@ -195,7 +195,7 @@ namespace PMO
         bool notHit = true;
         auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
         for (auto pat = searchStruct.pattern().str,
-                  msk = searchStruct.mask,
+                  msk = searchStruct.mask.c_str(),
                   val = pointer.str; pat < theEnd.str; ++pat, ++msk, ++val)
             if ('?' != *msk && ((notHit = *pat ^ *val)))
                 break;

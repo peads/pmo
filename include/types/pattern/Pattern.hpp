@@ -19,7 +19,6 @@
 #define PATTERN_HPP
 #include "parse/ParseJmp.hpp"
 #include "types/PointerUnion.hpp"
-#include "types/PseudoContainer.hpp"
 #include "types/SetWrapper.hpp"
 
 namespace PMO
@@ -87,9 +86,8 @@ namespace PMO
                 return result;
             }
 
-            template <typename T, typename U>
-            static auto generateMask(T pattern, U mask, const size_t len) noexcept requires (
-                std::is_pointer_v<T> && std::is_pointer_v<U>)
+            template <typename U>
+            static auto generateMask(U mask, const size_t len) noexcept
             {
                 static constexpr auto EFFS = static_cast<char>(0xFF);
                 std::vector<std::vector<char>> result(2);
@@ -119,7 +117,7 @@ namespace PMO
             }
 
         public:
-            const char *const mask;
+            const std::string mask;
             const size_t patternLen;
             const size_t codeLen;
             std::array<PointerUnion, 2> masks{};
@@ -135,7 +133,7 @@ namespace PMO
                   mask(mask),
                   patternLen(N - 1),
                   codeLen(P - 1),
-                  m_mask(generateMask(m_pattern.data(), mask, M - 1))
+                  m_mask(generateMask(mask, M - 1))
             {
                 static_assert(M == N);
                 masks[0].str = m_mask[0].data();
@@ -144,14 +142,27 @@ namespace PMO
 
             template <typename T>
             Pattern(
-                T pattern, const size_t plen, T mask, const size_t mlen, T code, const size_t clen
+                T pattern, const size_t plen, T mask, T code, const size_t clen
             ) noexcept
                 : m_pattern(storeData(pattern, plen - 1)),
                   m_code(storeData(code, clen - 1)),
                   mask(mask),
                   patternLen(plen),
                   codeLen(clen),
-                  m_mask(generateMask(m_pattern.data(), mask, mlen - 1))
+                  m_mask(generateMask(mask, plen - 1))
+            {
+                masks[0].str = m_mask[0].data();
+                masks[1].str = m_mask[1].data();
+            }
+
+            template <typename T>
+            Pattern(T pattern,  const size_t plen, T code, const size_t clen) noexcept
+                : m_pattern(storeData(pattern, plen - 1)),
+                  m_code(storeData(code, clen - 1)),
+                  mask(autoGenerateMask(pattern, plen)),
+                  patternLen(plen),
+                  codeLen(clen),
+                  m_mask(generateMask(mask, plen - 1))
             {
                 masks[0].str = m_mask[0].data();
                 masks[1].str = m_mask[1].data();
@@ -207,6 +218,25 @@ namespace PMO
             [[nodiscard]] PointerUnion back() noexcept
             {
                 return PointerUnion{.address = m_occurrences.back()};
+            }
+            bool operator==(const Pattern &a) const noexcept
+            {
+                auto arr = {
+                    // std::pair{
+                    //     std::vector(this->m_mask, this->m_mask + this->patternLen),
+                    //     std::vector(a.m_mask, a.m_mask + a.patternLen)
+                    // },
+                    std::pair{this->m_pattern, a.m_pattern},
+                    std::pair{this->m_code, a.m_code}
+                };
+                return this->codeLen == a.codeLen
+                    && this->patternLen == a.patternLen
+                    && std::ranges::all_of(arr,
+                    [](auto &e)
+                    {
+                        auto &[x,y] = e;
+                        return std::ranges::equal(x, y);
+                    });
             }
     };
 }

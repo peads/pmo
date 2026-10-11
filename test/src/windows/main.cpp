@@ -356,9 +356,8 @@ TEST_CASE("07 autogen mask", "[PMO]")
         CRDP_PATTERN,
         sizeof(CRDP_PATTERN),
         pu.str,
-        crdpMask.length() + 1,
         CRDP_CODE,
-        sizeof(CRDP_PATTERN),
+        sizeof(CRDP_CODE),
     };
 
     findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, a);
@@ -369,8 +368,8 @@ TEST_CASE("07 autogen mask", "[PMO]")
     REQUIRE(fn2(module, bl + 0) == CheckRemoteDebuggerPresent(module, bl + 1));
     REQUIRE(bl[0] == bl[1]);
 
-    // PMO::Pattern b{CRDP_PATTERN, CRDP_CODE};
-    // REQUIRE(a == b);
+    PMO::Pattern b{CRDP_PATTERN,sizeof(CRDP_PATTERN), CRDP_CODE,sizeof(CRDP_CODE)};
+    REQUIRE(a == b);
 }
 
 TEST_CASE("08 Test findExports", "[PMO]")
