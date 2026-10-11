@@ -29,11 +29,30 @@
 #define CATCH_CONFIG_MAIN // provides main(); this line is required in only one .cpp file
 namespace
 {
-    inline PMO::Pattern debuggerPatterns[] = {
+    PMO::Pattern debuggerPatterns[] = {
         PMO::Pattern{IDP_PATTERN, IDP_MASK, IDP_CODE},
         PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
     };
 
+    template <typename T>
+    void printBytes(const T &list, const size_t len, const HMODULE module)
+    {
+        std::map<WORD, std::tuple<uintptr_t, char*, bool>> exports{};
+        for (const auto &e : list)
+        {
+            uintptr_t addr = e;
+            PMO::findExports(module, exports, &addr);
+            const auto &[ord, tup] = *exports.begin();
+            if (const auto &[fn, name, isNamed] = tup; isNamed)
+                std::cout << std::format("{}: ", name);
+            for (size_t i = 0; i < len; ++i)
+            {
+                std::cout << std::format("{:02X} ", ((char*)e)[i]);
+            }
+            exports.clear();
+            std::cout << std::endl;
+        }
+    }
     inline void reset()
     {
         for (auto &pattern : debuggerPatterns)
@@ -163,13 +182,26 @@ TEST_CASE("00 raw search testing", "[PMO]")
         CHECK(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1]));
         CHECK(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]));
 
-        REQUIRE(debuggerPatterns[0].size() == 1);
-        REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().address)() == IsDebuggerPresent());
-
-        REQUIRE(debuggerPatterns[1].size() == 1);
-        REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().address)(handle, bl + 0)
-            == CheckRemoteDebuggerPresent(handle, bl + 1));
-        REQUIRE(bl[0] == bl[1]);
+        CHECKED_IF(debuggerPatterns[0].size() == 1)
+        {
+            REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().address)() == IsDebuggerPresent());
+        }
+        CHECKED_ELSE(debuggerPatterns[0].size() == 1)
+        {
+            printBytes(debuggerPatterns[0], debuggerPatterns[0].patternLen, PMO::getModule("KERNELBASE.dll"));
+            FAIL("Failed to find IsDebuggerPresent in KERNELBASE.dll");
+        }
+        CHECKED_IF(debuggerPatterns[1].size() == 1)
+        {
+            REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().address)(handle, bl + 0)
+                == CheckRemoteDebuggerPresent(handle, bl + 1));
+            REQUIRE(bl[0] == bl[1]);
+        }
+        CHECKED_ELSE(debuggerPatterns[1].size() == 1)
+        {
+            printBytes(debuggerPatterns[1], debuggerPatterns[1].patternLen, PMO::getModule("KERNELBASE.dll"));
+            FAIL("Failed to find CheckRemoteDebuggerPresent in KERNELBASE.dll");
+        }
     }
 }
 
@@ -249,8 +281,6 @@ TEST_CASE("01 Test parse far jmp", "[PMO]")
 TEST_CASE("03 Test findProcessByName", "[PMO]")
 {
     std::vector<DWORD> handles{};
-    // char buffer[MAX_PATH];
-    // GetModuleFileName(nullptr, buffer, MAX_PATH);
     const std::wstring buffer = PMO::getModuleFileName(CURRENT_MODULE);
     const std::filesystem::path path(buffer);
     REQUIRE((path.has_filename() && "pmo.exe" == path.filename().string()));
