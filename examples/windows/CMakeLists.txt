@@ -11,5 +11,5 @@ if(DEFINED BUILD_BOOTSTRAPPER)
     execute_process(
             COMMAND ${GIT_EXECUTABLE} "apply" "${CMAKE_CURRENT_SOURCE_DIR}/bootstrapper.patch"
             WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bootstrapper")
+    add_subdirectory("bootstrapper")
 endif()
-add_subdirectory("bootstrapper")
