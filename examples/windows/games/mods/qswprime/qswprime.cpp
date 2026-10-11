@@ -19,16 +19,57 @@
 #include "windows/MemoryOps.hpp"
 #include "qswprime.hpp"
 
+#include <thread>
+
+// #ifdef IS_DEBUG
+#include <fstream>
+#include <format>
+// #endif
+
 extern "C" {
-    __declspec(dllexport) int DllMain() noexcept
+    void apply(const HMODULE inModule)
     {
-        static PMO::Pattern pattern{SLEEP_WAIT_PATTERN, SLEEP_WAIT_MASK, SLEEP_WAIT_CODE};
-        static const char *names[] = {OBR_WIN64, OBR_WINGDK};
-        static const HMODULE module = PMO::findModule(names);
+// #ifdef IS_DEBUG
+        std::ofstream out("qsw.log", std::ios::app);
+//#endif
+        PMO::Pattern pattern{SLEEP_WAIT_PATTERN, SLEEP_WAIT_MASK, SLEEP_WAIT_CODE};
+        const char *names[] = {OBR_WIN64, OBR_WINGDK};
+        const HMODULE module = PMO::findModule(names);
         auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getModuleInfo(module);
         const PMO::PointerUnion pu{lpBaseOfDll};
+// #ifdef IS_DEBUG
+        out << std::hex << module << " " << lpBaseOfDll << " " << SizeOfImage << " " << EntryPoint << std::endl;
+// #endif
+        const bool result =
+            findPatterns(pu.address, SizeOfImage, pattern, true/*, PMO::searchBytewise*/) &&
+                replaceCode(pattern.back(), pattern.code().str, pattern.codeLen);
+// #ifdef IS_DEBUG
+        out << "Size: " << pattern.size() << "Initial result: " << std::boolalpha << result << std::endl;
+        if (!result)
+        {
+            out << "Falling back to bytewise search.\n";
+            if (!findPatterns(pu.address, SizeOfImage, pattern, true, PMO::searchBytewise))
+                out << "Bytewise search failed.\n";
+            else if (!replaceCode(pattern.back(), pattern.code().str, pattern.codeLen))
+                out << "Failed to replace code.\n";
+        }
+        for (const auto &e : pattern)
+        {
+            for (size_t i = 0; i < pattern.codeLen; ++i)
+                out << std::format("{:02X} ", reinterpret_cast<char*>(e)[i]);
+            out << std::endl;
+        }
+        out.close();
+// #endif
+        FreeLibraryAndExitThread(inModule, !result);
+    }
 
-        return findPatterns(pu.address, SizeOfImage, pattern, true, PMO::searchBytewise)
-                  && replaceCode(pattern.back(), pattern.code().str,  pattern.codeLen);
+    BOOL WINAPI DllMain(const HMODULE module, const DWORD reason, LPVOID lpvReserved) noexcept
+    {
+        if (DLL_PROCESS_ATTACH == reason)
+        {
+            std::jthread(apply, module).detach();
+        }
+        return TRUE;
     }
 }

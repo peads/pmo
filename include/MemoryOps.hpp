@@ -23,7 +23,7 @@
 
 #if defined(__clang__)
     #define PRAGMA_IVDEP _Pragma("clang loop vectorize(enable) interleave(enable)")
-    #define PRAGMA_UNROLL(n) _Pragma("clang loop unroll_count(n)")
+    #define PRAGMA_UNROLL _Pragma("clang loop unroll_count(8)")
 #elif defined(__GNUC__) || defined(__GNUG__)
     #define PRAGMA_IVDEP _Pragma("GCC ivdep")
     #define PRAGMA_UNROLL(n) _Pragma("GCC unroll n")
@@ -160,69 +160,18 @@ namespace PMO
 
     typedef bool (*searchFunc)(SearchContext &ctx);
 
-
-// /*#if STRIDE == 8
-//     inline uint64_t compare(
-//         const uint8_t *baseAddr,
-//         const uint8_t *pat,
-//         const uint8_t *bmsk,
-//         const uint8_t *pmsk
-//     )
-//     {
-//         uint64_t result = 0;
-//         PRAGMA_IVDEP
-//         for (size_t i = 0; i < 8; i += 4)
-//         {
-//             if ((result |= (*(uint32_t*) &baseAddr[i] ^ *(uint32_t*) &pat[i]) & (~*(uint32_t*) &bmsk[i] & *(uint32_t*) &pmsk[i])))
-//                 continue;
-//         }
-//         return result;
-//     }
-// #el*/#if STRIDE == 8
-//     inline bool compare(
-//         const uint8_t *baseAddr,
-//         const uint8_t *pat,
-//         const uint8_t *bmsk,
-//         const uint8_t *pmsk
-//     )
-//     {
-//         return (*(uint64_t*) baseAddr ^ *(uint64_t*) pat) & (~*(uint64_t*) bmsk & *(uint64_t*) pmsk);
-//     }
-// #elif STRIDE == 16
-//     inline bool compare(
-//         const uint8_t *baseAddr,
-//         const uint8_t *pat,
-//         const uint8_t *bmsk,
-//         const uint8_t *pmsk
-//     )
-//     {
-//         return compare8(baseAddr, pat, bmsk, pmsk)
-//             && compare8(baseAddr + 8, pat + 8, bmsk + 8, pmsk + 8);
-//     }
-// #endif
     inline bool searchChunked(SearchContext &ctx) noexcept
     {
         uint64_t notHit = -1;
         auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
         const auto masks = searchStruct.masks;
-        auto baseAddr = pointer.u8ptr;
-        auto pat = searchStruct.pattern().u8ptr;
-        auto pmsk = masks[0].u8ptr;
-        auto bmsk = masks[1].u8ptr;
-        PRAGMA_IVDEP
-        for (size_t i = 0;
-            // pmsk = masks[0].u8ptr,
-            // bmsk = masks[1].u8ptr;
-            i < searchStruct.patternLen &&
-            len - (STRIDE - 1) > 0;
-            i += STRIDE)
-            // && pat < theEnd.u8ptr;
-            // pmsk += STRIDE, pat += STRIDE, bmsk += STRIDE, baseAddr += STRIDE)
+        const auto  baseAddr = pointer.u8ptr,
+                    pat = searchStruct.pattern().u8ptr,
+                    pmsk = masks[0].u8ptr,
+                    bmsk = masks[1].u8ptr;
+
+        for (size_t i = 0; i < searchStruct.patternLen && len - (STRIDE - 1) > 0; i += STRIDE)
         {
-            // const auto valMasked = *baseAddr & *pmsk | *bmsk;
-            // const auto patMasked = *pat & *pmsk | *bmsk;
-            // notHit = valMasked ^ patMasked;
-            // if (notHit)
             if ((notHit = (*(uint64_t*) &baseAddr[i] ^ *(uint64_t*) &pat[i]) & (~*(uint64_t*) &bmsk[i] & *(uint64_t*) &pmsk[i])))
             {
                 --len;
@@ -245,10 +194,13 @@ namespace PMO
     {
         bool notHit = true;
         auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
-        for (auto pat = searchStruct.pattern().str,
-                  msk = searchStruct.mask.c_str(),
-                  val = pointer.str; pat < theEnd.str; ++pat, ++msk, ++val)
-            if ('?' != *msk && ((notHit = *pat ^ *val)))
+
+        const auto  pat = searchStruct.pattern().str,
+                    val = pointer.str,
+                    msk = searchStruct.mask.c_str();
+
+        for (size_t i = 0; i < searchStruct.patternLen; ++i)
+            if ('?' != msk[i] && ((notHit = pat[i] ^ val[i])))
                 break;
 
         if (notHit)
