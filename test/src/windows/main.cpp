@@ -406,14 +406,14 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
     REQUIRE(IsDebuggerPresent() == bl[0]);
 
     REQUIRE(disableDebuggerChecking());
-    // printDebugger();
-    // for (auto &[str, len] : {std::pair{IDP_CODE, sizeof(IDP_CODE) - 1},
-    //         std::pair{CRDP_CODE, sizeof(CRDP_CODE)}}) {
-    //     for (size_t i = 0; i < len; ++i) {
-    //         std::cout << std::format("{:02X} ", str[i]);
-    //     }
-    //     std::cout << std::endl;
-    // }
+     printDebugger();
+     for (auto &[str, len] : {std::pair{IDP_CODE, sizeof(IDP_CODE) - 1},
+             std::pair{CRDP_CODE, sizeof(CRDP_CODE) - 1}}) {
+         for (size_t i = 0; i < len; ++i) {
+             std::cout << std::format("{:02X} ", str[i]);
+         }
+         std::cout << std::endl;
+     }
 
     PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
 #if !(defined(__aarch64__) || defined(_M_ARM64))
