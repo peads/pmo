@@ -235,7 +235,7 @@ namespace PMO
         const PointerUnion &addr,
         const char *const code,
         const size_t size,
-        const HMODULE module = nullptr
+        [[maybe_unused]] const HMODULE module = nullptr
     ) noexcept
     {
         if (!addr.address || !code || !size)
