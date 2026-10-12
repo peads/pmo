@@ -18,9 +18,10 @@
 
 #include "windows/MemoryOps.hpp"
 #include "qswprime.hpp"
+#include <thread>
 
 extern "C" {
-    __declspec(dllexport) int DllMain() noexcept
+    void apply(const HMODULE inModule)
     {
         static PMO::Pattern pattern{SLEEP_WAIT_PATTERN, SLEEP_WAIT_MASK, SLEEP_WAIT_CODE};
         static const char *names[] = {OBR_WIN64, OBR_WINGDK};
@@ -28,7 +29,17 @@ extern "C" {
         auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getModuleInfo(module);
         const PMO::PointerUnion pu{lpBaseOfDll};
 
-        return findPatterns(pu.address, SizeOfImage, pattern)
-                  && replaceCode(pattern.back(), pattern.code.str,  pattern.codeLen);
+        const auto result = findPatterns(pu.address, SizeOfImage, pattern, true, PMO::searchBytewise)
+                  && replaceCode(pattern.back(), pattern.code().str,  pattern.codeLen);
+        FreeLibraryAndExitThread(inModule, !result);
+    }
+
+    BOOL WINAPI DllMain(const HMODULE module, const DWORD reason, LPVOID lpvReserved) noexcept
+    {
+        if (DLL_PROCESS_ATTACH == reason)
+        {
+            std::jthread(apply, module).detach();
+        }
+        return TRUE;
     }
 }
