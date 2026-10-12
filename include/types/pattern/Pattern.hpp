@@ -15,122 +15,216 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef HELPERS_HPP
-#define HELPERS_HPP
-#include "types/pattern/PatternImpl.hpp"
+#ifndef PATTERN_HPP
+#define PATTERN_HPP
 #include "parse/ParseJmp.hpp"
+#include "types/PointerUnion.hpp"
+#include "types/SetWrapper.hpp"
+
+#ifndef STRIDE
+#undef STRIDE
+#define STRIDE 8ULL
+#endif
 
 namespace PMO
 {
-    template <typename T>
-    inline T Pattern::generateTypedMask(T n) requires (std::is_unsigned_v<T>)
+    class Pattern
     {
-        if (!n)
-            return 0;
-        int bits = std::bit_width(n);
-        if (bits >= (sizeof(n) << 3))
-        {
-            return static_cast<T>(-1);
-        }
-        return std::move((static_cast<T>(1) << bits) - 1);
-    }
-
-    inline std::vector<auint64_t> Pattern::generateBMI2Mask(
-        const char *smask,
-        const size_t mlen,
-        const size_t len
-    ) noexcept
-    {
-        const std::vector q(mlen, '?');
-        const std::vector p(mlen, 'x');
-        std::vector<auint64_t> result{};
-
-        PointerUnion qs{.str = q.data()};
-        PointerUnion xs{.str = p.data()};
-        PointerUnion ptr{.str = smask};
-
-        uint64_t prev = 0;
-        for (auto i = 0ULL; i < len; ++i, ++ptr.u64ptr, ++qs.u64ptr, ++xs.u64ptr)
-        {
-            if (!(*ptr.u64ptr ^ *xs.u64ptr))
+        public:
+            template <typename T>
+            static std::string autoGenerateMask(
+                T pattern, const size_t len
+            ) noexcept
             {
-                result.emplace_back(prev);
-                prev = 0;
-                continue;
+                PointerUnion ptr{.str = pattern};
+                std::string result(len - 1, 'x');
+                size_t width = 0;
+                const auto pend = pattern + len - 1;
+                for (char *idx = nullptr; ptr.cptr < pend;)
+                {
+                    idx = ptr.cptr;
+                    if (const uint64_t offset = startParseJmp(ptr.u8ptr, &width); !offset)
+                        ptr.cptr = idx + 1; // reset on failure, move to the next
+                    else
+                    {
+                        // calculate mask offset
+                        const auto moffset = static_cast<uintptr_t>(ptr.cptr - pattern);
+                        // move to next byte to process
+                        ptr.u8ptr += width;
+                        memcpy(result.data() + moffset, std::string(width, '?').data(), width);
+                        // if (offsets)
+                            // offsets->push_back(offset);
+                    }
+                }
+                return result;
+            }
+        private:
+            SetWrapper<uintptr_t> m_occurrences{};
+            std::vector<char> m_pattern;
+            std::vector<char> m_code;
+
+            static inline std::vector<uint64_t> generatePatternMask(size_t n) {
+                if (n <= 0)
+                    return {};
+                std::vector<uint64_t> result{};
+
+                for (; n >= 8; n -= 8)
+                    result.push_back(0xFFFFFFFFFFFFFFFFULL);
+
+                if (n)
+#if defined(__aarch64__) || defined(_M_ARM64)
+                    result.push_back((0xFFFFFFFFFFFFFFFFULL << (64 - (n << 3))));
+#else
+                        result.push_back((0xFFFFFFFFFFFFFFFFULL >> (64 - (n << 3))));
+#endif
+                return result;
             }
 
-            const auto del = *ptr.u64ptr ^ *qs.u64ptr;
-            auto mask = del - 0x0101'0101'0101'0101LLU;
-            mask &= ~del & 0x8080'8080'8080'8080LLU;
-            mask = (mask >> 7) * 0xFF;
-            result.emplace_back(mask);
-        }
-        return result;
-    }
-
-    inline std::vector<auint64_t> Pattern::generatePatternMask(
-        const char *pattern,
-        const size_t plen
-    ) noexcept
-    {
-        std::vector<auint64_t> result{};
-        std::vector<uint8_t> temp{};
-        auto end = (plen + 7ULL) & ~7ULL;
-        for (size_t i = 0; i < end; ++i)
-        {
-            const uint8_t c = pattern[i];
-            if (i < plen)
-                temp.push_back(c);
-            else
-                temp.push_back(0);
-        }
-        for (size_t i = 0; i < temp.size(); i += 8)
-        {
-            auint64_t e{generateTypedMask(*reinterpret_cast<uint64_t*>(&temp[i]))};
-            result.push_back(e);
-        }
-
-        return result;
-    }
-
-    template <size_t M>
-    inline std::string Pattern::autoGenerateMask(
-        const char (&pattern)[M],
-        std::vector<uint64_t> *offsets
-    ) noexcept
-    {
-        PointerUnion ptr{.str = pattern};
-        std::string result(M - 1, 'x');
-        size_t width = 0;
-        const auto pend = pattern + M - 1;
-        for (char *idx = nullptr; ptr.cptr < pend;)
-        {
-            idx = ptr.cptr;
-            if (const uint64_t offset = startParseJmp(ptr.u8ptr, &width); !offset)
-                ptr.cptr = idx + 1; // reset on failure, move to the next
-            else
+            template <typename T>
+            static auto storeData(T data, const size_t len) noexcept
             {
-                // calculate mask offset
-                const auto moffset = static_cast<uintptr_t>(ptr.cptr - pattern);
-                // move to next byte to process
-                ptr.u8ptr += width;
-                memcpy(result.data() + moffset, std::string(width, '?').data(), width);
-                if (offsets)
-                    offsets->push_back(offset);
+                std::vector<char> result{};
+                const size_t plen = (len + (STRIDE - 1ULL)) & ~(STRIDE - 1ULL);
+                for (size_t i = 0; i < plen; ++i)
+                {
+                    if (i < len)
+                        result.push_back(data[i]);
+                    else
+                        result.push_back(0);
+                }
+                return result;
             }
-        }
-        return result;
-    }
 
-    template <size_t N>
-    inline std::vector<auint64_t> Pattern::generateU64Vect(const char (&arr)[N]) noexcept
-    {
-        std::vector<auint64_t> result{};
-        for (size_t i = 0; i < N; i += 8)
-        {
-            result.emplace_back(*static_cast<uint64_t*>((void*) (arr + i)));
-        }
-        return result;
-    }
+            template <typename U>
+            static auto generateByteMask(U &mask, const size_t len) noexcept
+            {
+                static constexpr auto EFFS = static_cast<char>(0xFF);
+                const size_t plen = (len + (STRIDE - 1ULL)) & ~(STRIDE - 1ULL);
+                std::vector<char> result(plen);
+                for (size_t i = 0; i < plen; ++i)
+                {
+                    result[i] = (i >= len || '?' != mask[i]) ? 0 : EFFS;
+                }
+                return result;
+            }
+
+        public:
+            const std::string mask;
+            const size_t patternLen;
+            const size_t codeLen;
+
+        private:
+            const std::vector<char> m_byteMask;
+            std::vector<uint64_t> m_patternMask;
+
+        public:
+            const size_t pSize;
+            template <size_t N, size_t M, size_t P>
+            Pattern(const char (&pattern)[N], const char (&mask)[M], const char (&code)[P]) noexcept
+                : m_pattern(storeData(pattern, N - 1)),
+                  m_code(storeData(code, P - 1)),
+                  mask(mask),
+                  patternLen(N - 1),
+                  codeLen(P - 1),
+                  m_byteMask(generateByteMask(mask, M - 1)),
+                  m_patternMask(generatePatternMask(N - 1)),
+                  pSize(m_patternMask.size())
+            {
+                static_assert(M == N);
+            }
+
+            template <typename T>
+            Pattern(T pattern,  const size_t plen, T code, const size_t clen) noexcept
+                : m_pattern(storeData(pattern, plen - 1)),
+                  m_code(storeData(code, clen - 1)),
+                  mask(autoGenerateMask(pattern, plen)),
+                  patternLen(plen),
+                  codeLen(clen),
+                  m_byteMask(generateByteMask(mask, plen - 1)),
+                  m_patternMask(generatePatternMask(plen - 1)),
+                  pSize(m_patternMask.size())
+            {}
+
+            [[nodiscard]] auto byteMask() const noexcept
+            {
+                return PointerUnion{.str = m_byteMask.data()};
+            }
+
+            [[nodiscard]] auto patternMask() noexcept
+            {
+                return PointerUnion{.u64ptr = m_patternMask.data()};
+            }
+
+            [[nodiscard]] auto pattern() const noexcept
+            {
+                return PointerUnion{.str = m_pattern.data()};
+            }
+
+            [[nodiscard]] auto code() const noexcept
+            {
+                return PointerUnion{.str = m_code.data()};
+            }
+
+            void reset() noexcept
+            {
+                m_occurrences.clear();
+            }
+
+            [[nodiscard]] size_t size() const noexcept
+            {
+                return m_occurrences.size();
+            }
+
+            [[nodiscard]] auto begin() const noexcept
+            {
+                return m_occurrences.begin();
+            }
+
+            [[nodiscard]] auto end() const noexcept
+            {
+                return m_occurrences.end();
+            }
+
+            [[nodiscard]] bool empty() const noexcept
+            {
+                return m_occurrences.empty();
+            }
+
+            void push_back(const uint64_t in) noexcept
+            {
+                m_occurrences.push_back(in);
+            }
+
+            [[nodiscard]] PointerUnion pop_back() noexcept
+            {
+                const auto result = back();
+                m_occurrences.pop_back();
+                return result;
+            }
+
+            [[nodiscard]] PointerUnion back() noexcept
+            {
+                return PointerUnion{.address = m_occurrences.back()};
+            }
+            bool operator==(const Pattern &a) const noexcept
+            {
+                auto arr = {
+                    // std::pair{
+                    //     std::vector(this->m_mask, this->m_mask + this->patternLen),
+                    //     std::vector(a.m_mask, a.m_mask + a.patternLen)
+                    // },
+                    std::pair{this->m_pattern, a.m_pattern},
+                    std::pair{this->m_code, a.m_code}
+                };
+                return this->codeLen == a.codeLen
+                    && this->patternLen == a.patternLen
+                    && std::ranges::all_of(arr,
+                    [](auto &e)
+                    {
+                        auto &[x,y] = e;
+                        return std::ranges::equal(x, y);
+                    });
+            }
+    };
 }
-#endif //HELPERS_HPP
+#endif // PATTERN_HPP

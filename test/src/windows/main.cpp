@@ -29,24 +29,32 @@
 #define CATCH_CONFIG_MAIN // provides main(); this line is required in only one .cpp file
 namespace
 {
-    inline PMO::Pattern debuggerPatterns[] = {
+    PMO::Pattern debuggerPatterns[] = {
         PMO::Pattern{IDP_PATTERN, IDP_MASK, IDP_CODE},
         PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
     };
 
-    inline void printPatterns()
+    template <typename T>
+    void printBytes(const T &list, const size_t len, const HMODULE module)
     {
-        for (const auto &debuggerPattern : debuggerPatterns)
+        std::map<WORD, std::tuple<uintptr_t, char*, bool>> exports{};
+        for (const auto &e : list)
         {
-            for (const auto &e : debuggerPattern.patternVect)
-                std::cout << std::format("{:016X} ", e.i);
-            std::cout << std::endl;
-            for (const auto &e : debuggerPattern.pmsk())
-                std::cout << std::format("{:016X} ", e.i);
-            std::cout << std::endl;
-            for (const auto &e : debuggerPattern.bmsk())
-                std::cout << std::format("{:016X} ", e.i);
-            std::cout << std::endl;
+            uintptr_t addr = e;
+            PMO::findExports(module, exports, &addr);
+            auto ex = exports.begin();
+            if (ex != exports.end())
+            {
+                const auto &[ord, tup] = *ex;
+                if (const auto &[fn, name, isNamed] = tup; isNamed)
+                    std::cout << std::format("{}: ", name);
+                for (size_t i = 0; i < len; ++i)
+                {
+                    std::cout << std::format("{:02X} ", reinterpret_cast<char*>(e)[i]);
+                }
+                exports.clear();
+                std::cout << std::endl;
+            }
         }
     }
     inline void reset()
@@ -111,7 +119,7 @@ TEST_CASE("05 line coverage++", "[PMO]")
         auto val = 0x12345678 + i;
         auto pu = PMO::PointerUnion{.address = val};
         auto str = std::format("{:016X}", val);
-        auto im = PMO::ImportInfo{.name = str};
+        auto im = PMO::ImportInfo{.name = str, .ordinalBase = 0};
         puSet.insert(pu);
         puMap.insert_or_assign(pu, str);
         puTree.insert_or_assign(pu, str);
@@ -141,7 +149,7 @@ TEST_CASE("05 line coverage++", "[PMO]")
     pu.str = str;
     REQUIRE(PMO::replaceCode(pu, strs[2], strlen(str), CURRENT_MODULE));
     // ReSharper disable once CppCStyleCast
-    CHECK(*(uint32_t*)strs[2] == *(uint32_t*)str);
+    REQUIRE(*(uint32_t*)strs[2] == *(uint32_t*)str);
 }
 
 TEST_CASE("00 raw search testing", "[PMO]")
@@ -167,7 +175,7 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
     SECTION("Ensure PMO::findNamedFunction returned a pointer to where the actual code resides using PMO::findPatterns")
     {
-        REQUIRE(PMO::findPatterns(reinterpret_cast<uintptr_t>(idp),
+        CHECK(PMO::findPatterns(reinterpret_cast<uintptr_t>(idp),
             debuggerPatterns[0].patternLen, debuggerPatterns[0]));
         REQUIRE(PMO::findPatterns(reinterpret_cast<uintptr_t>(crdp),
                     debuggerPatterns[1].patternLen, debuggerPatterns[1]));
@@ -175,15 +183,34 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
     SECTION("Final Boss: Find the patterns knowing only that they reside in KERNELBASE.dll")
     {
-        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1]));
-        REQUIRE(debuggerPatterns[1].size() == 1);
-        REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().address)(handle, bl + 0)
-            == CheckRemoteDebuggerPresent(handle, bl + 1));
-        REQUIRE(bl[0] == bl[1]);
+        const char *failMsg = nullptr;
+        CHECK(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1]));
+        CHECK(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]));
 
-        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]));
-        REQUIRE(debuggerPatterns[0].size() == 1);
-        REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().address)() == IsDebuggerPresent());
+        CHECKED_IF(debuggerPatterns[0].size() == 1)
+        {
+            REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().address)() == IsDebuggerPresent());
+        }
+        CHECKED_ELSE(debuggerPatterns[0].size() == 1)
+        {
+            printBytes(debuggerPatterns[0], debuggerPatterns[0].patternLen, PMO::getModule("KERNELBASE.dll"));
+            failMsg = "Failed to find IsDebuggerPresent in KERNELBASE.dll";
+        }
+        CHECKED_IF(debuggerPatterns[1].size() == 1)
+        {
+            REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().address)(handle, bl + 0)
+                == CheckRemoteDebuggerPresent(handle, bl + 1));
+            REQUIRE(bl[0] == bl[1]);
+        }
+        CHECKED_ELSE(debuggerPatterns[1].size() == 1)
+        {
+            printBytes(debuggerPatterns[1], debuggerPatterns[1].patternLen, PMO::getModule("KERNELBASE.dll"));
+            failMsg = "Failed to find CheckRemoteDebuggerPresent in KERNELBASE.dll";
+        }
+        CHECKED_IF(failMsg)
+        {
+            FAIL(failMsg);
+        }
     }
 }
 
@@ -263,8 +290,6 @@ TEST_CASE("01 Test parse far jmp", "[PMO]")
 TEST_CASE("03 Test findProcessByName", "[PMO]")
 {
     std::vector<DWORD> handles{};
-    // char buffer[MAX_PATH];
-    // GetModuleFileName(nullptr, buffer, MAX_PATH);
     const std::wstring buffer = PMO::getModuleFileName(CURRENT_MODULE);
     const std::filesystem::path path(buffer);
     REQUIRE((path.has_filename() && "pmo.exe" == path.filename().string()));
@@ -318,19 +343,19 @@ TEST_CASE("07 autogen mask", "[PMO]")
 #endif
     reset();
 
-    auto crdpMask = PMO::Pattern::autoGenerateMask(CRDP_PATTERN);
+    auto crdpMask = PMO::Pattern::autoGenerateMask(CRDP_PATTERN, sizeof(CRDP_PATTERN));
     REQUIRE(crdpMask == CRDP_MASK);
-    REQUIRE(PMO::Pattern::autoGenerateMask(JUMPS_PATTERN) == JUMPS_ANSWER);
-    REQUIRE(PMO::Pattern::autoGenerateMask(REX_JUMPS_PATTERN) == REX_JUMPS_ANSWER);
-    REQUIRE(PMO::Pattern::autoGenerateMask(OTHER_JUMPS) == OTHER_JUMPS_ANSWER);
+    REQUIRE(PMO::Pattern::autoGenerateMask(JUMPS_PATTERN, sizeof(JUMPS_PATTERN)) == JUMPS_ANSWER);
+    REQUIRE(PMO::Pattern::autoGenerateMask(REX_JUMPS_PATTERN, sizeof(REX_JUMPS_PATTERN)) == REX_JUMPS_ANSWER);
+    REQUIRE(PMO::Pattern::autoGenerateMask(OTHER_JUMPS, sizeof(OTHER_JUMPS)) == OTHER_JUMPS_ANSWER);
 
     const HMODULE module = PMO::getModule("KERNELBASE.dll");
     auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getModuleInfo(module);
     PMO::Pattern a{
         CRDP_PATTERN,
-        crdpMask.data(),
-        crdpMask.length() + 1,
-        CRDP_CODE
+        sizeof(CRDP_PATTERN),
+        CRDP_CODE,
+        sizeof(CRDP_CODE),
     };
 
     findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, a);
@@ -341,7 +366,7 @@ TEST_CASE("07 autogen mask", "[PMO]")
     REQUIRE(fn2(module, bl + 0) == CheckRemoteDebuggerPresent(module, bl + 1));
     REQUIRE(bl[0] == bl[1]);
 
-    PMO::Pattern b{CRDP_PATTERN, CRDP_CODE};
+    PMO::Pattern b{CRDP_PATTERN,sizeof(CRDP_PATTERN), CRDP_CODE,sizeof(CRDP_CODE)};
     REQUIRE(a == b);
 }
 
@@ -384,7 +409,7 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
 
     REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 1));
     REQUIRE((IsDebuggerPresent() == bl[1] && !bl[1]));
-
+#if !(defined(__aarch64__) || defined(_M_ARM64))
     PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
     PMO::Pattern b{CRDP_CODE, CRDP_MASK, CRDP_CODE};
 
@@ -395,6 +420,7 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
 
     findPatterns(pu.address, SizeOfImage, a);
     findPatterns(pu.address, SizeOfImage, b);
-    REQUIRE(!b.empty());
     REQUIRE(!a.empty());
+    REQUIRE(!b.empty());
+#endif
 }

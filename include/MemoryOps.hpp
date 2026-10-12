@@ -23,7 +23,7 @@
 
 #if defined(__clang__)
     #define PRAGMA_IVDEP _Pragma("clang loop vectorize(enable) interleave(enable)")
-    #define PRAGMA_UNROLL(n) _Pragma("clang loop unroll_count(n)")
+    #define PRAGMA_UNROLL _Pragma("clang loop unroll_count(8)")
 #elif defined(__GNUC__) || defined(__GNUG__)
     #define PRAGMA_IVDEP _Pragma("GCC ivdep")
     #define PRAGMA_UNROLL(n) _Pragma("GCC unroll n")
@@ -34,6 +34,11 @@
     #define PRAGMA_IVDEP
     #define PRAGMA_UNROLL(n)
 #endif
+
+// #ifndef STRIDE
+// #undef STRIDE
+// #define STRIDE 8ULL
+// #endif
 
 namespace PMO
 {
@@ -159,30 +164,21 @@ namespace PMO
     {
         uint64_t notHit = -1;
         auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
-        auto baseAddr = pointer.u64ptr;
-        auto pat = searchStruct.pattern.u64ptr;
 
-        for (auto pmsk = searchStruct.pmsk().data(),
-            bmsk = searchStruct.bmsk().data(); len - 7 > 0 &&
-            pat < theEnd.u64ptr; ++pmsk, ++bmsk, ++pat)
+        for (size_t i = 0; i < searchStruct.pSize && len - (STRIDE - 1) > 0; ++i)
         {
-            const auto valMasked = *baseAddr & pmsk->i | bmsk->i;
-            const auto patMasked = *pat & pmsk->i | bmsk->i;
-            notHit = valMasked ^ patMasked;
-            if (notHit)
-            // if ((notHit = (*baseAddr ^ *pat) & (~bmsk->i & pmsk->i)))
+            if ((notHit = (pointer.u64ptr[i] ^ searchStruct.pattern().u64ptr[i])
+                & (~searchStruct.byteMask().u64ptr[i] & searchStruct.patternMask().u64ptr[i])))
             {
                 --len;
                 break;
             }
-            ++baseAddr;
         }
 
         if (!notHit)
         {
             result = true;
             searchStruct.push_back(pointer.address + offset);
-            // pointer.u64ptr = baseAddr;
             pointer.u8ptr += searchStruct.patternLen;
             len -= searchStruct.patternLen;
         }
@@ -194,10 +190,13 @@ namespace PMO
     {
         bool notHit = true;
         auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
-        for (auto pat = searchStruct.pattern.cptr,
-                  msk = searchStruct.mask.cptr,
-                  val = pointer.cptr; pat < theEnd.cptr; ++pat, ++msk, ++val)
-            if ('?' != *msk && ((notHit = *pat ^ *val)))
+
+        const auto  pat = searchStruct.pattern().str,
+                    val = pointer.str,
+                    msk = searchStruct.mask.c_str();
+
+        for (size_t i = 0; i < searchStruct.patternLen; ++i)
+            if ('?' != msk[i] && ((notHit = pat[i] ^ val[i])))
                 break;
 
         if (notHit)
@@ -222,7 +221,7 @@ namespace PMO
             return false;
 
         bool result = false;
-        const PointerUnion theEnd = {.address = searchStruct.pattern.address + searchStruct.patternLen};
+        const PointerUnion theEnd = {.address = searchStruct.pattern().address + searchStruct.patternLen};
         PointerUnion pointer = {.address = addr};
 
         SearchContext ctx{

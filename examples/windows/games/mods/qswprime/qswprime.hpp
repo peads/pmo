@@ -17,6 +17,8 @@
  */
 #ifndef QSWPRIME_HPP
 #define QSWPRIME_HPP
+// #define SLEEP_WAIT_PATTERN      "\xF3\x0F\x10\x35\xF4\x9B\xCA\x01\xF3\x0F\x58\xC6\xF3\x0F\x11\x05\xE4\x34\xA0\x02"
+// #define SLEEP_WAIT_MASK         "xxxxxxxxxxxxxxxxxxxx"
 #define SLEEP_WAIT_PATTERN      "\xF3\x0F\x10\x35\xF4\x9B\xCA\x01\xF3\x0F\x58\xC6\xF3\x0F\x11\x05"
 #define SLEEP_WAIT_MASK         "xxxxxxxxxxxxxxxx"
 #define SLEEP_WAIT_CODE         "\x0F\x57\xC0\x90\x90\x90\x90\x90\x90\x90\x90\x90"

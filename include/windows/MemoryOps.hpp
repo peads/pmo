@@ -21,6 +21,7 @@
 #include <cstdlib>
 #include <algorithm>
 #include <filesystem>
+#include <ranges>
 
 #include "../MemoryOps.hpp"
 #include "types/ImportInfo.hpp"
@@ -234,7 +235,7 @@ namespace PMO
         const PointerUnion &addr,
         const char *const code,
         const size_t size,
-        const HMODULE module = nullptr
+        [[maybe_unused]] const HMODULE module = nullptr
     ) noexcept
     {
         if (!addr.address || !code || !size)
@@ -364,7 +365,7 @@ namespace PMO
             {
                 const auto name = reinterpret_cast<PSTR>(reinterpret_cast<PBYTE>(module) + desc->Name);
                 auto mod = getModule(name);
-                ImportInfo info{.mod = mod ? mod : module, .name = std::string(name)};
+                ImportInfo info{.mod = mod ? mod : module, .name = std::string(name), .ordinalBase = 0};
                 const auto thunk = reinterpret_cast<PIMAGE_THUNK_DATA>(reinterpret_cast<PBYTE>(module) + desc->FirstThunk);
                 info.ordinalBase = findThunks(mod, thunk, info);
                 if (!result.contains(info))
@@ -401,7 +402,7 @@ namespace PMO
         MEMORY_BASIC_INFORMATION mbi;
         std::vector<char> buffer(8192);
 
-        const auto end = searchStruct.pattern.cptr + searchStruct.patternLen;
+        const auto end = searchStruct.pattern().cptr + searchStruct.patternLen;
         const PointerUnion theEnd = {.cptr = end};
 
         for (uintptr_t address = 0;
@@ -492,7 +493,7 @@ finished:
     // ReSharper disable once CppParameterMayBeConst
     inline bool replaceCodeExternal(HANDLE proc, void *address, const Pattern &pattern) noexcept
     {
-        return WriteProcessMemory(proc, address, pattern.code.ptr, pattern.codeLen, nullptr);
+        return WriteProcessMemory(proc, address, pattern.code().ptr, pattern.codeLen, nullptr);
     }
 
     // ReSharper disable once CppParameterMayBeConst
@@ -511,7 +512,7 @@ finished:
     inline bool replaceAllCodeExternal(HANDLE proc, Pattern &pattern) noexcept
     {
         return std::ranges::all_of(pattern,
-       [&proc, &pattern](const uintptr_t addr)
+       [&proc, &pattern]([[maybe_unused]] const uintptr_t addr)
        {
            return replaceCodeExternal(proc, pattern);
        });
