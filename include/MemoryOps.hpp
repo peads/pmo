@@ -169,8 +169,6 @@ namespace PMO
         {
             if ((notHit = (pointer.u64ptr[i] ^ searchStruct.pattern().u64ptr[i])
                 & (~searchStruct.byteMask().u64ptr[i] & searchStruct.patternMask().u64ptr[i])))
-            // if ((notHit = (*(uint64_t*) &pointer.u8ptr[i] ^ *(uint64_t*) &searchStruct.pattern().u8ptr[i])
-                // & (~*(uint64_t*) &searchStruct.byteMask().u8ptr[i] & *(uint64_t*) &searchStruct.patternMask().u8ptr[i])))
             {
                 --len;
                 break;
