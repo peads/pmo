@@ -421,8 +421,8 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
 
     findPatterns(pu.address, SizeOfImage, a);
     findPatterns(pu.address, SizeOfImage, b);
-    REQUIRE(!a.empty());
-    REQUIRE(!b.empty());
+    CHECK(!a.empty());
+    CHECK(!b.empty());
 
     CHECKED_IF(!IsDebuggerPresent())
     {

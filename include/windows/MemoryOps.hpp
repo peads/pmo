@@ -18,7 +18,6 @@
 #ifndef WMEMORYOPS_HPP
 #define WMEMORYOPS_HPP
 
-#include <cstdlib>
 #include <algorithm>
 #include <filesystem>
 #include <ranges>
@@ -65,14 +64,11 @@ namespace PMO
         toLower(key);
         getModule([&result, &key](void **curr)FORCE_INLINE_LAMBDA
         {
-            // const UNICODE_STRING name = *reinterpret_cast<UNICODE_STRING*>(reinterpret_cast<
-                // uintptr_t>(curr) + 88);
             std::wstring buf(*reinterpret_cast<wchar_t**>(curr + LDR_DLL_BASE_NAME_OFFSET + 1));
             toLower(buf);
             if (buf == key) // curr->BaseDllName == wname
             {
-                result = *reinterpret_cast<HMODULE*>(curr + LDR_DLL_BASE_OFFSET);
-                // result = *reinterpret_cast<HMODULE*>(reinterpret_cast<uintptr_t>(curr) + 48); // curr->DllBase
+                result = *reinterpret_cast<HMODULE*>(curr + LDR_DLL_BASE_OFFSET); // curr->DllBase
                 return true;
             }
             return false;
