@@ -407,11 +407,12 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
 
     REQUIRE(disableDebuggerChecking());
 
-    REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 1));
-    REQUIRE((IsDebuggerPresent() == bl[1] && !bl[1]));
-#if !(defined(__aarch64__) || defined(_M_ARM64))
     PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
+#if !(defined(__aarch64__) || defined(_M_ARM64))
     PMO::Pattern b{CRDP_CODE, CRDP_MASK, CRDP_CODE};
+#else
+    PMO::Pattern b{CRDP_CODE, CRDP_MASK_1, CRDP_CODE};
+#endif
 
     auto module = PMO::getModule("KERNELBASE.dll");
     auto [lpBaseOfDll, SizeOfImage, EntryPoint] =
@@ -422,5 +423,14 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
     findPatterns(pu.address, SizeOfImage, b);
     REQUIRE(!a.empty());
     REQUIRE(!b.empty());
-#endif
+
+    CHECKED_IF(!IsDebuggerPresent())
+    {
+        REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 1));
+        REQUIRE((IsDebuggerPresent() == bl[1] && !bl[1]));
+    }
+    CHECKED_ELSE(!IsDebuggerPresent())
+    {
+        FAIL("IsDebuggerPresent() evaluated true.");
+    }
 }

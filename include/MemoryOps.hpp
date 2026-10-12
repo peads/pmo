@@ -21,25 +21,6 @@
 #include "types/pattern/Pattern.hpp"
 #include "parse/ParseJmp.hpp"
 
-#if defined(__clang__)
-    #define PRAGMA_IVDEP _Pragma("clang loop vectorize(enable) interleave(enable)")
-    #define PRAGMA_UNROLL _Pragma("clang loop unroll_count(8)")
-#elif defined(__GNUC__) || defined(__GNUG__)
-    #define PRAGMA_IVDEP _Pragma("GCC ivdep")
-    #define PRAGMA_UNROLL(n) _Pragma("GCC unroll n")
-#elif defined(_MSC_VER) // MSVC
-    #define PRAGMA_IVDEP _Pragma("loop(ivdep)")
-    #define PRAGMA_UNROLL(n) // MSVC doesn't have a direct loop unroll factor pragma
-#else
-    #define PRAGMA_IVDEP
-    #define PRAGMA_UNROLL(n)
-#endif
-
-// #ifndef STRIDE
-// #undef STRIDE
-// #define STRIDE 8ULL
-// #endif
-
 namespace PMO
 {
 #if defined(__aarch64__) || defined(_M_ARM64)

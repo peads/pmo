@@ -18,6 +18,9 @@
 #ifndef IMAGEDIRECTORYENTRYTODATA_HPP
 #define IMAGEDIRECTORYENTRYTODATA_HPP
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 
 inline PIMAGE_SECTION_HEADER GetSectionHeaderByRva(PIMAGE_NT_HEADERS headers, const ULONG addr) noexcept
