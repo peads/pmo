@@ -118,6 +118,7 @@ namespace PMO
             std::vector<uint64_t> m_patternMask;
 
         public:
+            const size_t pSize;
             template <size_t N, size_t M, size_t P>
             Pattern(const char (&pattern)[N], const char (&mask)[M], const char (&code)[P]) noexcept
                 : m_pattern(storeData(pattern, N - 1)),
@@ -126,7 +127,8 @@ namespace PMO
                   patternLen(N - 1),
                   codeLen(P - 1),
                   m_byteMask(generateByteMask(mask, M - 1)),
-                  m_patternMask(generatePatternMask(N - 1))
+                  m_patternMask(generatePatternMask(N - 1)),
+                  pSize(m_patternMask.size())
             {
                 static_assert(M == N);
             }
@@ -139,7 +141,8 @@ namespace PMO
                   patternLen(plen),
                   codeLen(clen),
                   m_byteMask(generateByteMask(mask, plen - 1)),
-                  m_patternMask(generatePatternMask(plen - 1))
+                  m_patternMask(generatePatternMask(plen - 1)),
+                  pSize(m_patternMask.size())
             {}
 
             [[nodiscard]] auto byteMask() const noexcept

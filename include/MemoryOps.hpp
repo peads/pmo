@@ -164,13 +164,13 @@ namespace PMO
     {
         uint64_t notHit = -1;
         auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
-        const auto  baseAddr = pointer.u8ptr,
-                    pat = searchStruct.pattern().u8ptr,
-                    pmsk = searchStruct.patternMask().u8ptr,
-                    bmsk = searchStruct.byteMask().u8ptr;
-        for (size_t i = 0; i < searchStruct.patternLen && len - (STRIDE - 1) > 0; i += STRIDE)
+
+        for (size_t i = 0; i < searchStruct.pSize && len - (STRIDE - 1) > 0; ++i)
         {
-            if ((notHit = (*(uint64_t*) &baseAddr[i] ^ *(uint64_t*) &pat[i]) & (~*(uint64_t*) &bmsk[i] & *(uint64_t*) &pmsk[i])))
+            if ((notHit = (pointer.u64ptr[i] ^ searchStruct.pattern().u64ptr[i])
+                & (~searchStruct.byteMask().u64ptr[i] & searchStruct.patternMask().u64ptr[i])))
+            // if ((notHit = (*(uint64_t*) &pointer.u8ptr[i] ^ *(uint64_t*) &searchStruct.pattern().u8ptr[i])
+                // & (~*(uint64_t*) &searchStruct.byteMask().u8ptr[i] & *(uint64_t*) &searchStruct.patternMask().u8ptr[i])))
             {
                 --len;
                 break;
