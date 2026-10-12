@@ -18,73 +18,17 @@
 #ifndef WMEMORYOPS_HPP
 #define WMEMORYOPS_HPP
 
-#include <cstdlib>
 #include <algorithm>
 #include <filesystem>
 #include <ranges>
 
+#include "windows/defines.hpp"
+#include "multidefines.hpp"
 #include "../MemoryOps.hpp"
 #include "types/ImportInfo.hpp"
 #include "windows/ImageDirectoryEntryToData.hpp"
 
-#ifndef _MSC_VER
-#define mbstowcs_s(len, dest, words, src, count) mbstowcs(dest, src, count)
-#define wcstombs_s(len, dest, src, count) wcstombs(dest, src, count)
-#endif
-
 #define PID_NAME_LEN 8192
-#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
-    #define FORCE_INLINE_LAMBDA __attribute__((always_inline))
-#elif defined(_MSC_VER)
-    #define FORCE_INLINE_LAMBDA [[msvc::forceinline]]
-#else
-    #define FORCE_INLINE_LAMBDA
-#endif
-#define NTDLL L"\x6E\x74\x64\x6C\x6C\x2E\x64\x6C\x6C"
-#ifdef _WIN64
-    #if defined(_M_ARM64) || defined(__aarch64__)
-        #define CURRENT_PEB __readx18qword(0x60)
-    #else
-        #define CURRENT_PEB __readgsqword(0x60)
-    #endif
-#else
-    #if defined(_M_ARM) || defined(__arm__)
-        #define CURRENT_PEB __readx18dword(0x30)
-    #else
-        #define CURRENT_PEB __readfsdword(0x30)
-    #endif
-#endif
-#define PEB_THIS_MODULE_OFFSET 0x10
-#define PEB_LDR_OFFSET 0x18
-#define GET_FROM_OFFSET_PEB(off) *reinterpret_cast<void**>(CURRENT_PEB + off)
-#define CURRENT_MODULE static_cast<HMODULE>(GET_FROM_OFFSET_PEB(PEB_THIS_MODULE_OFFSET))
-#define LDR_LIST_OFFSET 0x2
-#define LDR_DLL_BASE_OFFSET 0x6
-#define LDR_DLL_FULL_PATH_OFFSET 0x9
-#define LDR_DLL_BASE_NAME_OFFSET 0xB
-
-#ifndef PSAPI_VERSION
-    typedef struct $MODULEINFO {
-        LPVOID lpBaseOfDll;
-        DWORD SizeOfImage;
-        LPVOID EntryPoint;
-    } MODULEINFO, *LPMODULEINFO;
-    extern "C" BOOL K32EnumProcesses(DWORD *lpidProcess, DWORD cb, LPDWORD lpcbNeeded);
-    extern "C" BOOL K32EnumProcessModules(HANDLE hProcess, HMODULE *lphModule, DWORD cb, LPDWORD lpcbNeeded);
-    extern "C" DWORD K32GetProcessImageFileNameA(HANDLE hProcess, LPSTR lpImageFileName, DWORD nSize);
-    extern "C" DWORD K32GetProcessImageFileNameW(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize);
-    extern "C" BOOL K32GetModuleInformation(HANDLE hProcess, HMODULE hModule, LPMODULEINFO lpmodinfo, DWORD cb);
-    #define EnumProcessModules K32EnumProcessModules
-    #define EnumProcesses K32EnumProcesses
-    // #define GetProcessImageFileNameA K32GetProcessImageFileNameA
-    // #define GetProcessImageFileNameW K32GetProcessImageFileNameW
-    #ifdef UNICODE
-        #define GetProcessImageFileName K32GetProcessImageFileNameW
-    #else
-        #define GetProcessImageFileName K32GetProcessImageFileNameA
-    #endif
-    #define GetModuleInformation K32GetModuleInformation
-#endif
 
 namespace PMO
 {
@@ -120,14 +64,11 @@ namespace PMO
         toLower(key);
         getModule([&result, &key](void **curr)FORCE_INLINE_LAMBDA
         {
-            // const UNICODE_STRING name = *reinterpret_cast<UNICODE_STRING*>(reinterpret_cast<
-                // uintptr_t>(curr) + 88);
             std::wstring buf(*reinterpret_cast<wchar_t**>(curr + LDR_DLL_BASE_NAME_OFFSET + 1));
             toLower(buf);
             if (buf == key) // curr->BaseDllName == wname
             {
-                result = *reinterpret_cast<HMODULE*>(curr + LDR_DLL_BASE_OFFSET);
-                // result = *reinterpret_cast<HMODULE*>(reinterpret_cast<uintptr_t>(curr) + 48); // curr->DllBase
+                result = *reinterpret_cast<HMODULE*>(curr + LDR_DLL_BASE_OFFSET); // curr->DllBase
                 return true;
             }
             return false;

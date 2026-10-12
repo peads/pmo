@@ -189,7 +189,7 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
         CHECKED_IF(debuggerPatterns[0].size() == 1)
         {
-            REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().address)() == IsDebuggerPresent());
+            REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().ptr)() == IsDebuggerPresent());
         }
         CHECKED_ELSE(debuggerPatterns[0].size() == 1)
         {
@@ -198,7 +198,7 @@ TEST_CASE("00 raw search testing", "[PMO]")
         }
         CHECKED_IF(debuggerPatterns[1].size() == 1)
         {
-            REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().address)(handle, bl + 0)
+            REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().ptr)(handle, bl + 0)
                 == CheckRemoteDebuggerPresent(handle, bl + 1));
             REQUIRE(bl[0] == bl[1]);
         }
@@ -406,21 +406,39 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
     REQUIRE(IsDebuggerPresent() == bl[0]);
 
     REQUIRE(disableDebuggerChecking());
+     printDebugger();
+     for (auto &[str, len] : {std::pair{IDP_CODE, sizeof(IDP_CODE) - 1},
+             std::pair{CRDP_CODE, sizeof(CRDP_CODE) - 1}}) {
+         for (size_t i = 0; i < len; ++i) {
+             std::cout << std::format("{:02X} ", str[i]);
+         }
+         std::cout << std::endl;
+     }
 
-    REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 1));
-    REQUIRE((IsDebuggerPresent() == bl[1] && !bl[1]));
-#if !(defined(__aarch64__) || defined(_M_ARM64))
     PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
+#if !(defined(__aarch64__) || defined(_M_ARM64))
     PMO::Pattern b{CRDP_CODE, CRDP_MASK, CRDP_CODE};
+#else
+    PMO::Pattern b{CRDP_CODE, CRDP_MASK_1, CRDP_CODE};
+#endif
 
     auto module = PMO::getModule("KERNELBASE.dll");
     auto [lpBaseOfDll, SizeOfImage, EntryPoint] =
         PMO::getModuleInfo(module);
     PMO::PointerUnion pu{lpBaseOfDll};
 
-    findPatterns(pu.address, SizeOfImage, a);
-    findPatterns(pu.address, SizeOfImage, b);
+    REQUIRE(findPatterns(pu.address, SizeOfImage, a));
+    REQUIRE(findPatterns(pu.address, SizeOfImage, b));
     REQUIRE(!a.empty());
     REQUIRE(!b.empty());
-#endif
+
+    CHECKED_IF(!IsDebuggerPresent())
+    {
+        REQUIRE(CheckRemoteDebuggerPresent(handle, bl + 1));
+        REQUIRE((IsDebuggerPresent() == bl[1] && !bl[1]));
+    }
+    CHECKED_ELSE(!IsDebuggerPresent())
+    {
+        FAIL("IsDebuggerPresent() evaluated true.");
+    }
 }

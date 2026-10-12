@@ -21,49 +21,55 @@
 #include "types/pattern/Pattern.hpp"
 #include "parse/ParseJmp.hpp"
 
-#if defined(__clang__)
-    #define PRAGMA_IVDEP _Pragma("clang loop vectorize(enable) interleave(enable)")
-    #define PRAGMA_UNROLL _Pragma("clang loop unroll_count(8)")
-#elif defined(__GNUC__) || defined(__GNUG__)
-    #define PRAGMA_IVDEP _Pragma("GCC ivdep")
-    #define PRAGMA_UNROLL(n) _Pragma("GCC unroll n")
-#elif defined(_MSC_VER) // MSVC
-    #define PRAGMA_IVDEP _Pragma("loop(ivdep)")
-    #define PRAGMA_UNROLL(n) // MSVC doesn't have a direct loop unroll factor pragma
-#else
-    #define PRAGMA_IVDEP
-    #define PRAGMA_UNROLL(n)
-#endif
-
-// #ifndef STRIDE
-// #undef STRIDE
-// #define STRIDE 8ULL
-// #endif
-
 namespace PMO
 {
 #if defined(__aarch64__) || defined(_M_ARM64)
+    template <typename R, typename ParseFunction>
+    R parseImm(const char* fnName, ParseFunction fn, const uintptr_t addr)
+        requires std::is_invocable_r_v<R, ParseFunction, uintptr_t>
+    {
+        // TODO figure out the stop condition that would obviate the need for disgusting exception
+        //  handling
+        __try
+        {
+            return fn(addr);
+        }
+        __except (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION ?
+            EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
+        {
+            printf("%s Caught an access violation (0xC0000005) trying to dereference: %llX\n", fnName, addr);
+        }
+        return 0;
+    }
     inline uint32_t parseLdrImm(const uintptr_t addr) noexcept
     {
-        uint32_t* ptr = (uint32_t*)addr;
-        if (((*ptr >> 27) & 7) == 7) // is ldr unsigned scaled imm?
-        {
-            return ((*ptr >> 10) & 0x3FF) << ((*ptr >> 30) & 3);
-        }
-        return 0; // it wasn't
+        auto lambda = [](const uintptr_t addr)
+            {
+                uint32_t* ptr = (uint32_t*)addr;
+                if (((*ptr >> 27) & 7) == 7) // is ldr unsigned scaled imm?
+                {
+                    return ((*ptr >> 10) & 0x3FF) << ((*ptr >> 30) & 3);
+                }
+                return 0U; // it wasn't
+            };
+        return parseImm<uint32_t>("PMO::parseLdrImm", lambda, addr);
     }
 
     //30 04 00 90 10 A6 43 F9 00 02 1F D6
-    inline int32_t parseAdrpImm(uintptr_t addr) noexcept
+    inline int32_t parseAdrpImm(const uintptr_t addr) noexcept
     {
-        uint32_t* ptr = (uint32_t*)addr;
-        if ((*ptr >> 31) & 1) // ADRP?
-        {
-            const uint32_t immhi = (*ptr & 0x1FFF'FFFF) >> 5;
-            const uint32_t immlo = (*ptr & 0x6000'0000) >> 29;
-            return ((int32_t)(((immhi << 2) | immlo) << 11) >> 11) << 12;
-        }
-        return 0; // it wasn't
+        auto lambda = [](const uintptr_t addr)
+            {
+                uint32_t* ptr = (uint32_t*)addr;
+                if ((*ptr >> 31) & 1) // ADRP?
+                {
+                    const uint32_t immhi = (*ptr & 0x1FFF'FFFF) >> 5;
+                    const uint32_t immlo = (*ptr & 0x6000'0000) >> 29;
+                    return ((int32_t)(((immhi << 2) | immlo) << 11) >> 11) << 12;
+                }
+                return 0; // it wasn't
+            };
+        return parseImm<int32_t>("PMO::parseAdrpImm", lambda, addr);
     }
 
     inline uintptr_t findNamedFunction(uintptr_t addr, uintptr_t* out) noexcept
