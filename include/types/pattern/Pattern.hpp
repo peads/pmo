@@ -63,18 +63,22 @@ namespace PMO
             std::vector<char> m_pattern;
             std::vector<char> m_code;
 
-            // template <typename T>
-            // static T generateTypedMask(T n) noexcept requires (std::is_unsigned_v<T>)
-            // {
-            //     if (!n)
-            //         return 0;
-            //     int bits = std::bit_width(n);
-            //     if (bits >= (sizeof(n) << 3))
-            //     {
-            //         return static_cast<T>(-1);
-            //     }
-            //     return std::move((static_cast<T>(1) << bits) - 1);
-            // }
+            static inline std::vector<uint64_t> generatePatternMask(size_t n) {
+                if (n <= 0)
+                    return {};
+                std::vector<uint64_t> result{};
+
+                for (; n >= 8; n -= 8)
+                    result.push_back(0xFFFFFFFFFFFFFFFFULL);
+
+                if (n)
+#if defined(__aarch64__) || defined(_M_ARM64)
+                    result.push_back((0xFFFFFFFFFFFFFFFFULL << (64 - (n << 3))));
+#else
+                        result.push_back((0xFFFFFFFFFFFFFFFFULL >> (64 - (n << 3))));
+#endif
+                return result;
+            }
 
             template <typename T>
             static auto storeData(T data, const size_t len) noexcept
@@ -92,31 +96,14 @@ namespace PMO
             }
 
             template <typename U>
-            static auto generateMask(U mask, const size_t len) noexcept
+            static auto generateByteMask(U &mask, const size_t len) noexcept
             {
                 static constexpr auto EFFS = static_cast<char>(0xFF);
-                std::vector<std::vector<char>> result(2);
                 const size_t plen = (len + (STRIDE - 1ULL)) & ~(STRIDE - 1ULL);
+                std::vector<char> result(plen);
                 for (size_t i = 0; i < plen; ++i)
                 {
-                    if (i >= len)
-                    {
-                        result[0].push_back(0);
-                        result[1].push_back(0);
-                    }
-                    else
-                    {
-                        if ('?' != mask[i])
-                        {
-                            result[0].push_back(EFFS);//generateTypedMask(static_cast<uint8_t>(pattern[i])));
-                            result[1].push_back(0);
-                        }
-                        else
-                        {
-                            result[1].push_back(EFFS);
-                            result[0].push_back(EFFS);
-                        }
-                    }
+                    result[i] = (i >= len || '?' != mask[i]) ? 0 : EFFS;
                 }
                 return result;
             }
@@ -125,10 +112,10 @@ namespace PMO
             const std::string mask;
             const size_t patternLen;
             const size_t codeLen;
-            std::array<PointerUnion, 2> masks{};
 
         private:
-            std::vector<std::vector<char>> m_mask;
+            const std::vector<char> m_byteMask;
+            std::vector<uint64_t> m_patternMask;
 
         public:
             template <size_t N, size_t M, size_t P>
@@ -138,26 +125,10 @@ namespace PMO
                   mask(mask),
                   patternLen(N - 1),
                   codeLen(P - 1),
-                  m_mask(generateMask(mask, M - 1))
+                  m_byteMask(generateByteMask(mask, M - 1)),
+                  m_patternMask(generatePatternMask(N - 1))
             {
                 static_assert(M == N);
-                masks[0].str = m_mask[0].data();
-                masks[1].str = m_mask[1].data();
-            }
-
-            template <typename T>
-            Pattern(
-                T pattern, const size_t plen, T mask, T code, const size_t clen
-            ) noexcept
-                : m_pattern(storeData(pattern, plen - 1)),
-                  m_code(storeData(code, clen - 1)),
-                  mask(mask),
-                  patternLen(plen),
-                  codeLen(clen),
-                  m_mask(generateMask(mask, plen - 1))
-            {
-                masks[0].str = m_mask[0].data();
-                masks[1].str = m_mask[1].data();
             }
 
             template <typename T>
@@ -167,10 +138,18 @@ namespace PMO
                   mask(autoGenerateMask(pattern, plen)),
                   patternLen(plen),
                   codeLen(clen),
-                  m_mask(generateMask(mask, plen - 1))
+                  m_byteMask(generateByteMask(mask, plen - 1)),
+                  m_patternMask(generatePatternMask(plen - 1))
+            {}
+
+            [[nodiscard]] auto byteMask() const noexcept
             {
-                masks[0].str = m_mask[0].data();
-                masks[1].str = m_mask[1].data();
+                return PointerUnion{.str = m_byteMask.data()};
+            }
+
+            [[nodiscard]] auto patternMask() noexcept
+            {
+                return PointerUnion{.u64ptr = m_patternMask.data()};
             }
 
             [[nodiscard]] auto pattern() const noexcept

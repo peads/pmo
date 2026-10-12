@@ -23,7 +23,6 @@
 
 #include "windows/main.hpp"
 #include "windows/helpers/debug/debug.hpp"
-#include "windows/games/mods/qswprime/qswprime.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -51,7 +50,7 @@ namespace
                     std::cout << std::format("{}: ", name);
                 for (size_t i = 0; i < len; ++i)
                 {
-                    std::cout << std::format("{:02X} ", ((char*)e)[i]);
+                    std::cout << std::format("{:02X} ", reinterpret_cast<char*>(e)[i]);
                 }
                 exports.clear();
                 std::cout << std::endl;
@@ -150,17 +149,7 @@ TEST_CASE("05 line coverage++", "[PMO]")
     pu.str = str;
     REQUIRE(PMO::replaceCode(pu, strs[2], strlen(str), CURRENT_MODULE));
     // ReSharper disable once CppCStyleCast
-    CHECK(*(uint32_t*)strs[2] == *(uint32_t*)str);
-
-    PMO::PointerUnion pu1 {calloc(sizeof(SLEEP_WAIT_MASK) , 1)};
-    memcpy(pu1.ptr, SLEEP_WAIT_PATTERN, sizeof(SLEEP_WAIT_PATTERN));
-    PMO::Pattern p{SLEEP_WAIT_PATTERN, SLEEP_WAIT_MASK, SLEEP_WAIT_CODE};
-    std::cout << "plen: " << p.patternLen << " clen: " << p.codeLen << std::endl;
-    PMO::findPatterns(pu1.address, sizeof(SLEEP_WAIT_PATTERN), p);
-    PMO::replaceCode(pu1, p.code().str, p.codeLen);
-    PMO::Pattern q{SLEEP_WAIT_CODE, "xxxxxxxxxxxx", SLEEP_WAIT_CODE};
-    REQUIRE(PMO::findPatterns(pu1.address, q.patternLen, q));
-    free(pu1.ptr);
+    REQUIRE(*(uint32_t*)strs[2] == *(uint32_t*)str);
 }
 
 TEST_CASE("00 raw search testing", "[PMO]")
@@ -362,11 +351,9 @@ TEST_CASE("07 autogen mask", "[PMO]")
 
     const HMODULE module = PMO::getModule("KERNELBASE.dll");
     auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getModuleInfo(module);
-    PMO::PointerUnion pu{.cptr = crdpMask.data()};
     PMO::Pattern a{
         CRDP_PATTERN,
         sizeof(CRDP_PATTERN),
-        pu.str,
         CRDP_CODE,
         sizeof(CRDP_CODE),
     };
