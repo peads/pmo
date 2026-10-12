@@ -23,8 +23,8 @@
 #include <filesystem>
 #include <ranges>
 
-#include "defines.hpp"
-#include "../defines.hpp"
+#include "windows/defines.hpp"
+#include "multidefines.hpp"
 #include "../MemoryOps.hpp"
 #include "types/ImportInfo.hpp"
 #include "windows/ImageDirectoryEntryToData.hpp"
