@@ -22,16 +22,21 @@
 
 #include "windows/MemoryOps.hpp"
 
-inline void printDebugger() noexcept
+void printDebugger() noexcept
 {
     intProducer idp = nullptr;
     PMO::findNamedFunction(reinterpret_cast<uintptr_t>(&IsDebuggerPresent), &idp);
     intBiFunction crdp = nullptr;
     PMO::findNamedFunction(reinterpret_cast<uintptr_t>(&CheckRemoteDebuggerPresent), &crdp);
-    for (auto ptr : {reinterpret_cast<uint8_t*>(idp), reinterpret_cast<uint8_t*>(crdp)})
+    for (auto &[vptr, len] :
+        { 
+            std::pair{(void*)idp,sizeof(IDP_CODE)},
+            std::pair{(void*)crdp,sizeof(CRDP_CODE)}
+        })
     {
-        for (; ptr && *ptr != 0xCC; ++ptr)
-            std::cout << std::format("{:02X}", *ptr);
+        uint8_t* ptr = reinterpret_cast<uint8_t*>(vptr);
+        for (size_t i = 0; ptr && i < len - 1; ++ptr, ++i)
+            std::cout << std::format("{:02X} ", *ptr);
         std::cout << std::endl;
     }
     std::cout << std::endl << std::endl;

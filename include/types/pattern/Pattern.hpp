@@ -72,10 +72,10 @@ namespace PMO
                     result.push_back(0xFFFFFFFFFFFFFFFFULL);
 
                 if (n)
-#if defined(__aarch64__) || defined(_M_ARM64)
-                    result.push_back((0xFFFFFFFFFFFFFFFFULL << (64 - (n << 3))));
+#ifdef IS_LITTLE_ENDIAN
+                    result.push_back((0xFFFFFFFFFFFFFFFFULL >> (64 - (n << 3))));
 #else
-                        result.push_back((0xFFFFFFFFFFFFFFFFULL >> (64 - (n << 3))));
+                    result.push_back((0xFFFFFFFFFFFFFFFFULL << (64 - (n << 3))));
 #endif
                 return result;
             }

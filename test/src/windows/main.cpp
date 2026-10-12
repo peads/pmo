@@ -189,7 +189,7 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
         CHECKED_IF(debuggerPatterns[0].size() == 1)
         {
-            REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().address)() == IsDebuggerPresent());
+            REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().ptr)() == IsDebuggerPresent());
         }
         CHECKED_ELSE(debuggerPatterns[0].size() == 1)
         {
@@ -198,7 +198,7 @@ TEST_CASE("00 raw search testing", "[PMO]")
         }
         CHECKED_IF(debuggerPatterns[1].size() == 1)
         {
-            REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().address)(handle, bl + 0)
+            REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().ptr)(handle, bl + 0)
                 == CheckRemoteDebuggerPresent(handle, bl + 1));
             REQUIRE(bl[0] == bl[1]);
         }
@@ -406,6 +406,14 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
     REQUIRE(IsDebuggerPresent() == bl[0]);
 
     REQUIRE(disableDebuggerChecking());
+    // printDebugger();
+    // for (auto &[str, len] : {std::pair{IDP_CODE, sizeof(IDP_CODE) - 1},
+    //         std::pair{CRDP_CODE, sizeof(CRDP_CODE)}}) {
+    //     for (size_t i = 0; i < len; ++i) {
+    //         std::cout << std::format("{:02X} ", str[i]);
+    //     }
+    //     std::cout << std::endl;
+    // }
 
     PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
 #if !(defined(__aarch64__) || defined(_M_ARM64))
@@ -419,10 +427,10 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
         PMO::getModuleInfo(module);
     PMO::PointerUnion pu{lpBaseOfDll};
 
-    findPatterns(pu.address, SizeOfImage, a);
-    findPatterns(pu.address, SizeOfImage, b);
-    CHECK(!a.empty());
-    CHECK(!b.empty());
+    REQUIRE(findPatterns(pu.address, SizeOfImage, a));
+    REQUIRE(findPatterns(pu.address, SizeOfImage, b));
+    REQUIRE(!a.empty());
+    REQUIRE(!b.empty());
 
     CHECKED_IF(!IsDebuggerPresent())
     {
