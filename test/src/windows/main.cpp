@@ -119,7 +119,7 @@ TEST_CASE("05 line coverage++", "[PMO]")
         auto val = 0x12345678 + i;
         auto pu = PMO::PointerUnion{.address = val};
         auto str = std::format("{:016X}", val);
-        auto im = PMO::ImportInfo{.name = str};
+        auto im = PMO::ImportInfo{.name = str, .ordinalBase = 0};
         puSet.insert(pu);
         puMap.insert_or_assign(pu, str);
         puTree.insert_or_assign(pu, str);
