@@ -52,8 +52,6 @@ namespace PMO
                         // move to next byte to process
                         ptr.u8ptr += width;
                         memcpy(result.data() + moffset, std::string(width, '?').data(), width);
-                        // if (offsets)
-                            // offsets->push_back(offset);
                     }
                 }
                 return result;
@@ -87,10 +85,7 @@ namespace PMO
                 const size_t plen = (len + (STRIDE - 1ULL)) & ~(STRIDE - 1ULL);
                 for (size_t i = 0; i < plen; ++i)
                 {
-                    if (i < len)
-                        result.push_back(data[i]);
-                    else
-                        result.push_back(0);
+                    result.push_back(i < len ? data[i] : 0);
                 }
                 return result;
             }

@@ -156,12 +156,10 @@ namespace PMO
 
     struct SearchContext
     {
-        const PointerUnion theEnd;
         const size_t offset;
         PointerUnion &pointer;
         size_t &len;
         Pattern &searchStruct;
-        bool &result;
     };
 
     typedef bool (*searchFunc)(SearchContext &ctx);
@@ -169,8 +167,8 @@ namespace PMO
     inline bool searchChunked(SearchContext &ctx) noexcept
     {
         uint64_t notHit = -1;
-        auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
-
+        auto &[offset, pointer, len, searchStruct] = ctx;
+        bool result = false;
         for (size_t i = 0; i < searchStruct.pSize && len - (STRIDE - 1) > 0; ++i)
         {
             if ((notHit = (pointer.u64ptr[i] ^ searchStruct.pattern().u64ptr[i])
@@ -195,7 +193,8 @@ namespace PMO
     inline bool searchBytewise(SearchContext &ctx) noexcept
     {
         bool notHit = true;
-        auto &[theEnd, offset, pointer, len, searchStruct, result] = ctx;
+        bool result = false;
+        auto &[offset, pointer, len, searchStruct] = ctx;
 
         const auto  pat = searchStruct.pattern().str,
                     val = pointer.str,
@@ -227,21 +226,18 @@ namespace PMO
             return false;
 
         bool result = false;
-        const PointerUnion theEnd = {.address = searchStruct.pattern().address + searchStruct.patternLen};
         PointerUnion pointer = {.address = addr};
 
         SearchContext ctx{
-            .theEnd = theEnd,
             .offset = 0,
             .pointer = pointer,
             .len = len,
             .searchStruct = searchStruct,
-            .result = result,
         };
 
         while (pointer.address < len + addr)
         {
-            if (search(ctx) && stopOne)
+            if ((result |= search(ctx)) && stopOne)
                 break;
         }
         return result;

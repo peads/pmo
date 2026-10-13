@@ -343,9 +343,6 @@ namespace PMO
         MEMORY_BASIC_INFORMATION mbi;
         std::vector<char> buffer(8192);
 
-        const auto end = searchStruct.pattern().cptr + searchStruct.patternLen;
-        const PointerUnion theEnd = {.cptr = end};
-
         for (uintptr_t address = 0;
              VirtualQueryEx(proc, reinterpret_cast<LPCVOID>(address), &mbi, sizeof(mbi)) == sizeof(
                  mbi); address = reinterpret_cast<uintptr_t>(mbi.BaseAddress) + mbi.RegionSize)
@@ -365,15 +362,13 @@ namespace PMO
                     size_t rva = 0;
                     PointerUnion pointer = {.cptr = buffer.data()};
                     SearchContext ctx{
-                        .theEnd = theEnd,
                         .offset = reinterpret_cast<uintptr_t>(mbi.BaseAddress) - pointer.address,
                         .pointer = pointer,
                         .len = rva,
-                        .searchStruct = searchStruct,
-                        .result = result,
+                        .searchStruct = searchStruct
                     };
                     while (pointer.cptr < bytesRead + buffer.data())
-                        if (search(ctx) && stopOne)
+                        if ((result |= search(ctx)) && stopOne)
                             goto finished;
                 }
             }
