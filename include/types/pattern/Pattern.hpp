@@ -58,8 +58,8 @@ namespace PMO
             }
         private:
             SetWrapper<uintptr_t> m_occurrences{};
-            std::vector<char> m_pattern;
-            std::vector<char> m_code;
+            const char *const m_pattern;
+            const char *const m_code;
 
             static inline std::vector<uint64_t> generatePatternMask(size_t n) {
                 if (n <= 0)
@@ -78,17 +78,17 @@ namespace PMO
                 return result;
             }
 
-            template <typename T>
-            static auto storeData(T data, const size_t len) noexcept
-            {
-                std::vector<char> result{};
-                const size_t plen = (len + (STRIDE - 1ULL)) & ~(STRIDE - 1ULL);
-                for (size_t i = 0; i < plen; ++i)
-                {
-                    result.push_back(i < len ? data[i] : 0);
-                }
-                return result;
-            }
+            // template <typename T>
+            // static auto storeData(T data, const size_t len) noexcept
+            // {
+            //     std::vector<char> result{};
+            //     const size_t plen = (len + (STRIDE - 1ULL)) & ~(STRIDE - 1ULL);
+            //     for (size_t i = 0; i < plen; ++i)
+            //     {
+            //         result.push_back(i < len ? data[i] : 0);
+            //     }
+            //     return result;
+            // }
 
             template <typename U>
             static auto generateByteMask(U &mask, const size_t len) noexcept
@@ -116,8 +116,8 @@ namespace PMO
             const size_t pSize;
             template <size_t N, size_t M, size_t P>
             Pattern(const char (&pattern)[N], const char (&mask)[M], const char (&code)[P]) noexcept
-                : m_pattern(storeData(pattern, N - 1)),
-                  m_code(storeData(code, P - 1)),
+                : m_pattern(pattern),
+                  m_code(code),
                   mask(mask),
                   patternLen(N - 1),
                   codeLen(P - 1),
@@ -128,17 +128,17 @@ namespace PMO
                 static_assert(M == N);
             }
 
-            template <typename T>
-            Pattern(T pattern,  const size_t plen, T code, const size_t clen) noexcept
-                : m_pattern(storeData(pattern, plen - 1)),
-                  m_code(storeData(code, clen - 1)),
-                  mask(autoGenerateMask(pattern, plen)),
-                  patternLen(plen),
-                  codeLen(clen),
-                  m_byteMask(generateByteMask(mask, plen - 1)),
-                  m_patternMask(generatePatternMask(plen - 1)),
-                  pSize(m_patternMask.size())
-            {}
+            // template <typename T>
+            // Pattern(T pattern,  const size_t plen, T code, const size_t clen) noexcept
+            //     : m_pattern(storeData(pattern, plen - 1)),
+            //       m_code(storeData(code, clen - 1)),
+            //       mask(autoGenerateMask(pattern, plen)),
+            //       patternLen(plen),
+            //       codeLen(clen),
+            //       m_byteMask(generateByteMask(mask, plen - 1)),
+            //       m_patternMask(generatePatternMask(plen - 1)),
+            //       pSize(m_patternMask.size())
+            // {}
 
             [[nodiscard]] auto byteMask() const noexcept
             {
@@ -152,12 +152,12 @@ namespace PMO
 
             [[nodiscard]] auto pattern() const noexcept
             {
-                return PointerUnion{.str = m_pattern.data()};
+                return PointerUnion{.str = m_pattern};
             }
 
             [[nodiscard]] auto code() const noexcept
             {
-                return PointerUnion{.str = m_code.data()};
+                return PointerUnion{.str = m_code};
             }
 
             void reset() noexcept
@@ -204,15 +204,18 @@ namespace PMO
             bool operator==(const Pattern &a) const noexcept
             {
                 auto arr = {
-                    // std::pair{
-                    //     std::vector(this->m_mask, this->m_mask + this->patternLen),
-                    //     std::vector(a.m_mask, a.m_mask + a.patternLen)
-                    // },
-                    std::pair{this->m_pattern, a.m_pattern},
-                    std::pair{this->m_code, a.m_code}
+                    std::pair{
+                        std::vector(this->m_pattern, this->m_pattern + this->patternLen),
+                        std::vector(a.m_pattern, a.m_pattern + a.patternLen)
+                    },
+                    std::pair{
+                        std::vector(this->m_code, this->m_code + this->codeLen),
+                        std::vector(a.m_code, a.m_code + a.codeLen)
+                    }
                 };
                 return this->codeLen == a.codeLen
                     && this->patternLen == a.patternLen
+                    && this->mask == a.mask
                     && std::ranges::all_of(arr,
                     [](auto &e)
                     {
