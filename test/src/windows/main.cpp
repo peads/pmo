@@ -38,6 +38,7 @@ namespace
     constexpr auto searchers = {
         std::pair{"bytewise", PMO::searchBytewise},
         std::pair{"chunked", PMO::searchChunked},
+        std::pair{"pext", PMO::searchPext},
     };
 
     template <typename T>

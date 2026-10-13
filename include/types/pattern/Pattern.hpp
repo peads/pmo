@@ -21,6 +21,9 @@
 #include "types/PointerUnion.hpp"
 #include "types/SetWrapper.hpp"
 
+#include <algorithm>
+#include <immintrin.h>
+
 #ifndef STRIDE
 #undef STRIDE
 #define STRIDE 8ULL
@@ -60,6 +63,19 @@ namespace PMO
             SetWrapper<uintptr_t> m_occurrences{};
             const char *const m_pattern;
             const char *const m_code;
+            template <typename T>
+
+            static inline T generateTypedMask(T n) requires (std::is_unsigned_v<T>)
+            {
+                if (!n)
+                    return 0;
+                uint64_t bits = std::bit_width(n);
+                if (bits >= (sizeof(n) << 3))
+                {
+                    return static_cast<T>(-1);
+                }
+                return std::move((static_cast<T>(1) << bits) - 1);
+            }
 
             static inline std::vector<uint64_t> generatePatternMask(size_t n) {
                 if (n <= 0)
@@ -111,6 +127,10 @@ namespace PMO
         private:
             const std::vector<char> m_byteMask;
             std::vector<uint64_t> m_patternMask;
+            // void *v_pattern;
+            // void *v_mask;
+            std::vector<uint64_t> v_pattern{};
+            std::vector<uint64_t> v_mask{};
 
         public:
             const size_t pSize;
@@ -123,10 +143,36 @@ namespace PMO
                   codeLen(P - 1),
                   m_byteMask(generateByteMask(mask, M - 1)),
                   m_patternMask(generatePatternMask(N - 1)),
+                  // v_pattern(_mm_malloc(N - 1, 16)),
+                  // v_mask(_mm_malloc(M - 1, 16)),
                   pSize(m_patternMask.size())
             {
                 static_assert(M == N);
+                v_pattern.resize(pSize);
+                v_mask.resize(pSize);
+                PointerUnion
+                    pu{v_pattern.data()},
+                    qu{.str = pattern},
+                    ru{v_mask.data()},
+                    su{.u64ptr = m_patternMask.data()},
+                    tu{.str = m_byteMask.data()};
+
+                for (size_t i = 0; i < (pSize << 3); ++i)
+                {
+                    ru.u8ptr[i] = i < N - 1 ? generateTypedMask(static_cast<uint8_t>((qu.u8ptr[i] | tu.u8ptr[i]) & su.u8ptr[i])) : 0;
+                }
+                for (size_t i = 0; i < pSize; ++i)
+                {
+                    ru.u64ptr[i] &= m_patternMask[i];
+                    pu.u64ptr[i] = _pext_u64((qu.u64ptr[i] | tu.u64ptr[i]) & m_patternMask[i], ru.u64ptr[i]);
+                }
             }
+
+            // ~Pattern()
+            // {
+            //     _mm_free(v_pattern);
+            //     _mm_free(v_mask);
+            // }
 
             // template <typename T>
             // Pattern(T pattern,  const size_t plen, T code, const size_t clen) noexcept
@@ -139,6 +185,16 @@ namespace PMO
             //       m_patternMask(generatePatternMask(plen - 1)),
             //       pSize(m_patternMask.size())
             // {}
+
+            [[nodiscard]] auto packedPattern() noexcept
+            {
+                return PointerUnion{.ptr = v_pattern.data()};
+            }
+
+            [[nodiscard]] auto packedMask() noexcept
+            {
+                return PointerUnion{.ptr = v_mask.data()};
+            }
 
             [[nodiscard]] auto byteMask() const noexcept
             {

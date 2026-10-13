@@ -359,7 +359,7 @@ namespace PMO
                                       mbi.RegionSize,
                                       &bytesRead))
                 {
-                    size_t rva = 0;
+                    int64_t rva = 0;
                     PointerUnion pointer = {.cptr = buffer.data()};
                     SearchContext ctx{
                         .offset = reinterpret_cast<uintptr_t>(mbi.BaseAddress) - pointer.address,
