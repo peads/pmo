@@ -34,6 +34,11 @@ namespace
         PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
     };
 
+    constexpr auto searchers = {
+        std::pair{"bytewise", PMO::searchBytewise},
+        std::pair {"chunked", PMO::searchChunked},
+    };
+
     template <typename T>
     void printBytes(const T &list, const size_t len, const HMODULE module)
     {
@@ -175,18 +180,31 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
     SECTION("Ensure PMO::findNamedFunction returned a pointer to where the actual code resides using PMO::findPatterns")
     {
-        CHECK(PMO::findPatterns(reinterpret_cast<uintptr_t>(idp),
-            debuggerPatterns[0].patternLen, debuggerPatterns[0]));
-        REQUIRE(PMO::findPatterns(reinterpret_cast<uintptr_t>(crdp),
-                    debuggerPatterns[1].patternLen, debuggerPatterns[1]));
+        for (auto &[name, searcher] : searchers)
+        {
+            DYNAMIC_SECTION("Searcher: " << name)
+            {
+                reset();
+                CHECK(PMO::findPatterns(reinterpret_cast<uintptr_t>(idp),
+                    debuggerPatterns[0].patternLen, debuggerPatterns[0], false, searcher));
+                CHECK(PMO::findPatterns(reinterpret_cast<uintptr_t>(crdp),
+                    debuggerPatterns[1].patternLen, debuggerPatterns[1], false, searcher));
+            }
+        }
     }
 
     SECTION("Final Boss: Find the patterns knowing only that they reside in KERNELBASE.dll")
     {
         const char *failMsg = nullptr;
-        CHECK(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1]));
-        CHECK(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0]));
-
+        for (auto &[name, searcher] : searchers)
+        {
+            DYNAMIC_SECTION("Searcher: " << name)
+            {
+                reset();
+                CHECK(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1], false, searcher));
+                CHECK(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0], false, searcher));
+            }
+        }
         CHECKED_IF(debuggerPatterns[0].size() == 1)
         {
             REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().ptr)() == IsDebuggerPresent());
@@ -307,7 +325,14 @@ TEST_CASE("06 Optional Test 6 test find code in memory of external process", "[P
     }
     if (pids.empty())
         SKIP("OBR not running");
-    REQUIRE((findPatternsExternal(pids.back(), swPattern, false) && !swPattern.empty()));
+    for (auto &[name, searcher] : searchers)
+    {
+        DYNAMIC_SECTION("Searcher: " << name)
+        {
+            swPattern.reset();
+            REQUIRE((findPatternsExternal(pids.back(), swPattern, false, searcher) && !swPattern.empty()));
+        }
+    }
 }
 
 TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[PMO]")
