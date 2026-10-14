@@ -59,12 +59,8 @@ namespace PMO
                 }
                 return result;
             }
-        private:
-            SetWrapper<uintptr_t> m_occurrences{};
-            const char *const m_pattern;
-            const char *const m_code;
-            template <typename T>
 
+            template <typename T>
             static inline T generateTypedMask(T n) requires (std::is_unsigned_v<T>)
             {
                 if (!n)
@@ -76,6 +72,10 @@ namespace PMO
                 }
                 return std::move((static_cast<T>(1) << bits) - 1);
             }
+        private:
+            SetWrapper<uintptr_t> m_occurrences{};
+            const char *const m_pattern;
+            const char *const m_code;
 
             static inline std::vector<uint64_t> generatePatternMask(size_t n) {
                 if (n <= 0)

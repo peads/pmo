@@ -57,10 +57,11 @@ inline uint64_t software_pext(const uint64_t a, uint64_t b)
 #include <immintrin.h>
 #define pdep(a,b) _pdep_u64(a,b)
 #define pext(a,b) _pext_u64(a,b)
-#elif  defined(__ARM_FEATURE_SVE2) //TODO this may not be the correct usage
+#elif  defined(__ARM_FEATURE_SVE2)
 #include <arm_sve.h>
-#define pdep(a,b) svbdep_n_u64(a, b)
-#define pext(a,b) svbext_n_u64(a, b)
+// TODO: find the scalar -> vector for a, and similarly for the retval
+#define pdep(a,b) svclastb_n_u64(svbdep_n_u64(svdup_n_u64(a), b))
+#define pext(a,b) svclastb_n_u64(svbext_n_u64(svdup_n_u64(a), b))
 #elif defined(_ARCH_PWR10)
 #define pdep(a,b) __builtin_pdepd(a, b)
 #define pext(a,b) __builtin_pextd(a, b)
