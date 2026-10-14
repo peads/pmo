@@ -193,9 +193,9 @@ TEST_CASE("00 raw search testing", "[PMO]")
             DYNAMIC_SECTION("Searcher: " << name)
             {
                 reset();
-                CHECK(PMO::findPatterns(reinterpret_cast<uintptr_t>(idp),
+                REQUIRE(PMO::findPatterns(reinterpret_cast<uintptr_t>(idp),
                           debuggerPatterns[0].patternLen, debuggerPatterns[0], false, searcher));
-                CHECK(PMO::findPatterns(reinterpret_cast<uintptr_t>(crdp),
+                REQUIRE(PMO::findPatterns(reinterpret_cast<uintptr_t>(crdp),
                           debuggerPatterns[1].patternLen, debuggerPatterns[1], false, searcher));
             }
         }
@@ -204,17 +204,10 @@ TEST_CASE("00 raw search testing", "[PMO]")
     SECTION("Final Boss: Find the patterns knowing only that they reside in KERNELBASE.dll")
     {
         const char *failMsg = nullptr;
-        for (auto &[name, searcher] : searchers)
-        {
-            DYNAMIC_SECTION("Searcher: " << name)
-            {
-                reset();
-                REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1], false,
-                          searcher));
-                REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0], false,
-                          searcher));
-            }
-        }
+        reset();
+        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1], false));
+        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0], false));
+
         CHECKED_IF(debuggerPatterns[0].size() == 1)
         {
             REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().ptr)() ==

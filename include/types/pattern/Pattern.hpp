@@ -17,12 +17,12 @@
  */
 #ifndef PATTERN_HPP
 #define PATTERN_HPP
+#include "bitmanip.h"
 #include "parse/ParseJmp.hpp"
 #include "types/PointerUnion.hpp"
 #include "types/SetWrapper.hpp"
 
 #include <algorithm>
-#include <immintrin.h>
 
 #ifndef STRIDE
 #undef STRIDE
@@ -94,18 +94,6 @@ namespace PMO
                 return result;
             }
 
-            // template <typename T>
-            // static auto storeData(T data, const size_t len) noexcept
-            // {
-            //     std::vector<char> result{};
-            //     const size_t plen = (len + (STRIDE - 1ULL)) & ~(STRIDE - 1ULL);
-            //     for (size_t i = 0; i < plen; ++i)
-            //     {
-            //         result.push_back(i < len ? data[i] : 0);
-            //     }
-            //     return result;
-            // }
-
             template <typename U>
             static auto generateByteMask(U &mask, const size_t len) noexcept
             {
@@ -127,8 +115,6 @@ namespace PMO
         private:
             const std::vector<char> m_byteMask;
             std::vector<uint64_t> m_patternMask;
-            // void *v_pattern;
-            // void *v_mask;
             std::vector<uint64_t> v_pattern{};
             std::vector<uint64_t> v_mask{};
 
@@ -143,8 +129,6 @@ namespace PMO
                   codeLen(P - 1),
                   m_byteMask(generateByteMask(mask, M - 1)),
                   m_patternMask(generatePatternMask(N - 1)),
-                  // v_pattern(_mm_malloc(N - 1, 16)),
-                  // v_mask(_mm_malloc(M - 1, 16)),
                   pSize(m_patternMask.size())
             {
                 static_assert(M == N);
@@ -164,27 +148,9 @@ namespace PMO
                 for (size_t i = 0; i < pSize; ++i)
                 {
                     ru.u64ptr[i] &= m_patternMask[i];
-                    pu.u64ptr[i] = _pext_u64((qu.u64ptr[i] | tu.u64ptr[i]) & m_patternMask[i], ru.u64ptr[i]);
+                    pu.u64ptr[i] = pext((qu.u64ptr[i] | tu.u64ptr[i]) & m_patternMask[i], ru.u64ptr[i]);
                 }
             }
-
-            // ~Pattern()
-            // {
-            //     _mm_free(v_pattern);
-            //     _mm_free(v_mask);
-            // }
-
-            // template <typename T>
-            // Pattern(T pattern,  const size_t plen, T code, const size_t clen) noexcept
-            //     : m_pattern(storeData(pattern, plen - 1)),
-            //       m_code(storeData(code, clen - 1)),
-            //       mask(autoGenerateMask(pattern, plen)),
-            //       patternLen(plen),
-            //       codeLen(clen),
-            //       m_byteMask(generateByteMask(mask, plen - 1)),
-            //       m_patternMask(generatePatternMask(plen - 1)),
-            //       pSize(m_patternMask.size())
-            // {}
 
             [[nodiscard]] auto packedPattern() noexcept
             {

@@ -18,6 +18,7 @@
 #ifndef MEMORYOPS_HPP
 #define MEMORYOPS_HPP
 
+#include "bitmanip.h"
 #include "types/pattern/Pattern.hpp"
 #include "parse/ParseJmp.hpp"
 
@@ -224,7 +225,7 @@ namespace PMO
         uint64_t notHit = -1;
         for (size_t i = 0; i < ctx.searchStruct.pSize; ++i)
         {
-            if ((notHit = _pext_u64(pointer[i] | bmsk[i], mask[i]) ^ pattern[i]))
+            if ((notHit = pext(pointer[i] | bmsk[i], mask[i]) ^ pattern[i]))
                 break;
         }
         if (!notHit)
