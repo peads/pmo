@@ -38,7 +38,9 @@ namespace
     constexpr auto searchers = {
         std::pair{"bytewise", PMO::searchBytewise},
         std::pair{"chunked", PMO::searchChunked},
+#if (defined(__BMI2__) || defined(_MSC_VER) && defined(__AVX2__)) // TODO remove when sw bmi is good
         std::pair{"pext", PMO::searchPext},
+#endif
     };
 
     template <typename T>
@@ -203,39 +205,51 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
     SECTION("Final Boss: Find the patterns knowing only that they reside in KERNELBASE.dll")
     {
+        // TODO: change these to a list of pairs for multiple instances of failure
+        const char *failHeader = nullptr;
         const char *failMsg = nullptr;
-        reset();
-        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1], false));
-        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0], false));
+        for (auto &[name, searcher] : searchers)
+        {
+            DYNAMIC_SECTION("Searcher: " << name)
+            {
+                reset();
+                REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1], false,
+                          searcher));
+                REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0], false,
+                          searcher));
 
-        CHECKED_IF(debuggerPatterns[0].size() == 1)
-        {
-            REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().ptr)() ==
-                    IsDebuggerPresent());
-        }
-        CHECKED_ELSE(debuggerPatterns[0].size() == 1)
-        {
-            printBytes(debuggerPatterns[0],
-                       debuggerPatterns[0].patternLen,
-                       PMO::getModule("KERNELBASE.dll"));
-            failMsg = "Failed to find IsDebuggerPresent in KERNELBASE.dll";
-        }
-        CHECKED_IF(debuggerPatterns[1].size() == 1)
-        {
-            REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().ptr)(handle, bl + 0)
-                    == CheckRemoteDebuggerPresent(handle, bl + 1));
-            REQUIRE(bl[0] == bl[1]);
-        }
-        CHECKED_ELSE(debuggerPatterns[1].size() == 1)
-        {
-            printBytes(debuggerPatterns[1],
-                       debuggerPatterns[1].patternLen,
-                       PMO::getModule("KERNELBASE.dll"));
-            failMsg = "Failed to find CheckRemoteDebuggerPresent in KERNELBASE.dll";
+                CHECKED_IF(debuggerPatterns[0].size() == 1)
+                {
+                    REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().ptr)() ==
+                            IsDebuggerPresent());
+                }
+                CHECKED_ELSE(debuggerPatterns[0].size() == 1)
+                {
+                    printBytes(debuggerPatterns[0],
+                               debuggerPatterns[0].patternLen,
+                               PMO::getModule("KERNELBASE.dll"));
+                    failHeader = name;
+                    failMsg = "Failed to find IsDebuggerPresent in KERNELBASE.dll";
+                }
+                CHECKED_IF(debuggerPatterns[1].size() == 1)
+                {
+                    REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().ptr)(handle, bl + 0)
+                            == CheckRemoteDebuggerPresent(handle, bl + 1));
+                    REQUIRE(bl[0] == bl[1]);
+                }
+                CHECKED_ELSE(debuggerPatterns[1].size() == 1)
+                {
+                    printBytes(debuggerPatterns[1],
+                               debuggerPatterns[1].patternLen,
+                               PMO::getModule("KERNELBASE.dll"));
+                    failHeader = name;
+                    failMsg = "Failed to find CheckRemoteDebuggerPresent in KERNELBASE.dll";
+                }
+            }
         }
         CHECKED_IF(failMsg)
         {
-            FAIL(failMsg);
+            FAIL(failMsg << " - " << failHeader);
         }
     }
 }
