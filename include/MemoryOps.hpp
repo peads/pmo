@@ -241,7 +241,7 @@ namespace PMO
     inline bool findPatterns(const uintptr_t addr, const size_t len,
                              Pattern &searchStruct,
                              const bool stopOne = false,
-                             const searchFunc search = searchChunked) noexcept
+                             const searchFunc search = searchBytewise) noexcept
     {
         if (!(addr && len))
             return false;
