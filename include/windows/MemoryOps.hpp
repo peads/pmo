@@ -331,7 +331,7 @@ namespace PMO
         const DWORD &pid,
         Pattern &searchStruct,
         const bool stopOne = false,
-        const searchFunc search = searchChunked
+        const searchFunc search = searchBytewise
     ) noexcept
     {
         const auto proc = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, FALSE, pid);

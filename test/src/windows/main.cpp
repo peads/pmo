@@ -360,12 +360,11 @@ TEST_CASE("06 Optional Test 6 test find code in memory of external process", "[P
 
 TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[PMO]")
 {
+    swPattern.reset();
     std::vector<DWORD> pids{};
-    std::string name;
     for (const auto &e : {OBR_WIN64, OBR_WINGDK})
     {
-        name = e;
-        PMO::getProcessesByName(name, pids);
+        PMO::getProcessesByName(e, pids);
     }
     if (pids.empty())
         SKIP("OBR not running");
@@ -376,10 +375,7 @@ TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[P
                               FALSE,
                               pids.back());
     REQUIRE(proc);
-    SECTION(name + " Replace code")
-    {
-        REQUIRE(replaceAllCodeExternal(proc, swPattern));
-    }
+    REQUIRE(replaceAllCodeExternal(proc, swPattern));
     CloseHandle(proc);
 }
 #endif
