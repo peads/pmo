@@ -129,7 +129,7 @@ namespace PMO
     template <typename T, typename =
               std::enable_if_t<std::is_pointer_v<T> // is ptr to *non-member* fn ptr
                   && std::is_function_v<std::remove_pointer_t<std::remove_pointer_t<T>>>>>
-    inline uintptr_t findNamedFunction(uintptr_t addr, T out) noexcept
+    uintptr_t findNamedFunction(uintptr_t addr, T out) noexcept
     {
         const uintptr_t result = startParseJmp(addr);
         if (result)
@@ -169,32 +169,28 @@ namespace PMO
     {
         uint64_t notHit = -1;
         auto &[offset, pointer, len, searchStruct] = ctx;
-        bool result = false;
-        for (size_t i = 0; i < searchStruct.pSize && len - (STRIDE - 1) > 0; ++i)
+        for (size_t i = 0; i < searchStruct.pSize; ++i)
         {
             if ((notHit = (pointer.u64ptr[i] ^ searchStruct.pattern().u64ptr[i])
                 & (~searchStruct.byteMask().u64ptr[i] & searchStruct.patternMask().u64ptr[i])))
-            {
-                --len;
                 break;
-            }
         }
 
         if (!notHit)
         {
-            result = true;
             searchStruct.push_back(pointer.address + offset);
             pointer.u8ptr += searchStruct.patternLen;
             len -= static_cast<int64_t>(searchStruct.patternLen);
+            return true;
         }
+        --len;
         ++pointer.u8ptr;
-        return result;
+        return false;
     }
 
     inline bool searchBytewise(SearchContext &ctx) noexcept
     {
         bool notHit = true;
-        bool result = false;
         auto &[offset, pointer, len, searchStruct] = ctx;
 
         const auto  pat = searchStruct.pattern().str,
@@ -205,17 +201,17 @@ namespace PMO
             if ('?' != msk[i] && ((notHit = pat[i] ^ val[i])))
                 break;
 
-        if (notHit)
-            ++pointer.cptr;
-        else
+        if (!notHit)
         {
             searchStruct.push_back(offset + pointer.address);
-            result = true;
             pointer.cptr += searchStruct.patternLen;
+            return true;
         }
-        return result;
+        ++pointer.cptr;
+        return false;
     }
 
+    // ReSharper disable once CppParameterMayBeConstPtrOrRef
     inline bool searchPext(SearchContext &ctx) noexcept
     {
         const uint64_t *pointer = ctx.pointer.u64ptr,
@@ -242,10 +238,10 @@ namespace PMO
 
     // no it doesn't. ReSharper can't even reference types in structs
     // ReSharper disable once CppDFAConstantFunctionResult
-    inline bool findPatterns(const uintptr_t addr, size_t len,
+    inline bool findPatterns(const uintptr_t addr, const size_t len,
                              Pattern &searchStruct,
                              const bool stopOne = false,
-                             const searchFunc search = searchChunked) noexcept
+                             const searchFunc search = searchBytewise) noexcept
     {
         if (!(addr && len))
             return false;

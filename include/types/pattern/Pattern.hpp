@@ -61,7 +61,7 @@ namespace PMO
             }
 
             template <typename T>
-            static inline T generateTypedMask(T n) requires (std::is_unsigned_v<T>)
+            static T generateTypedMask(T n) requires (std::is_unsigned_v<T>)
             {
                 if (!n)
                     return 0;
@@ -77,7 +77,7 @@ namespace PMO
             const char *const m_pattern;
             const char *const m_code;
 
-            static inline std::vector<uint64_t> generatePatternMask(size_t n) {
+            static std::vector<uint64_t> generatePatternMask(size_t n) {
                 if (n <= 0)
                     return {};
                 std::vector<uint64_t> result{};
@@ -111,7 +111,7 @@ namespace PMO
             {
                 v_pattern.resize(pSize);
                 v_mask.resize(pSize);
-                PointerUnion
+                const PointerUnion
                     pu{v_pattern.data()},
                     qu{.str = m_pattern},
                     ru{v_mask.data()},

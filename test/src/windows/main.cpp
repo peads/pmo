@@ -16,20 +16,24 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <deque>
 #include <map>
 #include <ranges>
 #include <set>
 
 #include "windows/main.hpp"
 #include "windows/helpers/debug/debug.hpp"
+#include "types/VoidFuncUnion.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+
 
 #define CATCH_CONFIG_MAIN // provides main(); this line is required in only one .cpp file
 
 namespace
 {
+    const auto idpAddr = reinterpret_cast<uintptr_t>(&IsDebuggerPresent);
+    const auto crdpAddr = reinterpret_cast<uintptr_t>(&CheckRemoteDebuggerPresent);
+
     PMO::Pattern debuggerPatterns[] = {
         PMO::Pattern{IDP_PATTERN, IDP_MASK, IDP_CODE},
         PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
@@ -51,8 +55,7 @@ namespace
         {
             uintptr_t addr = e;
             PMO::findExports(module, exports, &addr);
-            auto ex = exports.begin();
-            if (ex != exports.end())
+            if (auto ex = exports.begin(); ex != exports.end())
             {
                 const auto &[ord, tup] = *ex;
                 if (const auto &[fn, name, isNamed] = tup; isNamed)
@@ -67,17 +70,17 @@ namespace
         }
     }
 
-    inline void reset()
+    void reset()
     {
         for (auto &pattern : debuggerPatterns)
             pattern.reset();
     }
 
     template <size_t N>
-    inline uintptr_t parseJmpFar(uint8_t (&code)[N], const uintptr_t rip)
+    uintptr_t parseJmpFar(uint8_t (&code)[N], const uintptr_t rip)
     {
         uint64_t result = 0;
-        uint8_t *p = &reinterpret_cast<uint8_t*>(&code)[0];
+        const uint8_t *p = &reinterpret_cast<uint8_t*>(&code)[0];
         uint8_t *q = &reinterpret_cast<uint8_t*>(&result)[0];
         bool atRva = false;
         for (size_t i = 0; i < N; ++i)
@@ -109,6 +112,29 @@ namespace
             }
         }
         return result + rip + 7;
+    }
+
+    void printDebugger() noexcept
+    {
+        intProducer idp = nullptr;
+        PMO::findNamedFunction(reinterpret_cast<uintptr_t>(&IsDebuggerPresent), &idp);
+        VoidFuncUnion u0{.fn = idp};
+
+        intBiFunction crdp = nullptr;
+        PMO::findNamedFunction(reinterpret_cast<uintptr_t>(&CheckRemoteDebuggerPresent), &crdp);
+
+        for (VoidFuncUnion u1{.fn = crdp}; auto &[vptr, len] :
+             {
+                 std::pair{u0.ptr,sizeof(IDP_CODE)},
+                 std::pair{u1.ptr,sizeof(CRDP_CODE)}
+             })
+        {
+            auto ptr = static_cast<uint8_t*>(vptr);
+            for (size_t i = 0; ptr && i < len - 1; ++ptr, ++i)
+                std::cout << std::format("{:02X} ", *ptr);
+            std::cout << std::endl;
+        }
+        std::cout << std::endl << std::endl;
     }
 }
 
@@ -183,6 +209,14 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
     SECTION("Ensure PMO::findNamedFunction returns a functioning pointer")
     {
+#ifdef IS_DEBUG
+        std::array<uintptr_t, 2> addrs(
+            {
+                reinterpret_cast<uintptr_t>(idp),
+                reinterpret_cast<uintptr_t>(crdp)
+            });
+        printBytes(addrs, 112, PMO::getModule("KERNELBASE.dll"));
+#endif
         REQUIRE(idp() == IsDebuggerPresent());
         REQUIRE(crdp(handle, bl + 0) == CheckRemoteDebuggerPresent(handle, bl + 1));
         REQUIRE(bl[0] == bl[1]);
@@ -213,37 +247,43 @@ TEST_CASE("00 raw search testing", "[PMO]")
             DYNAMIC_SECTION("Searcher: " << name)
             {
                 reset();
-                REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1], false,
-                          searcher));
-                REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0], false,
-                          searcher));
-
-                CHECKED_IF(debuggerPatterns[0].size() == 1)
+                for (size_t i = 0; i < 2; ++i)
                 {
-                    REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().ptr)() ==
-                            IsDebuggerPresent());
-                }
-                CHECKED_ELSE(debuggerPatterns[0].size() == 1)
-                {
-                    printBytes(debuggerPatterns[0],
-                               debuggerPatterns[0].patternLen,
-                               PMO::getModule("KERNELBASE.dll"));
-                    failHeader = name;
-                    failMsg = "Failed to find IsDebuggerPresent in KERNELBASE.dll";
-                }
-                CHECKED_IF(debuggerPatterns[1].size() == 1)
-                {
-                    REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().ptr)(handle, bl + 0)
-                            == CheckRemoteDebuggerPresent(handle, bl + 1));
-                    REQUIRE(bl[0] == bl[1]);
-                }
-                CHECKED_ELSE(debuggerPatterns[1].size() == 1)
-                {
-                    printBytes(debuggerPatterns[1],
-                               debuggerPatterns[1].patternLen,
-                               PMO::getModule("KERNELBASE.dll"));
-                    failHeader = name;
-                    failMsg = "Failed to find CheckRemoteDebuggerPresent in KERNELBASE.dll";
+                    DYNAMIC_SECTION("Debugger Pattern " << i)
+                    {
+                        REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[i], false,
+                                  searcher));
+                        CHECKED_IF(debuggerPatterns[i].size() == 1)
+                        {
+                            switch (i)
+                            {
+                                case 0:
+                                {
+                                    VoidFuncUnion<intProducer> u = {debuggerPatterns[i].back().ptr};
+                                    REQUIRE(u.fn() == IsDebuggerPresent());
+                                }
+                                    break;
+                                case 1:
+                                {
+                                    VoidFuncUnion<intBiFunction> u = {debuggerPatterns[i].back().ptr};
+                                    REQUIRE(u.fn(handle, bl + 0) == CheckRemoteDebuggerPresent(handle, bl + 1));
+                                    REQUIRE(bl[0] == bl[1]);
+                                }
+                                    break;
+                                default:
+                                    FAIL("Incorrect index: " << i);
+                                    break;
+                            }
+                        }
+                        CHECKED_ELSE(debuggerPatterns[i].size() == 1)
+                        {
+                            printBytes(debuggerPatterns[i],
+                                       debuggerPatterns[i].patternLen,
+                                       PMO::getModule("KERNELBASE.dll"));
+                            failHeader = name;
+                            failMsg = "Failed to find " " in KERNELBASE.dll";
+                        }
+                    }
                 }
             }
         }
@@ -285,8 +325,7 @@ TEST_CASE("02 Test find by traversing thunks", "[PMO]")
     {
         for (auto &[k, v] : im.thunks)
         {
-            const auto gn = !v ? k : v;
-            if (gn == addr)
+            if (const auto gn = !v ? k : v; gn == addr)
             {
                 REQUIRE(findPatterns(gn, debuggerPatterns[0].patternLen, debuggerPatterns[0]));
                 break;
@@ -452,18 +491,6 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
     REQUIRE(IsDebuggerPresent() == bl[0]);
 
     REQUIRE(disableDebuggerChecking());
-    printDebugger();
-    for (auto &[str, len] : {
-             std::pair{IDP_CODE, sizeof(IDP_CODE) - 1},
-             std::pair{CRDP_CODE, sizeof(CRDP_CODE) - 1}
-         })
-    {
-        for (size_t i = 0; i < len; ++i)
-        {
-            std::cout << std::format("{:02X} ", str[i]);
-        }
-        std::cout << std::endl;
-    }
 
     PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
 #if !(defined(__aarch64__) || defined(_M_ARM64))
@@ -477,8 +504,9 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
         PMO::getModuleInfo(module);
     PMO::PointerUnion pu{lpBaseOfDll};
 
-    REQUIRE(findPatterns(pu.address, SizeOfImage, a));
-    REQUIRE(findPatterns(pu.address, SizeOfImage, b));
+    printDebugger();
+    REQUIRE(findPatterns(pu.address, SizeOfImage, a, true));
+    REQUIRE(findPatterns(pu.address, SizeOfImage, b, true));
     REQUIRE(!a.empty());
     REQUIRE(!b.empty());
 
