@@ -169,14 +169,11 @@ namespace PMO
     {
         uint64_t notHit = -1;
         auto &[offset, pointer, len, searchStruct] = ctx;
-        for (size_t i = 0; i < searchStruct.pSize && len - (STRIDE - 1) > 0; ++i)
+        for (size_t i = 0; i < searchStruct.pSize; ++i)
         {
             if ((notHit = (pointer.u64ptr[i] ^ searchStruct.pattern().u64ptr[i])
                 & (~searchStruct.byteMask().u64ptr[i] & searchStruct.patternMask().u64ptr[i])))
-            {
-                --len;
                 break;
-            }
         }
 
         if (!notHit)
@@ -186,6 +183,7 @@ namespace PMO
             len -= static_cast<int64_t>(searchStruct.patternLen);
             return true;
         }
+        --len;
         ++pointer.u8ptr;
         return false;
     }
