@@ -380,40 +380,40 @@ TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[P
 }
 #endif
 
-// TEST_CASE("07 autogen mask", "[PMO]")
-// {
-// #if defined(__aarch64__) || defined(_M_ARM64)
-//     SKIP("Not yet implemented for this architecture.");
-// #endif
-//     reset();
-//
-//     auto crdpMask = PMO::Pattern::autoGenerateMask(CRDP_PATTERN, sizeof(CRDP_PATTERN));
-//     REQUIRE(crdpMask == CRDP_MASK);
-//     REQUIRE(PMO::Pattern::autoGenerateMask(JUMPS_PATTERN, sizeof(JUMPS_PATTERN)) == JUMPS_ANSWER);
-//     REQUIRE(PMO::Pattern::autoGenerateMask(REX_JUMPS_PATTERN, sizeof(REX_JUMPS_PATTERN)) ==
-//             REX_JUMPS_ANSWER);
-//     REQUIRE(PMO::Pattern::autoGenerateMask(OTHER_JUMPS, sizeof(OTHER_JUMPS)) == OTHER_JUMPS_ANSWER);
-//
-//     const HMODULE module = PMO::getModule("KERNELBASE.dll");
-//     auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getModuleInfo(module);
-//     PMO::Pattern a{
-//         CRDP_PATTERN,
-//         sizeof(CRDP_PATTERN),
-//         CRDP_CODE,
-//         sizeof(CRDP_CODE),
-//     };
-//
-//     findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, a);
-//     REQUIRE(!a.empty());
-//
-//     int bl[2] = {};
-//     int (*fn2)(HMODULE, int *) = *reinterpret_cast<int(*)(HMODULE, int *)>(a.back().address);
-//     REQUIRE(fn2(module, bl + 0) == CheckRemoteDebuggerPresent(module, bl + 1));
-//     REQUIRE(bl[0] == bl[1]);
-//
-//     PMO::Pattern b{CRDP_PATTERN, sizeof(CRDP_PATTERN), CRDP_CODE, sizeof(CRDP_CODE)};
-//     REQUIRE(a == b);
-// }
+TEST_CASE("07 autogen mask", "[PMO]")
+{
+#if defined(__aarch64__) || defined(_M_ARM64)
+    SKIP("Not yet implemented for this architecture.");
+#endif
+    reset();
+
+    auto crdpMask = PMO::Pattern::autoGenerateMask(CRDP_PATTERN, sizeof(CRDP_PATTERN));
+    REQUIRE(crdpMask == CRDP_MASK);
+    REQUIRE(PMO::Pattern::autoGenerateMask(JUMPS_PATTERN, sizeof(JUMPS_PATTERN)) == JUMPS_ANSWER);
+    REQUIRE(PMO::Pattern::autoGenerateMask(REX_JUMPS_PATTERN, sizeof(REX_JUMPS_PATTERN)) ==
+            REX_JUMPS_ANSWER);
+    REQUIRE(PMO::Pattern::autoGenerateMask(OTHER_JUMPS, sizeof(OTHER_JUMPS)) == OTHER_JUMPS_ANSWER);
+
+    const HMODULE module = PMO::getModule("KERNELBASE.dll");
+    auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getModuleInfo(module);
+    PMO::Pattern a{
+        CRDP_PATTERN,
+        sizeof(CRDP_PATTERN),
+        CRDP_CODE,
+        sizeof(CRDP_CODE),
+    };
+
+    findPatterns(reinterpret_cast<uintptr_t>(lpBaseOfDll), SizeOfImage, a);
+    REQUIRE(!a.empty());
+
+    int bl[2] = {};
+    int (*fn2)(HMODULE, int *) = *reinterpret_cast<int(*)(HMODULE, int *)>(a.back().address);
+    REQUIRE(fn2(module, bl + 0) == CheckRemoteDebuggerPresent(module, bl + 1));
+    REQUIRE(bl[0] == bl[1]);
+
+    PMO::Pattern b{CRDP_PATTERN, CRDP_CODE};
+    REQUIRE(a == b);
+}
 
 TEST_CASE("08 Test findExports", "[PMO]")
 {

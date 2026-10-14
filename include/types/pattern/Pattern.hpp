@@ -107,6 +107,27 @@ namespace PMO
                 return result;
             }
 
+            void generatePextMasks(const size_t N) noexcept
+            {
+                v_pattern.resize(pSize);
+                v_mask.resize(pSize);
+                PointerUnion
+                    pu{v_pattern.data()},
+                    qu{.str = m_pattern},
+                    ru{v_mask.data()},
+                    su{.u64ptr = m_patternMask.data()},
+                    tu{.str = m_byteMask.data()};
+
+                for (size_t i = 0; i < (pSize << 3); ++i)
+                {
+                    ru.u8ptr[i] = i < N - 1 ? generateTypedMask(static_cast<uint8_t>((qu.u8ptr[i] | tu.u8ptr[i]) & su.u8ptr[i])) : 0;
+                }
+                for (size_t i = 0; i < pSize; ++i)
+                {
+                    ru.u64ptr[i] &= m_patternMask[i];
+                    pu.u64ptr[i] = pext((qu.u64ptr[i] | tu.u64ptr[i]) & m_patternMask[i], ru.u64ptr[i]);
+                }
+            }
         public:
             const std::string mask;
             const size_t patternLen;
@@ -132,24 +153,35 @@ namespace PMO
                   pSize(m_patternMask.size())
             {
                 static_assert(M == N);
-                v_pattern.resize(pSize);
-                v_mask.resize(pSize);
-                PointerUnion
-                    pu{v_pattern.data()},
-                    qu{.str = pattern},
-                    ru{v_mask.data()},
-                    su{.u64ptr = m_patternMask.data()},
-                    tu{.str = m_byteMask.data()};
+                generatePextMasks(N);
+            }
 
-                for (size_t i = 0; i < (pSize << 3); ++i)
-                {
-                    ru.u8ptr[i] = i < N - 1 ? generateTypedMask(static_cast<uint8_t>((qu.u8ptr[i] | tu.u8ptr[i]) & su.u8ptr[i])) : 0;
-                }
-                for (size_t i = 0; i < pSize; ++i)
-                {
-                    ru.u64ptr[i] &= m_patternMask[i];
-                    pu.u64ptr[i] = pext((qu.u64ptr[i] | tu.u64ptr[i]) & m_patternMask[i], ru.u64ptr[i]);
-                }
+            template <size_t N, size_t P>
+            Pattern(const char (&pattern)[N], const char (&code)[P]) noexcept
+                : m_pattern(pattern),
+                  m_code(code),
+                  mask(autoGenerateMask(pattern, N - 1)),
+                  patternLen(N - 1),
+                  codeLen(P - 1),
+                  m_byteMask(generateByteMask(mask, N - 1)),
+                  m_patternMask(generatePatternMask(N - 1)),
+                  pSize(m_patternMask.size())
+            {
+                generatePextMasks(N);
+            }
+
+            template <typename T, typename U>
+            Pattern(T pattern, const size_t plen, U code, const size_t clen) noexcept
+                : m_pattern(pattern),
+                  m_code(code),
+                  mask(autoGenerateMask(pattern, plen - 1)),
+                  patternLen(plen - 1),
+                  codeLen(clen - 1),
+                  m_byteMask(generateByteMask(mask, plen - 1)),
+                  m_patternMask(generatePatternMask(plen - 1)),
+                  pSize(m_patternMask.size())
+            {
+                generatePextMasks(plen);
             }
 
             [[nodiscard]] auto packedPattern() noexcept
