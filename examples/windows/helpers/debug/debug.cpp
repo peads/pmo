@@ -34,7 +34,7 @@ void printDebugger() noexcept
             std::pair{(void*)crdp,sizeof(CRDP_CODE)}
         })
     {
-        uint8_t* ptr = reinterpret_cast<uint8_t*>(vptr);
+        auto ptr = static_cast<uint8_t*>(vptr);
         for (size_t i = 0; ptr && i < len - 1; ++ptr, ++i)
             std::cout << std::format("{:02X} ", *ptr);
         std::cout << std::endl;
@@ -52,18 +52,14 @@ inline bool disableDebuggerChecking(const HMODULE inModule) noexcept
     const auto idpAddr = reinterpret_cast<uintptr_t>(idp);
     debuggerPatterns[0].push_back(idpAddr);
     const PMO::PointerUnion puI{.address = idpAddr};
-    bool result = replaceCode(puI,
-                              debuggerPatterns[0].code().str,
-                              debuggerPatterns[0].codeLen);
+    bool result = replaceCode(puI, debuggerPatterns[0].code().str, debuggerPatterns[0].codeLen);
 
     intBiFunction crdp = nullptr;
     PMO::findNamedFunction(reinterpret_cast<uintptr_t>(&CheckRemoteDebuggerPresent), &crdp);
     const auto crdpAddr = reinterpret_cast<uintptr_t>(crdp);
     const PMO::PointerUnion puC{.address = crdpAddr};
     debuggerPatterns[1].push_back(crdpAddr);
-    result &= replaceCode(puC,
-                          debuggerPatterns[1].code().str,
-                          debuggerPatterns[1].codeLen);
+    result &= replaceCode(puC, debuggerPatterns[1].code().str, debuggerPatterns[1].codeLen);
     if (inModule)
         FreeLibraryAndExitThread(inModule, !result);
     return result;
