@@ -331,7 +331,7 @@ namespace PMO
         const DWORD &pid,
         Pattern &searchStruct,
         const bool stopOne = false,
-        const searchFunc search = searchChunked
+        const searchFunc search = searchBytewise
     ) noexcept
     {
         const auto proc = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, FALSE, pid);
@@ -342,9 +342,6 @@ namespace PMO
         bool result = false;
         MEMORY_BASIC_INFORMATION mbi;
         std::vector<char> buffer(8192);
-
-        const auto end = searchStruct.pattern().cptr + searchStruct.patternLen;
-        const PointerUnion theEnd = {.cptr = end};
 
         for (uintptr_t address = 0;
              VirtualQueryEx(proc, reinterpret_cast<LPCVOID>(address), &mbi, sizeof(mbi)) == sizeof(
@@ -362,18 +359,16 @@ namespace PMO
                                       mbi.RegionSize,
                                       &bytesRead))
                 {
-                    size_t rva = 0;
+                    int64_t rva = 0;
                     PointerUnion pointer = {.cptr = buffer.data()};
                     SearchContext ctx{
-                        .theEnd = theEnd,
                         .offset = reinterpret_cast<uintptr_t>(mbi.BaseAddress) - pointer.address,
                         .pointer = pointer,
                         .len = rva,
-                        .searchStruct = searchStruct,
-                        .result = result,
+                        .searchStruct = searchStruct
                     };
                     while (pointer.cptr < bytesRead + buffer.data())
-                        if (search(ctx) && stopOne)
+                        if ((result |= search(ctx)) && stopOne)
                             goto finished;
                 }
             }

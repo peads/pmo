@@ -27,6 +27,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #define CATCH_CONFIG_MAIN // provides main(); this line is required in only one .cpp file
+
 namespace
 {
     PMO::Pattern debuggerPatterns[] = {
@@ -36,7 +37,10 @@ namespace
 
     constexpr auto searchers = {
         std::pair{"bytewise", PMO::searchBytewise},
-        std::pair {"chunked", PMO::searchChunked},
+        std::pair{"chunked", PMO::searchChunked},
+#if (defined(__BMI2__) || defined(_MSC_VER) && defined(__AVX2__)) // TODO remove when sw bmi is good
+        std::pair{"pext", PMO::searchPext},
+#endif
     };
 
     template <typename T>
@@ -62,11 +66,13 @@ namespace
             }
         }
     }
+
     inline void reset()
     {
         for (auto &pattern : debuggerPatterns)
             pattern.reset();
     }
+
     template <size_t N>
     inline uintptr_t parseJmpFar(uint8_t (&code)[N], const uintptr_t rip)
     {
@@ -141,7 +147,11 @@ TEST_CASE("05 line coverage++", "[PMO]")
     PMO::PointerUnion b{.address = a.address};
     REQUIRE(a == b);
 
-    static constexpr const char *strs[] = {"\xDE\xAD\xBE\xEF","\xAD\xDE\xEF\xBE","\xEF\xBE\xAD\xDE"};
+    static constexpr const char *strs[] = {
+        "\xDE\xAD\xBE\xEF",
+        "\xAD\xDE\xEF\xBE",
+        "\xEF\xBE\xAD\xDE"
+    };
     constexpr char str[] = "\xDE\xAD\xBE\xEF";
 
     PMO::PointerUnion pu{.str = *strs};
@@ -185,49 +195,61 @@ TEST_CASE("00 raw search testing", "[PMO]")
             DYNAMIC_SECTION("Searcher: " << name)
             {
                 reset();
-                CHECK(PMO::findPatterns(reinterpret_cast<uintptr_t>(idp),
-                    debuggerPatterns[0].patternLen, debuggerPatterns[0], false, searcher));
-                CHECK(PMO::findPatterns(reinterpret_cast<uintptr_t>(crdp),
-                    debuggerPatterns[1].patternLen, debuggerPatterns[1], false, searcher));
+                REQUIRE(PMO::findPatterns(reinterpret_cast<uintptr_t>(idp),
+                          debuggerPatterns[0].patternLen, debuggerPatterns[0], false, searcher));
+                REQUIRE(PMO::findPatterns(reinterpret_cast<uintptr_t>(crdp),
+                          debuggerPatterns[1].patternLen, debuggerPatterns[1], false, searcher));
             }
         }
     }
 
     SECTION("Final Boss: Find the patterns knowing only that they reside in KERNELBASE.dll")
     {
+        // TODO: change these to a list of pairs for multiple instances of failure
+        const char *failHeader = nullptr;
         const char *failMsg = nullptr;
         for (auto &[name, searcher] : searchers)
         {
             DYNAMIC_SECTION("Searcher: " << name)
             {
                 reset();
-                CHECK(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1], false, searcher));
-                CHECK(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0], false, searcher));
+                REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[1], false,
+                          searcher));
+                REQUIRE(PMO::findPatterns(pu.address, info.SizeOfImage, debuggerPatterns[0], false,
+                          searcher));
+
+                CHECKED_IF(debuggerPatterns[0].size() == 1)
+                {
+                    REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().ptr)() ==
+                            IsDebuggerPresent());
+                }
+                CHECKED_ELSE(debuggerPatterns[0].size() == 1)
+                {
+                    printBytes(debuggerPatterns[0],
+                               debuggerPatterns[0].patternLen,
+                               PMO::getModule("KERNELBASE.dll"));
+                    failHeader = name;
+                    failMsg = "Failed to find IsDebuggerPresent in KERNELBASE.dll";
+                }
+                CHECKED_IF(debuggerPatterns[1].size() == 1)
+                {
+                    REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().ptr)(handle, bl + 0)
+                            == CheckRemoteDebuggerPresent(handle, bl + 1));
+                    REQUIRE(bl[0] == bl[1]);
+                }
+                CHECKED_ELSE(debuggerPatterns[1].size() == 1)
+                {
+                    printBytes(debuggerPatterns[1],
+                               debuggerPatterns[1].patternLen,
+                               PMO::getModule("KERNELBASE.dll"));
+                    failHeader = name;
+                    failMsg = "Failed to find CheckRemoteDebuggerPresent in KERNELBASE.dll";
+                }
             }
-        }
-        CHECKED_IF(debuggerPatterns[0].size() == 1)
-        {
-            REQUIRE(reinterpret_cast<intProducer>(debuggerPatterns[0].back().ptr)() == IsDebuggerPresent());
-        }
-        CHECKED_ELSE(debuggerPatterns[0].size() == 1)
-        {
-            printBytes(debuggerPatterns[0], debuggerPatterns[0].patternLen, PMO::getModule("KERNELBASE.dll"));
-            failMsg = "Failed to find IsDebuggerPresent in KERNELBASE.dll";
-        }
-        CHECKED_IF(debuggerPatterns[1].size() == 1)
-        {
-            REQUIRE(reinterpret_cast<intBiFunction>(debuggerPatterns[1].back().ptr)(handle, bl + 0)
-                == CheckRemoteDebuggerPresent(handle, bl + 1));
-            REQUIRE(bl[0] == bl[1]);
-        }
-        CHECKED_ELSE(debuggerPatterns[1].size() == 1)
-        {
-            printBytes(debuggerPatterns[1], debuggerPatterns[1].patternLen, PMO::getModule("KERNELBASE.dll"));
-            failMsg = "Failed to find CheckRemoteDebuggerPresent in KERNELBASE.dll";
         }
         CHECKED_IF(failMsg)
         {
-            FAIL(failMsg);
+            FAIL(failMsg << " - " << failHeader);
         }
     }
 }
@@ -330,19 +352,19 @@ TEST_CASE("06 Optional Test 6 test find code in memory of external process", "[P
         DYNAMIC_SECTION("Searcher: " << name)
         {
             swPattern.reset();
-            REQUIRE((findPatternsExternal(pids.back(), swPattern, false, searcher) && !swPattern.empty()));
+            REQUIRE((findPatternsExternal(pids.back(), swPattern, false, searcher) && !swPattern.
+                        empty()));
         }
     }
 }
 
 TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[PMO]")
 {
+    swPattern.reset();
     std::vector<DWORD> pids{};
-    std::string name;
     for (const auto &e : {OBR_WIN64, OBR_WINGDK})
     {
-        name = e;
-        PMO::getProcessesByName(name, pids);
+        PMO::getProcessesByName(e, pids);
     }
     if (pids.empty())
         SKIP("OBR not running");
@@ -353,10 +375,7 @@ TEST_CASE("7T Optional Test 6 test find code in memory of external process", "[P
                               FALSE,
                               pids.back());
     REQUIRE(proc);
-    SECTION(name + " Replace code")
-    {
-        REQUIRE(replaceAllCodeExternal(proc, swPattern));
-    }
+    REQUIRE(replaceAllCodeExternal(proc, swPattern));
     CloseHandle(proc);
 }
 #endif
@@ -371,7 +390,8 @@ TEST_CASE("07 autogen mask", "[PMO]")
     auto crdpMask = PMO::Pattern::autoGenerateMask(CRDP_PATTERN, sizeof(CRDP_PATTERN));
     REQUIRE(crdpMask == CRDP_MASK);
     REQUIRE(PMO::Pattern::autoGenerateMask(JUMPS_PATTERN, sizeof(JUMPS_PATTERN)) == JUMPS_ANSWER);
-    REQUIRE(PMO::Pattern::autoGenerateMask(REX_JUMPS_PATTERN, sizeof(REX_JUMPS_PATTERN)) == REX_JUMPS_ANSWER);
+    REQUIRE(PMO::Pattern::autoGenerateMask(REX_JUMPS_PATTERN, sizeof(REX_JUMPS_PATTERN)) ==
+            REX_JUMPS_ANSWER);
     REQUIRE(PMO::Pattern::autoGenerateMask(OTHER_JUMPS, sizeof(OTHER_JUMPS)) == OTHER_JUMPS_ANSWER);
 
     const HMODULE module = PMO::getModule("KERNELBASE.dll");
@@ -391,7 +411,7 @@ TEST_CASE("07 autogen mask", "[PMO]")
     REQUIRE(fn2(module, bl + 0) == CheckRemoteDebuggerPresent(module, bl + 1));
     REQUIRE(bl[0] == bl[1]);
 
-    PMO::Pattern b{CRDP_PATTERN,sizeof(CRDP_PATTERN), CRDP_CODE,sizeof(CRDP_CODE)};
+    PMO::Pattern b{CRDP_PATTERN, CRDP_CODE};
     REQUIRE(a == b);
 }
 
@@ -410,6 +430,7 @@ TEST_CASE("08 Test findExports", "[PMO]")
         REQUIRE(fn == reinterpret_cast<uintptr_t>(val));
     }
 }
+
 TEST_CASE("09 Test getModuleInfo", "[PMO]")
 {
     MODULEINFO info{};
@@ -431,14 +452,18 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
     REQUIRE(IsDebuggerPresent() == bl[0]);
 
     REQUIRE(disableDebuggerChecking());
-     printDebugger();
-     for (auto &[str, len] : {std::pair{IDP_CODE, sizeof(IDP_CODE) - 1},
-             std::pair{CRDP_CODE, sizeof(CRDP_CODE) - 1}}) {
-         for (size_t i = 0; i < len; ++i) {
-             std::cout << std::format("{:02X} ", str[i]);
-         }
-         std::cout << std::endl;
-     }
+    printDebugger();
+    for (auto &[str, len] : {
+             std::pair{IDP_CODE, sizeof(IDP_CODE) - 1},
+             std::pair{CRDP_CODE, sizeof(CRDP_CODE) - 1}
+         })
+    {
+        for (size_t i = 0; i < len; ++i)
+        {
+            std::cout << std::format("{:02X} ", str[i]);
+        }
+        std::cout << std::endl;
+    }
 
     PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
 #if !(defined(__aarch64__) || defined(_M_ARM64))

@@ -34,7 +34,7 @@ extern "C" {
         FreeLibraryAndExitThread(inModule, !result);
     }
 
-    BOOL WINAPI DllMain(const HMODULE module, const DWORD reason, LPVOID lpvReserved) noexcept
+    BOOL WINAPI DllMain(const HMODULE module, const DWORD reason, [[maybe_unused]] LPVOID lpvReserved) noexcept
     {
         if (DLL_PROCESS_ATTACH == reason)
         {
