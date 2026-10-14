@@ -135,7 +135,7 @@ namespace PMO
         std::is_same_v<char, std::remove_const_t<std::remove_pointer_t<std::remove_const_t<T>>>>
     {
         for (auto name : names)
-            if (const HMODULE outModule = GetModuleHandle(name); outModule)
+            if (const HMODULE outModule = GetModuleHandle(name); outModule) // TODO: change to internal implementation
                 return outModule;
         return nullptr;
     }
