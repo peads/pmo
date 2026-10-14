@@ -214,7 +214,7 @@ TEST_CASE("00 raw search testing", "[PMO]")
                 reinterpret_cast<uintptr_t>(idp),
                 reinterpret_cast<uintptr_t>(crdp)
             });
-        printBytes(addrs, sizeof(CRDP_PATTERN) - 1, PMO::getModule("KERNELBASE.dll"));
+        printBytes(addrs, 112, PMO::getModule("KERNELBASE.dll"));
         REQUIRE(idp() == IsDebuggerPresent());
         REQUIRE(crdp(handle, bl + 0) == CheckRemoteDebuggerPresent(handle, bl + 1));
         REQUIRE(bl[0] == bl[1]);
