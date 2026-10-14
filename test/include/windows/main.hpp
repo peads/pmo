@@ -31,6 +31,4 @@ static inline PMO::Pattern swPattern{SLEEP_WAIT_PATTERN, SLEEP_WAIT_MASK, SLEEP_
 #define REX_JUMPS_ANSWER        "xxx????xxx????xxx????xxx????xxx????xxx????"
 #define OTHER_JUMPS_ANSWER      "x?x????xxxxxxx????xx"
 #define DWMAPI_NAME "dwmapi.dll"
-static const auto idpAddr = reinterpret_cast<uintptr_t>(&IsDebuggerPresent);
-static const auto crdpAddr = reinterpret_cast<uintptr_t>(&CheckRemoteDebuggerPresent);
 #endif //WMAIN_HPP

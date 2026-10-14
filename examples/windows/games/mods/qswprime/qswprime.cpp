@@ -21,24 +21,28 @@
 #include <thread>
 
 extern "C" {
-    void apply(const HMODULE inModule)
+    void apply(const MODULEINFO &info, const HMODULE &module) noexcept
     {
         static PMO::Pattern pattern{SLEEP_WAIT_PATTERN, SLEEP_WAIT_MASK, SLEEP_WAIT_CODE};
-        static const char *names[] = {OBR_WIN64, OBR_WINGDK};
-        static const HMODULE module = PMO::findModule(names);
-        auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getModuleInfo(module);
-        const PMO::PointerUnion pu{lpBaseOfDll};
+        // static const char *names[] = {OBR_WIN64, OBR_WINGDK};
+        // static const HMODULE module = PMO::findModule(names);
+        // auto [lpBaseOfDll, SizeOfImage, EntryPoint] = PMO::getModuleInfo(module);
+        const PMO::PointerUnion pu{info.lpBaseOfDll};
 
-        const auto result = findPatterns(pu.address, SizeOfImage, pattern, true, PMO::searchBytewise)
+        const auto result =
+            findPatterns(pu.address, info.SizeOfImage, pattern, true, PMO::searchBytewise)
                   && replaceCode(pattern.back(), pattern.code().str,  pattern.codeLen);
-        FreeLibraryAndExitThread(inModule, !result);
+        FreeLibraryAndExitThread(module, !result);
     }
 
     BOOL WINAPI DllMain(const HMODULE module, const DWORD reason, [[maybe_unused]] LPVOID lpvReserved) noexcept
     {
         if (DLL_PROCESS_ATTACH == reason)
         {
-            std::jthread(apply, module).detach();
+            static constexpr const char *names[] = {OBR_WIN64, OBR_WINGDK};
+            static const HMODULE obrModule = PMO::findModule(names);
+            static const auto info = PMO::getModuleInfo(obrModule);
+            std::jthread(apply, info, module).detach();
         }
         return TRUE;
     }

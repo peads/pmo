@@ -33,7 +33,7 @@
 namespace PMO
 {
     template <typename ModuleFunction>
-    inline void getModule(const ModuleFunction &fun) noexcept requires std::is_invocable_v<ModuleFunction, void**>
+    void getModule(const ModuleFunction &fun) noexcept requires std::is_invocable_v<ModuleFunction, void**>
     {
         void *ldr = GET_FROM_OFFSET_PEB(PEB_LDR_OFFSET);
 
@@ -48,7 +48,7 @@ namespace PMO
     }
 
     template <typename T>
-    inline void toLower(std::basic_string<T> &text) noexcept
+    void toLower(std::basic_string<T> &text) noexcept
     {
         std::ranges::transform(text, text.begin(),
         [](T c)FORCE_INLINE_LAMBDA
@@ -86,7 +86,7 @@ namespace PMO
     }
 
     template <PseudoContainer T = std::vector<HMODULE>>
-    inline auto getModules() noexcept requires std::is_same_v<typename T::value_type, HMODULE>
+    auto getModules() noexcept requires std::is_same_v<typename T::value_type, HMODULE>
     {
         T result{};
         getModule([&result](void **curr)FORCE_INLINE_LAMBDA
@@ -130,8 +130,9 @@ namespace PMO
      * @param names STL (Pseudo-)Container type holding names to search.
      * @return Pointer to the starting address where the pattern was found, or NULL if not found.
      */
-    template <size_t N>
-    inline HMODULE findModule(const char *(&names)[N]) noexcept
+    template <typename T, size_t N>
+    HMODULE findModule(T (&names)[N]) noexcept requires
+        std::is_same_v<char, std::remove_const_t<std::remove_pointer_t<std::remove_const_t<T>>>>
     {
         for (auto name : names)
             if (const HMODULE outModule = GetModuleHandle(name); outModule)
@@ -254,7 +255,7 @@ namespace PMO
     }
 
     template <size_t N>
-    inline auto findProcByName(const char (&inName)[N], const std::map<WORD, std::tuple<uintptr_t, char*, bool>> &exports) noexcept
+    auto findProcByName(const char (&inName)[N], const std::map<WORD, std::tuple<uintptr_t, char*, bool>> &exports) noexcept
     {
         return std::move(exports | std::views::values | std::views::filter([&inName](auto &e)
         {
@@ -282,7 +283,7 @@ namespace PMO
     }
 
     template <SetConcept T = SetWrapper<ImportInfo>>
-    inline T getImports() noexcept requires std::is_same_v<typename T::value_type, ImportInfo>
+    T getImports() noexcept requires std::is_same_v<typename T::value_type, ImportInfo>
     {
         T result{};
         char buffer[MAX_PATH];
