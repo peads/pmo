@@ -209,12 +209,14 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
     SECTION("Ensure PMO::findNamedFunction returns a functioning pointer")
     {
+#ifdef IS_DEBUG
         std::array<uintptr_t, 2> addrs(
             {
                 reinterpret_cast<uintptr_t>(idp),
                 reinterpret_cast<uintptr_t>(crdp)
             });
         printBytes(addrs, 112, PMO::getModule("KERNELBASE.dll"));
+#endif
         REQUIRE(idp() == IsDebuggerPresent());
         REQUIRE(crdp(handle, bl + 0) == CheckRemoteDebuggerPresent(handle, bl + 1));
         REQUIRE(bl[0] == bl[1]);
@@ -489,18 +491,6 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
     REQUIRE(IsDebuggerPresent() == bl[0]);
 
     REQUIRE(disableDebuggerChecking());
-    printDebugger();
-    for (auto &[str, len] : {
-             std::pair{IDP_CODE, sizeof(IDP_CODE) - 1},
-             std::pair{CRDP_CODE, sizeof(CRDP_CODE) - 1}
-         })
-    {
-        for (size_t i = 0; i < len; ++i)
-        {
-            std::cout << std::format("{:02X} ", str[i]);
-        }
-        std::cout << std::endl;
-    }
 
     PMO::Pattern a{IDP_CODE, IDP_MASK, IDP_CODE};
 #if !(defined(__aarch64__) || defined(_M_ARM64))
@@ -514,8 +504,9 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
         PMO::getModuleInfo(module);
     PMO::PointerUnion pu{lpBaseOfDll};
 
-    REQUIRE(findPatterns(pu.address, SizeOfImage, a));
-    REQUIRE(findPatterns(pu.address, SizeOfImage, b));
+    printDebugger();
+    REQUIRE(findPatterns(pu.address, SizeOfImage, a, true));
+    REQUIRE(findPatterns(pu.address, SizeOfImage, b, true));
     REQUIRE(!a.empty());
     REQUIRE(!b.empty());
 

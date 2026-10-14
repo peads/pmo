@@ -24,23 +24,22 @@
 
 inline bool disableDebuggerChecking(const HMODULE inModule) noexcept
 {
-    PMO::Pattern debuggerPatterns[] = {
-        PMO::Pattern{IDP_PATTERN, IDP_MASK, IDP_CODE},
-        PMO::Pattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE},
-    };
+    PMO::Pattern idpPattern{IDP_PATTERN, IDP_MASK, IDP_CODE};
+    PMO::Pattern crdpPattern{CRDP_PATTERN, CRDP_MASK, CRDP_CODE};
+    
     intProducer idp = nullptr;
     PMO::findNamedFunction(reinterpret_cast<uintptr_t>(&IsDebuggerPresent), &idp);
     const auto idpAddr = reinterpret_cast<uintptr_t>(idp);
-    debuggerPatterns[0].push_back(idpAddr);
+    idpPattern.push_back(idpAddr);
     const PMO::PointerUnion puI{.address = idpAddr};
-    bool result = replaceCode(puI, debuggerPatterns[0].code().str, debuggerPatterns[0].codeLen);
+    bool result = replaceCode(puI, idpPattern.code().str, idpPattern.codeLen);
 
     intBiFunction crdp = nullptr;
     PMO::findNamedFunction(reinterpret_cast<uintptr_t>(&CheckRemoteDebuggerPresent), &crdp);
     const auto crdpAddr = reinterpret_cast<uintptr_t>(crdp);
     const PMO::PointerUnion puC{.address = crdpAddr};
-    debuggerPatterns[1].push_back(crdpAddr);
-    result &= replaceCode(puC, debuggerPatterns[1].code().str, debuggerPatterns[1].codeLen);
+    crdpPattern.push_back(crdpAddr);
+    result &= replaceCode(puC, crdpPattern.code().str, crdpPattern.codeLen);
     if (inModule)
         FreeLibraryAndExitThread(inModule, !result);
     return result;
