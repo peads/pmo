@@ -18,27 +18,26 @@
 #ifndef PMO_BITMANIP_H
 #define PMO_BITMANIP_H
 
-#include <cstdint>
-//#include <avx512.h>
-
-inline uint64_t software_pdep(const uint64_t a, uint64_t b)
+template <typename T>
+T software_pdep(const T a, T b) requires std::is_unsigned_v<T>
 {
-    uint64_t r = 0, m = 1;
+    T r = 0, m = 1;
     while (b)
     {
-        const uint64_t l = b & (0 - b);
+        const T l = b & (0 - b);
         b = b ^ l;
-        const uint64_t s = 0 - (a & m);
+        const T s = 0 - (a & m);
         r = r | (l & s);
         m = m + m;
     }
     return r;
 }
 
-inline uint64_t software_pext(const uint64_t a, uint64_t b)
+template <typename T>
+T software_pext(const T a, T b) requires std::is_unsigned_v<T>
 {
-    uint64_t r = 0;
-    for (uint64_t m = 1; b; b &= b - 1, m <<= 1)
+    T r = 0;
+    for (T m = 1; b; b &= b - 1, m <<= 1)
     {
         if (a & b & (0 - b))
         {
@@ -57,6 +56,8 @@ inline uint64_t software_pext(const uint64_t a, uint64_t b)
 #include <immintrin.h>
 #define pdep(a,b) _pdep_u64(a,b)
 #define pext(a,b) _pext_u64(a,b)
+// #define pext32(a,b) _pext_u32(a,b)
+// #define pdep32(a,b) _pdep_u32(a,b)
 #elif (defined(__ARM_FEATURE_SVE) && defined(__ARM_FEATURE_SVE2_BITPERM)) || \
     (defined(__ARM_FEATURE_SME) && defined(__ARM_FEATURE_SSVE_BITPERM))
 #include <arm_sve.h>
@@ -68,5 +69,8 @@ inline uint64_t software_pext(const uint64_t a, uint64_t b)
 #else
 #define pdep(a,b) software_pdep(a,b)
 #define pext(a,b) software_pext(a,b)
+// #define pdep32(a,b) pdep(a,b)
+// #define pext32(a,b) pext(a,b)
+#define BMANIP_SW_ONLY 1
 #endif
 #endif //PMO_BITMANIP_H

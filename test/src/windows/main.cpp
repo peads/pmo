@@ -42,7 +42,7 @@ namespace
     constexpr auto searchers = {
         std::pair{"bytewise", PMO::searchBytewise},
         std::pair{"chunked", PMO::searchChunked},
-#if (defined(__BMI2__) || defined(_MSC_VER) && defined(__AVX2__)) // TODO remove when sw bmi is good
+#ifndef BMANIP_SW_ONLY // TODO remove when sw bmi is good
         std::pair{"pext", PMO::searchPext},
 #endif
     };
@@ -200,9 +200,9 @@ TEST_CASE("00 raw search testing", "[PMO]")
     intBiFunction crdp;
     HANDLE handle = GetCurrentProcess();
     int bl[2];
-    auto module = PMO::getModule("KERNELBASE.dll");
-    MODULEINFO info = PMO::getModuleInfo(module);
-    PMO::PointerUnion pu{info.lpBaseOfDll};
+    static auto module = PMO::getModule("KERNELBASE.dll");
+    static MODULEINFO info = PMO::getModuleInfo(module);
+    static PMO::PointerUnion pu{info.lpBaseOfDll};
 
     PMO::findNamedFunction(idpAddr, &idp);
     PMO::findNamedFunction(crdpAddr, &crdp);
@@ -239,9 +239,7 @@ TEST_CASE("00 raw search testing", "[PMO]")
 
     SECTION("Final Boss: Find the patterns knowing only that they reside in KERNELBASE.dll")
     {
-        // TODO: change these to a list of pairs for multiple instances of failure
-        const char *failHeader = nullptr;
-        const char *failMsg = nullptr;
+        static std::vector<std::pair<const char*, const char*>> failMsgs{};
         for (auto &[name, searcher] : searchers)
         {
             DYNAMIC_SECTION("Searcher: " << name)
@@ -271,7 +269,8 @@ TEST_CASE("00 raw search testing", "[PMO]")
                                 }
                                     break;
                                 default:
-                                    FAIL("Incorrect index: " << i);
+                                    auto str = std::format("Incorrect index: {}", i);
+                                    failMsgs.emplace_back(name, str.c_str());
                                     break;
                             }
                         }
@@ -280,16 +279,21 @@ TEST_CASE("00 raw search testing", "[PMO]")
                             printBytes(debuggerPatterns[i],
                                        debuggerPatterns[i].patternLen,
                                        PMO::getModule("KERNELBASE.dll"));
-                            failHeader = name;
-                            failMsg = "Failed to find " " in KERNELBASE.dll";
+                            failMsgs.emplace_back(name, "Failed to find pattern in KERNELBASE.dll");
                         }
                     }
                 }
             }
         }
-        CHECKED_IF(failMsg)
+        CHECKED_IF(!failMsgs.empty())
         {
-            FAIL(failMsg << " - " << failHeader);
+            for (auto &[name, text] : failMsgs)
+            {
+                DYNAMIC_SECTION("Failed " << name)
+                {
+                    FAIL(name << " - " << text);
+                }
+            }
         }
     }
 }
@@ -518,5 +522,20 @@ TEST_CASE("ZZ Test replace by function name", "[PMO]")
     CHECKED_ELSE(!IsDebuggerPresent())
     {
         FAIL("IsDebuggerPresent() evaluated true.");
+    }
+}
+
+TEST_CASE("0A bitmanip tests", "[PMO]")
+{
+    for (size_t i = 0; i < 2; ++i)
+    {
+        const auto mask = debuggerPatterns[i].packedMask();
+        const auto pat = debuggerPatterns[i].packedPattern();
+        const auto ogPat = debuggerPatterns[i].pattern();
+        for (size_t j = 0; j < debuggerPatterns[i].pSize; ++j)
+        {
+            REQUIRE(software_pdep(pat.u64ptr[i], mask.u64ptr[i]) == ogPat.u64ptr[i]);
+            REQUIRE(software_pext(ogPat.u64ptr[i], mask.u64ptr[i]) == pat.u64ptr[i]);
+        }
     }
 }
