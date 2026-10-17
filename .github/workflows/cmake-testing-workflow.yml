@@ -26,10 +26,19 @@ jobs:
     steps:
       - name: "Checkout code"
         uses: actions/checkout@v4
+        env:
+          cache-name: cache-libs-cmake-deps
+        with:
+          path: ${{ github.workspace }}/cmake-build-tests-release/_deps
+          key: ${{ runner.os }}-cmake-build-tests-release-${{ env.cache-name }}-${{ runner.arch  }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-cmake-build-tests-release-${{ env.cache-name }}-${{ runner.arch }}-
+
       - name: "CMake CI Testing Workflow"
         if: runner.arch == 'X64'
         run: cmake --workflow --preset ci-testing
         working-directory: ${{ github.workspace }}
+
       - name: "CMake CI Testing Workflow - arm64"
         if: runner.arch == 'ARM64'
         run: cmake --workflow --preset ci-testing-arm64
